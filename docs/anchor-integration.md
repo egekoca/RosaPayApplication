@@ -27,6 +27,12 @@ details.
   opens and a transaction id to follow. Rosa Pay understands the current SEP-24
   status set, reduces it to action-required/pending/completed/failed, and keeps
   bounded polling resumable rather than presenting a timeout as failure.
+- **SEP-12** — customer-information exchange. `getCustomerInfo` and
+  `submitCustomerInfo` speak the authenticated `GET/PUT /customer` shape. For
+  the hackathon demo, `createMockSep12Anchor()` provides an in-memory anchor
+  that progresses from `NEEDS_INFO` to `ACCEPTED` using only field names and
+  status; submitted identity values are discarded. This is a protocol demo,
+  not KYC, identity storage, or regulated onboarding.
 
 SEP-24 is chosen over SEP-6 deliberately. Identity documents and payment details
 are the anchor's regulated business, and Rosa Pay is better off never holding
@@ -93,7 +99,8 @@ not presented as settlement success.
    live SEP-10/SEP-24 and unit tests cover SEP-45 XDR/security behavior.
 3. MoneyGram Ramps sandbox, which needs allowlisting and a published domain.
 
-Standards references: [SEP-24](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0024.md)
+Standards references: [SEP-12](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0012.md),
+[SEP-24](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0024.md)
 and [SEP-45](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0045.md).
 
 ## The lira anchor

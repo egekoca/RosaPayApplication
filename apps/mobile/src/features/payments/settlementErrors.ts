@@ -15,6 +15,8 @@ export function describeSettlementError(error: unknown, assetCode = 'XLM'): stri
     switch (error.code) {
       case 'RELAYER_UNAVAILABLE':
         return 'The Rosa Pay relayer is unreachable, so no fee payer could sign. Nothing was sent.';
+      case 'RELAYER_MISMATCH':
+        return 'The relayer is not bound to this Testnet deployment, so the payment was stopped.';
       case 'MERCHANT_KEY_UNAVAILABLE':
         return 'This request was created on another device, so its merchant signature cannot be produced here.';
       case 'CUSTOMER_ACCOUNT_UNAVAILABLE':

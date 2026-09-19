@@ -18,6 +18,7 @@ import {createNativeRosaPaySigner} from '../../native/nativeSigner';
 import {logger} from '../../shared/logger';
 import {useAppStore, type SmartWallet} from '../../state/appStore';
 import {
+  assertRelayerIdentity,
   createRemoteRelayerSigner,
   fetchRelayerIdentity,
 } from '../payments/testnetSettlement';
@@ -144,6 +145,7 @@ export async function recoverWallet(input: {
   );
 
   const relayer = await fetchRelayerIdentity(baseUrl);
+  assertRelayerIdentity(config, relayer);
   const relayerSigner = createRemoteRelayerSigner(baseUrl);
   const call = new Contract(input.walletContractId).call(
     'rotate',

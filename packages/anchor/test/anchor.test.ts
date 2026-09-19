@@ -19,6 +19,9 @@ import {
   assetAmountForPrice,
   PriceConversionError,
   readTransaction,
+  createMockSep12Anchor,
+  getCustomerInfo,
+  submitCustomerInfo,
   startInteractive,
   transactionPhase,
   type AnchorInfo,
@@ -349,6 +352,43 @@ describe('opening the anchor’s own pages', () => {
     await expect(
       readTransaction({anchor: anchorInfo(), session, transactionId: 'tx-1', fetcher}),
     ).rejects.toThrow(/cannot read/);
+  });
+});
+
+describe('SEP-12 customer information demo', () => {
+  const session = {
+    token: 'mock-sep10-token',
+    account: customer.publicKey(),
+    homeDomain,
+    authProtocol: 'SEP-10' as const,
+  };
+
+  it('runs the mock anchor from NEEDS_INFO to ACCEPTED without retaining values', async () => {
+    const mock = createMockSep12Anchor();
+    const anchor = {...anchorInfo(), kycServer: mock.baseUrl};
+
+    const initial = await getCustomerInfo({anchor, session, fetcher: mock.fetcher});
+    expect(initial.status).toBe('NEEDS_INFO');
+    expect(initial.fields).toHaveProperty('first_name');
+
+    const accepted = await submitCustomerInfo({
+      anchor,
+      session,
+      customerId: initial.id,
+      fields: {first_name: 'Demo', last_name: 'Customer', email: 'demo@example.test', country: 'TR'},
+      fetcher: mock.fetcher,
+    });
+    expect(accepted).toMatchObject({id: initial.id, status: 'ACCEPTED', fields: {}});
+
+    const reread = await getCustomerInfo({anchor, session, customerId: initial.id, fetcher: mock.fetcher});
+    expect(reread.status).toBe('ACCEPTED');
+    expect(JSON.stringify(reread)).not.toContain('Demo');
+  });
+
+  it('keeps the mock SEP-12 endpoint authenticated', async () => {
+    const mock = createMockSep12Anchor();
+    const response = await mock.fetcher(`${mock.baseUrl}/customer?account=${customer.publicKey()}`);
+    expect(response.status).toBe(401);
   });
 });
 

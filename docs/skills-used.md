@@ -17,7 +17,7 @@ Installed from [skills.stellar.org](https://skills.stellar.org) via the
 | `stellar-dapp/SKILL.md` | The JS SDK work: simulation, auth-entry signing, relayer submission, polling to a final status. |
 | `stellar-data/SKILL.md` | RPC and Horizon: reading balances through the SAC, contract events, transaction receipts. |
 | `stellar-assets/SKILL.md` | XLM and USDC as Stellar Asset Contracts, trustlines, and why a contract account needs none. |
-| `stellar-standards/SKILL.md` | Choosing SEP-6 over SEP-24 for the lira rail, and the SEP-1/10/38 handshake around it. |
+| `stellar-standards/SKILL.md` | Choosing SEP-6 over SEP-24 for the lira rail, and the SEP-1/10/12/38 handshake around it. |
 | `stellar-competitive-landscape/SKILL.md` | Positioning against the 728-project LumenLoop ecosystem database before committing to the Soroswap integration. |
 
 `AGENTS.md` makes reading the matching skill a rule for this repository rather
@@ -44,6 +44,10 @@ from primary sources, because a skill file cannot know them:
   them: a Soroban transaction cannot carry a memo, and a Stellar Asset Contract
   transfer reaches Horizon as `invoke_host_function` rather than as a payment,
   even when sent to a muxed address the SAC accepts.
+- **SEP-12 shape** was checked against the official Stellar anchor documentation
+  through Raven. The repository's implementation is deliberately a small
+  authenticated client plus a value-discarding in-memory demo, not a claim of
+  production KYC support.
 
 ## Other tooling
 

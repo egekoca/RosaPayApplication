@@ -2,7 +2,7 @@
 
 ## Status
 
-This document describes the implemented foundation and the boundaries that must remain stable as Rosa Pay moves from a mocked QR payment to Testnet settlement. The product name is **Rosa Pay** and the application/package slug is **RosaPay**.
+This document describes the implemented foundation and the boundaries that must remain stable for Testnet settlement. The product name is **Rosa Pay** and the application/package slug is **RosaPay**.
 
 ## Runtime shape
 
@@ -30,7 +30,7 @@ The repository uses npm workspaces. Dependencies point inward: screens depend on
 - `packages/postgres`: the driver-neutral PostgreSQL port plus the pooled, transaction-capable adapter shared by the API and the worker.
 - `packages/secure-signer`: the only signing port exposed to TypeScript. Production adapters are Swift/Kotlin backed and return only public keys and signatures.
 - `packages/ui`: platform-neutral design tokens and small presentational components.
-- `apps/mobile`: navigation, screen orchestration, device sessions, runtime-validated API/query boundaries, capability switching and mock/Testnet payment modes.
+- `apps/mobile`: navigation, screen orchestration, device sessions, runtime-validated API/query boundaries, capability switching and Testnet payment mode.
 - `apps/api`: Fastify transport, request validation, idempotency and repository ports.
 - `apps/worker`: background RPC health, submitted-settlement confirmation and contract-event reconciliation boundary. Event data is treated as an audit/recovery signal and must match the submitted transaction plus an RPC `SUCCESS` receipt before state changes; cursor persistence is exposed as a port with a PostgreSQL adapter and a scheduled runtime, while durable event indexing, retries and notifications remain later phases.
 - `contracts/settlement`: Soroban settlement policy and on-chain replay protection.
@@ -92,7 +92,7 @@ the signing key that publishes RTP/1 requests; `POST /v1/merchant-profiles`
 rejects a malformed receiving address or a non-G signing key before any customer
 can be shown a request, and reads are ownership-guarded. `createPaymentIntent` in
 `@rosapay/protocol` builds the intent from that profile: it canonicalizes the
-amount for the asset's precision, derives the expiry from the live ledger, and
+amount for the asset's precision, derives a five-minute maximum expiry from the live ledger, and
 takes the identifier, nonce and clock as inputs so the randomness source is an
 explicit decision rather than a hidden default.
 
@@ -101,9 +101,8 @@ customer path re-verifies that signature at scan time and again on the
 confirmation screen, where approval is blocked if verification fails or the
 request has expired against the live ledger. The RTP/1 merchant key is separate
 from the customer's hardware wallet key and is generated from the platform CSPRNG.
-The insecure randomness fallback is refused outside mock mode, and demo receipts
-are labelled `DEMO ONLY` with no explorer link so a local demo can never read as
-an on-chain settlement.
+The insecure randomness fallback is refused in Testnet mode. A local SEP-12
+mock anchor is kept separate from settlement and stores only field names/status.
 
 ## Relayed settlement and the fee payer boundary
 
@@ -298,10 +297,15 @@ Platform entitlement, is limited to the EEA, and is scoped to payment, transit
 and key categories — so it is not a path this app can take.
 
 The two platforms also differ in how a read starts. Android's reader mode polls
-with no UI, so the scan screen arms it on open. CoreNFC puts a system sheet on
-screen that would cover the camera, so on iOS the reader is opened by a deliberate
-press and closes itself after one read; `needsUserAction` in the NFC status is
-what tells the screen which of the two it is dealing with.
+with no UI while the app is foregrounded: one root listener covers normal
+customer routes, including the main tab navigator before the customer opens the
+camera, while the dedicated scan screen temporarily owns the reader when it is
+focused. The listener stops when the app backgrounds, locks, enters a payment or
+merchant request route, or leaves those customer routes. CoreNFC puts a system
+sheet on screen, so iOS opens the reader only after a deliberate press from the
+scan screen and closes it after one read; `needsUserAction` carries that
+distinction to the UI, and a cancelled or timed-out session exposes the tap
+control again.
 
 Neither transport is trusted. Whatever arrives — scanned, tapped, or read from
 this device's own request — goes through the same check before a customer sees an
@@ -310,9 +314,29 @@ network and unexpired against the live ledger, and the merchant signature must
 verify against the key the request names. A hostile QR or a hostile tap can at
 worst present a request the customer then declines.
 
-The merchant side keeps the two in step. A request stops being broadcast the
-moment it is paid or expires, so what NFC hands out never disagrees with the code
-on screen.
+The customer-side tap reaches the same `readPaymentQr` validation used for a
+camera scan. NFC routes the verified request to confirmation with transport
+`nfc`; after live expiry, funding and quote checks pass, the device authorization
+mutation starts once. The native Keychain/Keystore prompt still requires device
+owner authentication; QR keeps its explicit approve button. A cancellation or
+failure is not retried automatically.
+
+The merchant side keeps the offer in sync. The request screen waits for the API
+to return the exact stored payload before showing its QR or enabling HCE. HCE
+readiness is reported only after the native service accepts the request; a
+failure preserves QR checkout and exposes retry. A request stops being shown or
+broadcast as soon as it expires or moves out of `awaiting_approval`.
+Android HCE is declared unlock-required as an additional guard against a locked
+merchant handset serving an old request; the customer still validates the live
+ledger and signature after the tap.
+
+The wire budget is fixed in both native implementations: 240 UTF-8 bytes per
+APDU response, at most 24 chunks, and therefore 5,760 bytes per request. RTP/1
+also limits the QR URI to 4,096 characters, so NFC does not create a larger or
+different payment surface. An Android merchant publishes; Android and iPhone
+customers read. An iPhone merchant falls back to QR, and an iPhone customer
+starts CoreNFC from the explicit tap action because Apple's reader sheet cannot
+be armed silently over the camera.
 
 ## Where state lives
 
@@ -392,7 +416,7 @@ The TypeScript settlement-envelope builder and generated contract binding now li
 - The generated binding comes from the optimized settlement WASM and exposes typed simulation, authorization and submission methods.
 - `packages/stellar/src/settlementPipeline.ts` codifies the write path: the generated client simulates first, the customer signer authorizes every non-invoker auth entry, the relayer signs the transaction envelope, and the receipt is accepted only after RPC reports `SUCCESS` with a ledger.
 - `packages/stellar/src/settlementService.ts` validates the QR/RTP payload and merchant signature before building the contract envelope. It requires a separate contract intent-digest signature, so the mobile QR signature cannot be accidentally reused as on-chain merchant authorization.
-- `apps/mobile/src/features/payments/settlementAdapter.ts` is the only mobile settlement entry point. Testnet mode makes the device's smart wallet pay while the relayer remains transaction source and fee payer; mock mode is explicit and produces only `DEMO ONLY` receipts, never a transaction hash or explorer link.
+- `apps/mobile/src/features/payments/settlementAdapter.ts` is the only mobile settlement entry point. Testnet mode makes the device's smart wallet pay while the relayer remains transaction source and fee payer. The relayer allowlist covers both `settle_payment` and `settle_payment_with_swap`.
 
 The envelope retains the RTP/1 hash for audit correlation, but does not reuse the QR signature. The merchant must sign the digest returned by the contract's `intent_digest` method, and the customer must separately authorize the exact `settle_payment` invocation.
 
@@ -472,7 +496,7 @@ QR is the required common payment path and works in every direction. NFC is an o
 
 ## Delivery gates
 
-The repository has a mocked QR flow, live Testnet RPC health checks and a tested settlement contract deployed as `CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO`. The public deployment manifest records the admin address, deterministic native XLM SAC, WASM hash and transaction hashes; CLI identity material remains ignored under `.stellar/`.
+The repository has a signed QR flow, live Testnet RPC health checks and a tested settlement contract deployed as `CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO`. The public deployment manifest records the admin address, deterministic native XLM SAC, WASM hash and transaction hashes; CLI identity material remains ignored under `.stellar/`.
 
 The contract has two settlement entry points. `settle_payment` moves the token
 the merchant named straight across. `settle_payment_with_swap` runs the same
@@ -482,4 +506,4 @@ customer holding none of the merchant's token can still pay. The funding path,
 ceiling and deadline sit outside the merchant's signature because they cannot
 change what the merchant receives. See [swap-funding.md](swap-funding.md).
 
-The live smoke suite registered an ephemeral merchant key, settled 0.1 XLM from a Friendbot-funded customer, checked the recipient balance delta and consumed state, then rejected replay, amount tampering, expiry, recipient substitution, unsupported asset, invalid amount, wrong network, wrong contract and fake merchant attempts. The mobile UI still uses the mock adapter until native customer authorization is available.
+The live smoke suite registered an ephemeral merchant key, settled 0.1 XLM from a Friendbot-funded customer, checked the recipient balance delta and consumed state, then rejected replay, amount tampering, expiry, recipient substitution, unsupported asset, invalid amount, wrong network, wrong contract and fake merchant attempts. The mobile UI uses the Testnet adapter; the mock surface is limited to the SEP-12 walkthrough.

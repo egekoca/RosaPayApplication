@@ -175,8 +175,15 @@ kurtarma-cümlesi hesabı seçilirse o yola hiç girilmez.
 
   TELEFON A   Tutarı gir, QR'ı göster. Lira ile fiyatlarsan
               anchor kuru çekilir; istek imzalı yayınlanır.
+              Android merchant HCE hazırsa QR'ın yerine telefonu
+              yaklaştırma da hazır görünür.
 
-  TELEFON B   Tara, merchant imzasını ve süreyi doğrula, onayla.
+  TELEFON B   Uygulama açıkken Android telefonu merchant telefonuna
+              dokundur. Aynı RTP/1 QR okunur; canlı süre ve merchant
+              imzası doğrulanır, Confirm açılır ve yaklaşık 700 ms sonra
+              tek native biyometrik onay başlar. QR ile okutma hâlâ
+              fallback'tir. iPhone müşteri için Scan ekranında önce
+              "Pay by tapping instead" kontrolüne basılır.
               İmza tutmazsa ya da süre dolmuşsa onay açılmaz.
 
   HER İKİSİ   Hazırla -> Yetkilendir -> Gönder -> Onayla
@@ -185,6 +192,16 @@ kurtarma-cümlesi hesabı seçilirse o yola hiç girilmez.
 
   KANIT       Fişteki tx hash'ini stellar.expert'te aç ve
               demoyu orada bitir.
+
+  SEP-12      Anchor bölümünde `packages/anchor` testini çalıştır.
+              `createMockSep12Anchor` ile NEEDS_INFO -> ACCEPTED akışını göster.
+              Bu yalnızca protokol demosudur; gerçek kimlik bilgisi girme.
+              Tek komutlu ispat: `npm run demo:sep12`.
+
+  QR SÜRESİ   Merchant QR/NFC isteği 60 ledger (yaklaşık 5 dakika)
+              geçerlidir. API bunu canlı ledger ile saklama öncesi de
+              kontrol eder; süre dolunca müşteri onayı kapanır ve yeni
+              istek gerekir.
 
 
 ================================================================

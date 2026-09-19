@@ -4,6 +4,7 @@ import {
   ensureSmartWallet,
 } from '../payments/smartWalletSettlement';
 import {
+  assertRelayerIdentity,
   createRemoteRelayerSigner,
   fetchRelayerIdentity,
 } from '../payments/testnetSettlement';
@@ -30,6 +31,7 @@ export async function moveUsdcToBridge(input: {
   const config = createStellarConfig('testnet');
   const baseUrl = useAppStore.getState().apiBaseUrl;
   const relayer = await fetchRelayerIdentity(baseUrl);
+  assertRelayerIdentity(config, relayer);
   const relayerSigner = createRemoteRelayerSigner(baseUrl);
   const wallet = await ensureSmartWallet();
   const latestLedger = (await new StellarRpcClient(config).health()).latestLedger;
@@ -68,6 +70,7 @@ export async function fundBridgeWithLumens(input: {
   const config = createStellarConfig('testnet');
   const baseUrl = useAppStore.getState().apiBaseUrl;
   const relayer = await fetchRelayerIdentity(baseUrl);
+  assertRelayerIdentity(config, relayer);
   const relayerSigner = createRemoteRelayerSigner(baseUrl);
   const wallet = await ensureSmartWallet();
   const latestLedger = (await new StellarRpcClient(config).health()).latestLedger;

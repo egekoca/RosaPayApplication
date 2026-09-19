@@ -1,6 +1,6 @@
 import {useQuery} from '@tanstack/react-query';
-import type {SignedPaymentIntentV1} from '@rosapay/protocol';
-import {ApiClientError, RosaPayApiClient} from '../../api';
+import {hashPaymentIntent, type SignedPaymentIntentV1} from '@rosapay/protocol';
+import {RosaPayApiClient} from '../../api';
 import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
 import {fetchRelayerIdentity} from '../payments/testnetSettlement';
@@ -14,11 +14,17 @@ function apiClient(): RosaPayApiClient {
 /** Publishes the request so a customer's settlement has an intent to move. */
 export async function publishPaymentRequest(request: SignedPaymentIntentV1): Promise<void> {
   try {
-    await ensureDeviceSession(apiClient());
+    const client = apiClient();
+    await ensureDeviceSession(client);
     // The intent ID is unique per request, so it is also a stable idempotency key.
-    await apiClient().createPaymentIntent(request, `intent-${request.intent.intentId}`);
+    const stored = await client.createPaymentIntent(request, `intent-${request.intent.intentId}`);
+    if (
+      stored.payload.signature !== request.signature ||
+      hashPaymentIntent(stored.payload.intent) !== hashPaymentIntent(request.intent)
+    ) {
+      throw new Error('The API already has a different payment request with this ID');
+    }
   } catch (error) {
-    if (error instanceof ApiClientError && error.code === 'INTENT_CONFLICT') return;
     logger.error('payment_request_not_published', {
       intentId: request.intent.intentId,
       message: error instanceof Error ? error.message : 'unknown error',

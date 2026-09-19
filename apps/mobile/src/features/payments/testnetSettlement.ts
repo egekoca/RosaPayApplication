@@ -1,3 +1,4 @@
+import {StrKey} from '@stellar/stellar-sdk';
 import {createWalletAuthorizeEntry, type HardwareDigestSigner} from '@rosapay/stellar';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 import {
@@ -10,10 +11,11 @@ import {
   type StellarConfig,
 } from '@rosapay/stellar';
 import type {Countersigner} from './countersignature';
+import {useAppStore} from '../../state/appStore';
 
 export type RelayerIdentity = {
   address: string;
-  network: string;
+  network: StellarConfig['network'];
   networkPassphrase: string;
   settlementContractId: string;
 };
@@ -26,6 +28,7 @@ export class TestnetSettlementError extends Error {
       | 'RELAYER_UNAVAILABLE'
       | 'MERCHANT_KEY_UNAVAILABLE'
       | 'CUSTOMER_ACCOUNT_UNAVAILABLE'
+      | 'RELAYER_MISMATCH'
       | 'SETTLEMENT_FAILED',
     message: string,
   ) {
@@ -44,16 +47,61 @@ export async function fetchRelayerIdentity(baseUrl: string, fetcher: typeof fetc
   if (!response.ok) {
     throw new TestnetSettlementError('RELAYER_UNAVAILABLE', 'The relayer is not configured for this deployment');
   }
-  return (await response.json()) as RelayerIdentity;
+  const body = (await response.json().catch(() => null)) as Partial<RelayerIdentity> | null;
+  if (!body || !isRelayerIdentity(body)) {
+    throw new TestnetSettlementError('RELAYER_UNAVAILABLE', 'The relayer returned an invalid deployment identity');
+  }
+  return body;
+}
+
+/**
+ * Binds the API's fee payer to the app's configured network and contract.
+ * Without this check an incorrect or compromised API could make the customer
+ * authorize a call against a different settlement contract.
+ */
+export function assertRelayerIdentity(config: StellarConfig, relayer: RelayerIdentity): void {
+  if (
+    !StrKey.isValidEd25519PublicKey(relayer.address) ||
+    !StrKey.isValidContract(relayer.settlementContractId) ||
+    !config.settlementContractId ||
+    relayer.network !== config.network ||
+    relayer.networkPassphrase !== config.networkPassphrase ||
+    relayer.settlementContractId !== config.settlementContractId
+  ) {
+    throw new TestnetSettlementError(
+      'RELAYER_MISMATCH',
+      'The relayer identity does not match this Testnet deployment',
+    );
+  }
+}
+
+function isRelayerIdentity(value: Partial<RelayerIdentity>): value is RelayerIdentity {
+  return (
+    typeof value.address === 'string' &&
+    typeof value.network === 'string' &&
+    (value.network === 'testnet' || value.network === 'pubnet' || value.network === 'local') &&
+    typeof value.networkPassphrase === 'string' &&
+    typeof value.settlementContractId === 'string' &&
+    StrKey.isValidEd25519PublicKey(value.address) &&
+    StrKey.isValidContract(value.settlementContractId)
+  );
 }
 
 /** Asks the relayer to add the fee-payer signature; it verifies the envelope itself. */
-export function createRemoteRelayerSigner(baseUrl: string, fetcher: typeof fetch = fetch) {
+export function createRemoteRelayerSigner(
+  baseUrl: string,
+  fetcher: typeof fetch = fetch,
+  options: {getToken?: () => string | undefined} = {},
+) {
   return {
     async signTransaction(xdr: string) {
+      const token = options.getToken?.() ?? useAppStore.getState().apiSession?.token;
       const response = await fetcher(`${baseUrl}/v1/relayer/transactions`, {
         method: 'POST',
-        headers: {'content-type': 'application/json'},
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? {authorization: `Bearer ${token}`} : {}),
+        },
         body: JSON.stringify({xdr}),
       });
       if (!response.ok) {
@@ -105,6 +153,7 @@ export type TestnetSettlementInput = {
  * so it can only be produced once the payer is known.
  */
 export async function settleOnTestnet(input: TestnetSettlementInput) {
+  assertRelayerIdentity(input.config, input.relayer);
   const {intent} = input.payload;
   const customerAddress =
     input.customer.kind === 'smart-wallet' ? input.customer.contractId : input.customer.address;

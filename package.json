@@ -41,6 +41,7 @@
     "testnet:phrase-wallet": "tsx --env-file-if-exists=.env scripts/testnet-phrase-wallet.mts",
     "testnet:swap": "tsx --env-file-if-exists=.env scripts/testnet-swap-settlement.mts",
     "testnet:try-ramp": "tsx --env-file-if-exists=.env scripts/testnet-try-ramp.mts",
+    "demo:sep12": "node --import tsx scripts/sep12-demo.mts",
     "deploy:check": "node --env-file-if-exists=.env scripts/deployment-check.mjs",
   "api:warm": "node scripts/warm-api.mjs"
   },

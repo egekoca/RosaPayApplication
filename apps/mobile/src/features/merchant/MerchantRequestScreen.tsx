@@ -1,6 +1,6 @@
-import {useState, type ReactNode} from 'react';
+import {useEffect, useState, type ReactNode} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Nfc, Store} from 'lucide-react-native';
+import {Nfc, RefreshCw, Store} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, LoadingDots, radius, spacing, StatusPill, Stepper, SurfaceCard, TextField, typography} from '@rosapay/ui';
@@ -26,6 +26,10 @@ import {useMerchantCountersigning} from './merchantCountersigning';
 import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'MerchantRequest'>;
+type PublicationState =
+  | {intentId: string; status: 'publishing' | 'published'}
+  | {intentId: string; status: 'failed'; error: string}
+  | null;
 
 // Nothing insecure may sign a real payment, so there is no fallback to allow.
 const randomBytes = createRandomBytes({allowInsecureFallback: false});
@@ -40,9 +44,43 @@ export function MerchantRequestScreen({navigation, route}: Props) {
     setMerchantRegisteredOnChain,
   } = useAppStore();
   const stellarHealth = useStellarHealth();
-  const settlement = usePaymentRequestStatus(
-    pendingRequest?.intent.intentId ?? '',
+  const [publishAttempt, setPublishAttempt] = useState(0);
+  const [publication, setPublication] = useState<PublicationState>(null);
+  useEffect(() => {
+    if (!pendingRequest || !merchantProfile || !merchantRegisteredOnChain) {
+      setPublication(null);
+      return;
+    }
+
+    let active = true;
+    const intentId = pendingRequest.intent.intentId;
+    setPublication({intentId, status: 'publishing'});
+    void publishPaymentRequest(pendingRequest)
+      .then(() => {
+        if (active) setPublication({intentId, status: 'published'});
+      })
+      .catch(failure => {
+        if (active) {
+          setPublication({
+            intentId,
+            status: 'failed',
+            error: failure instanceof Error ? failure.message : 'The request could not be published to the API',
+          });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [merchantProfile, merchantRegisteredOnChain, pendingRequest, publishAttempt]);
+  const requestPublication = pendingRequest && publication?.intentId === pendingRequest.intent.intentId
+    ? publication
+    : null;
+  const published = merchantRegisteredOnChain && requestPublication?.status === 'published';
+  const publishing = Boolean(
+    pendingRequest && merchantRegisteredOnChain &&
+    (!requestPublication || requestPublication.status === 'publishing'),
   );
+  const settlement = usePaymentRequestStatus(published ? pendingRequest!.intent.intentId : '');
   const relayer = useRelayerIdentity();
   // A customer on another phone cannot produce the merchant's signature, so this
   // device signs for them as soon as they claim the request.
@@ -151,6 +189,10 @@ export function MerchantRequestScreen({navigation, route}: Props) {
 
   const createRequest = () => {
     setError(undefined);
+    if (!merchantRegisteredOnChain) {
+      setError(t('Register this business before creating a payment request'));
+      return;
+    }
     if (canReceive.data === false) {
       // Signing a request the recipient cannot be paid on would hand the
       // customer something guaranteed to fail after they had approved it.
@@ -173,10 +215,6 @@ export function MerchantRequestScreen({navigation, route}: Props) {
         randomBytes,
       );
       setPendingRequest(request);
-      // Testnet payments settle against an intent the API already knows about.
-      void publishPaymentRequest(request).catch(failure => {
-        setError(failure instanceof Error ? failure.message : t('The request could not be published to the API'));
-      });
     } catch (failure) {
       setError(
         failure instanceof MerchantProfileError || failure instanceof Error
@@ -194,7 +232,9 @@ export function MerchantRequestScreen({navigation, route}: Props) {
           <Text style={styles.eyebrow}>{merchantProfile.displayName.toUpperCase()}</Text>
           <Text style={styles.title}>{t('Payment request')}</Text>
           <Text style={styles.subtitle}>
-            {pendingRequest ? t('Show this code to your customer') : t('Enter what the customer owes')}
+            {pendingRequest
+              ? published ? t('Show this code to your customer') : t('Preparing payment request')
+              : t('Enter what the customer owes')}
           </Text>
         </View>
       </AnimatedContent>
@@ -217,10 +257,15 @@ export function MerchantRequestScreen({navigation, route}: Props) {
           <RequestCard
             request={pendingRequest}
             latestLedger={stellarHealth.data?.latestLedger}
+            ledgerUnavailable={stellarHealth.isError}
+            published={published}
+            publishing={publishing}
+            publishError={requestPublication?.status === 'failed' ? requestPublication.error : undefined}
+            onRetryPublish={() => setPublishAttempt(value => value + 1)}
             onReset={() => setPendingRequest(null)}
             onPreview={() => navigation.navigate('Confirm', {payload: pendingRequest})}
-            settlementStatus={settlement.data?.status}
-            status={<RequestStatus intentId={pendingRequest.intent.intentId} />}
+            settlementStatus={published ? settlement.data?.status : undefined}
+            status={published ? <RequestStatus intentId={pendingRequest.intent.intentId} /> : undefined}
           />
         </AnimatedContent>
       ) : (
@@ -299,14 +344,14 @@ export function MerchantRequestScreen({navigation, route}: Props) {
                   ? t('Reading the Testnet ledger')
                   : stellarHealth.isError
                     ? t('Testnet unavailable, so an expiry cannot be set')
-                    : `${t('Expires about 10 minutes after ledger')} ${stellarHealth.data?.latestLedger}`}
+                    : `${t('Expires about 5 minutes after ledger')} ${stellarHealth.data?.latestLedger}`}
               </Text>
             </View>
           </AnimatedContent>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <AnimatedContent delay={230}>
             <Button
-              disabled={canReceive.data === false}
+              disabled={!merchantRegisteredOnChain || canReceive.data === false || stellarHealth.isPending || stellarHealth.isError}
               onPress={createRequest}
               testID="create-request">{t('Create payment request')}</Button>
           </AnimatedContent>
@@ -396,6 +441,11 @@ function RequestStatus({intentId}: {intentId: string}) {
 function RequestCard({
   request,
   latestLedger,
+  ledgerUnavailable,
+  published,
+  publishing,
+  publishError,
+  onRetryPublish,
   onReset,
   onPreview,
   status,
@@ -403,6 +453,11 @@ function RequestCard({
 }: {
   request: SignedPaymentIntentV1;
   latestLedger: number | undefined;
+  ledgerUnavailable: boolean;
+  published: boolean;
+  publishing: boolean;
+  publishError: string | undefined;
+  onRetryPublish: () => void;
   onReset: () => void;
   onPreview: () => void;
   status?: ReactNode;
@@ -412,12 +467,24 @@ function RequestCard({
   const remaining = latestLedger === undefined ? undefined : request.intent.expiresAtLedger - latestLedger;
   // Once a payment has moved, its outcome is what matters; the expiry window
   // only describes a request that is still waiting for a customer.
-  const settled = settlementStatus !== undefined && settlementStatus !== 'awaiting_approval';
-  const expired = !settled && remaining !== undefined && remaining <= 0;
+  const closed = settlementStatus !== undefined && settlementStatus !== 'awaiting_approval';
+  const expired = !closed && remaining !== undefined && remaining <= 0;
+  // A request must have a fresh ledger observation before it is shown or
+  // broadcast. If the merchant loses Testnet connectivity, keeping an old QR
+  // or HCE payload visible would invite a customer to tap a request whose
+  // five-minute window can no longer be verified locally.
+  const requestLive =
+    published &&
+    settlementStatus === 'awaiting_approval' &&
+    !ledgerUnavailable &&
+    latestLedger !== undefined &&
+    remaining !== undefined &&
+    remaining > 0 &&
+    !closed &&
+    !expired;
   const encoded = encodePaymentQr(request);
-  // A request that has been paid or has expired stops being offered to taps, so
-  // the QR on screen and what NFC hands out never disagree.
-  const nfc = useNfcBroadcast(settled || expired ? null : encoded);
+  // Do not offer a request until the API knows it, or after its one payment.
+  const nfc = useNfcBroadcast(requestLive ? encoded : null);
   return (
     <>
       <SurfaceCard style={styles.requestCard}>
@@ -426,8 +493,8 @@ function RequestCard({
             <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={styles.amount}>{exactAmount(request.intent.amount)} <Text style={styles.asset}>{request.intent.asset.code}</Text></Text>
             <Text style={styles.reference}>{request.intent.reference}</Text>
           </View>
-          <StatusPill tone={settled ? (settlementStatus === 'confirmed' ? 'success' : 'pending') : expired ? 'danger' : 'pending'}>
-            {settled ? statusLabel(settlementStatus!, t) : expired ? t('EXPIRED') : t('PENDING')}
+          <StatusPill tone={closed ? (settlementStatus === 'confirmed' ? 'success' : settlementStatus === 'failed' || settlementStatus === 'rejected' ? 'danger' : 'pending') : expired ? 'danger' : 'pending'}>
+            {closed ? statusLabel(settlementStatus!, t) : expired ? t('EXPIRED') : publishing ? t('PUBLISHING') : settlementStatus === 'awaiting_approval' ? t('PENDING') : t('Checking')}
           </StatusPill>
         </View>
         <Stepper
@@ -435,20 +502,60 @@ function RequestCard({
           failed={settlementStatus === 'failed' || settlementStatus === 'rejected'}
           steps={requestSteps.map(step => ({...step, label: t(step.label)}))}
         />
-        <View style={styles.qr}>
-          <QRCode value={encoded} size={214} color={colors.black} backgroundColor="#FFFFFF" />
-        </View>
-        {nfc.canBroadcast && nfc.enabled && !settled && !expired ? (
+        {requestLive ? (
+          <View style={styles.qr} testID="request-qr-ready">
+            <QRCode value={encoded} size={214} color={colors.black} backgroundColor="#FFFFFF" />
+          </View>
+        ) : (
+          <View style={styles.qrPlaceholder} testID="request-not-ready">
+            {publishing ? <LoadingDots color={colors.goldBright} size={4} /> : null}
+            <Text style={styles.qrPlaceholderText}>
+              {!published
+                ? !publishing && !publishError ? t('Register this business before creating a payment request') : publishError ? t('This request is not published') : t('Publishing payment request')
+                : expired ? t('This request has expired') : closed ? t('This payment request is closed') : t('Checking payment request')}
+            </Text>
+            {publishError ? (
+              <>
+                <Text style={styles.nfcText}>{t('The API did not confirm the request. Retry before asking a customer to pay.')}</Text>
+                <Button
+                  icon={<RefreshCw color={colors.black} size={16} />}
+                  onPress={onRetryPublish}
+                  testID="retry-publish-request"
+                  tone="ghost">
+                  {t('Retry publish')}
+                </Button>
+              </>
+            ) : null}
+          </View>
+        )}
+        {requestLive && nfc.canBroadcast && nfc.enabled ? (
           <View style={styles.nfcRow}>
             <Nfc color={colors.amber} size={18} />
-            <Text style={styles.nfcText}>{t('Or let the customer tap their phone here')}</Text>
+            <Text style={styles.nfcText}>
+              {nfc.broadcasting
+                ? t('Or let the customer tap their phone here')
+                : nfc.broadcastError
+                  ? t('NFC is unavailable right now; use the QR code')
+                  : t('Preparing NFC')}
+            </Text>
+            {nfc.broadcastError ? (
+              <Button
+                icon={<RefreshCw color={colors.black} size={16} />}
+                onPress={nfc.retry}
+                testID="retry-nfc-broadcast"
+                tone="ghost">
+                {t('Retry NFC')}
+              </Button>
+            ) : null}
           </View>
         ) : null}
         <View style={styles.expiry}>
-          <View style={[styles.dot, expired && styles.dotError, settled && styles.dotDone]} />
+          <View style={[styles.dot, expired && styles.dotError, settlementStatus === 'confirmed' && styles.dotDone]} />
           <Text style={styles.expiryText}>
-            {settled
+            {settlementStatus === 'confirmed'
               ? t('A customer has paid this request')
+              : closed
+                ? t('This payment request is closed')
               : remaining === undefined
                 ? `${t('Expires at ledger')} ${request.intent.expiresAtLedger}`
                 : expired
@@ -458,7 +565,7 @@ function RequestCard({
         </View>
       </SurfaceCard>
       {status}
-      <Button onPress={onPreview}>{t('Preview customer view')}</Button>
+      {requestLive ? <Button onPress={onPreview}>{t('Preview customer view')}</Button> : null}
       <Button tone="ghost" onPress={onReset} testID="new-request">{t('New request')}</Button>
     </>
   );
@@ -510,6 +617,8 @@ const styles = StyleSheet.create({
   nfcRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
   nfcText: {fontSize: 13, color: colors.inkMuted},
   qr: {alignItems: 'center', alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.sm, padding: spacing.lg},
+  qrPlaceholder: {alignItems: 'center', alignSelf: 'center', gap: spacing.sm, justifyContent: 'center', minHeight: 246, padding: spacing.lg, width: '100%'},
+  qrPlaceholderText: {color: colors.inkMuted, fontSize: 13, lineHeight: 18, textAlign: 'center'},
   expiry: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
   ledgerRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
   dot: {backgroundColor: colors.gold, borderRadius: radius.round, height: 8, width: 8},

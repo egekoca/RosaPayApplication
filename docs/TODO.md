@@ -1,6 +1,6 @@
 # Rosa Pay Delivery Backlog
 
-This backlog is derived from `docs/PRD.md` and reflects the repository state on 2026-08-25.
+This backlog is derived from `docs/PRD.md` and reflects the repository state on 2026-09-16.
 
 Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice exists, `[ ]` not implemented, `[!]` requires an external decision, identity, or live network action.
 
@@ -17,7 +17,8 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [x] Register native XLM as the initial asset and ephemeral smoke-test merchant keys/recipient.
 - [x] Add a scripted Testnet integration that settles XLM and rejects replay, amount, recipient, expiry, asset, network, contract and fake-merchant mutations.
 - [x] Run the mobile onboarding, Testnet health, QR, confirmation and receipt demo on Android Pixel 9 and launch the iOS iPhone 17 Pro Simulator build; the relayed Testnet settlement itself is verified on Android (tx `e8a4ecfe…`, `4284246`) and the iOS build installs and runs the same bundle.
-- [x] Route the mobile confirmation screen through an explicit adapter; the Testnet mode now settles for real through the relayer (evidence: tx `e8a4ecfeb4d5a1439c54e9589122e37f91df9d12c0d9da4753b140716d82dcd5`, ledger 4283738), while demo mode stays the default.
+- [x] Route the mobile confirmation screen through an explicit adapter; Testnet mode settles for real through the relayer (evidence: tx `e8a4ecfeb4d5a1439c54e9589122e37f91df9d12c0d9da4753b140716d82dcd5`, ledger 4283738).
+- [x] Allow both `settle_payment` and `settle_payment_with_swap` through the hosted relayer and cover the swap entry point with an HTTP API test.
 
 ## P0 - Wallet and Authorization
 
@@ -68,6 +69,8 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [x] Include ledger, confirmation timestamp and a validated transaction hash in receipts; only an RPC `SUCCESS` result with a final ledger may confirm a Testnet payment.
 - [x] Implement Merchant Profile onboarding instead of the current capability toggle; the business name and receiving address are verified before a profile exists.
 - [x] Create and sign payment intents from merchant data rather than a fixture; amounts are canonicalized, expiry comes from the live ledger and the customer verifies the merchant signature.
+- [x] Bound merchant QR lifetime to 60 ledgers (about five minutes) and reject longer caller-supplied lifetimes.
+- [x] Recheck the 60-ledger policy against the live Stellar ledger in the production API before persisting an intent; expired, long-lived, wrong-network and RPC-unavailable requests fail closed, with API tests for the boundary.
 - [x] Add merchant request status and receipt lookup; the request screen polls the API settlement, and the merchant home lists every request that merchant made with its outcome.
 - [x] Persist local session and pending payment recovery across app restarts; the merchant profile, demo wallet, open request and receipts survive a restart in the platform's encrypted store, and a returning user skips onboarding.
 - [x] Add transport-aware activity records and a Dashboard bottom tab; confirmed QR/NFC payment totals are separated, and completed TRY deposits and USDC withdrawals are retained for the money-movement summary. Merchant totals use the authenticated payment list when available.
@@ -106,15 +109,20 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 ## P3 - Deferred Product Scope
 
 - [x] Add a provider-independent SEP-1/10/24/45 anchor client with fail-closed challenge, network, URL-origin, live-expiry, signer-mutation, simulation-footprint and transaction-status validation.
+- [x] Add the minimal SEP-12 customer-information client and an in-memory mock-anchor demo (`NEEDS_INFO` -> `ACCEPTED`) without retaining identity values.
 - [x] Add Testnet XLM **Add money** and **Withdraw** wallet entry points using the smart wallet's C-account, an in-app system browser, encrypted pending-session recovery and resumable SEP-24 polling.
 - [~] Prove testanchor live: `npm run testnet:anchor` opened a genuine SEP-10 session, started native-XLM SEP-24 deposit `00b77ef6-0a20-4d45-8f8b-faa8866f519e`, and read `incomplete`; a physical-device SEP-45/browser completion remains.
 - [ ] Authorize and submit the smart-wallet payment requested by a SEP-24 withdrawal at `pending_user_transfer_start`; initiation/status are implemented but the asset transfer must not be implied.
 - [!] Connect MoneyGram Ramps sandbox after provider allowlisting and a published Rosa Pay domain are available.
 - [!] Verify a Testnet USDC issuer/SAC and decimal policy before enabling USDC (PRD 22.2).
 - [ ] Add USDC trustline onboarding only after the asset decision is recorded.
-- [x] Implement Android NFC HCE as an optional transport over the same RTP/1 flow; a merchant publishes the request it is already showing as a QR, a customer reads it in reader mode, and a paid or expired request stops being offered.
+- [x] Implement Android NFC HCE over the same RTP/1 payload; Android listens on normal customer routes while Rosa Pay is foregrounded, a verified tap starts one device-authorization attempt, the merchant HCE service requires unlock, and expired/closed requests stop being shown or broadcast.
+- [x] Gate merchant QR visibility on successful API publication, verify the API returned the same signature and intent, and surface publish/HCE failures with retries while retaining QR as the fallback.
+- [x] Fail closed on NFC settlement when the live ledger or funding check is unavailable; a failed automatic attempt requires a deliberate retry.
 - [x] Keep QR visible as the universal path on both platforms; NFC is additive and a device that cannot use it reports so rather than degrading.
-- [x] Read a tap on iOS with CoreNFC, so an iPhone customer can pay an Android merchant by tapping. Same AID and same ISO 7816-4 chunked exchange as the Android reader. The reverse stays impossible: iOS grants no third-party card emulation, so `startBroadcast` refuses on iPhone instead of pretending.
+- [x] Read a tap on iOS with CoreNFC after the customer starts the reader from Scan, so an iPhone customer can pay an Android merchant. The same AID and ISO 7816-4 chunked exchange is used; the reverse stays impossible because iOS grants no third-party card emulation.
+- [x] Let an honest tap survive the things that are not the payment's fault: a reader bounds lifetime at 72 ledgers rather than 60, because the merchant, API and customer each poll their own RPC; the Android merchant keeps emulating the card when a phone refuses `setPreferredService`, since Rosa Pay's proprietary AID already routes to it; and the customer's confirmation screen no longer blocks on each five-second background ledger refetch.
+- [x] Make foreground NFC lifecycle resilient: refresh the live ledger on an early tap, re-arm one-shot iOS sessions after cancellation/error, keep the global listener out of Scan/Confirm/merchant routes so native readers never compete, and keep it armed on every Main tab while the app is open.
 - [ ] Record 100+ successful Testnet settlements and publish anonymized demo metrics.
 - [x] Draw the architecture. Four Mermaid diagrams in [architecture-diagrams.md](architecture-diagrams.md) — the three-signature separation, where the keys live and why there are three, the lira rails through the bridge, and what runs where — each checked through a real Mermaid parser rather than eyeballed. The submission also asks which skill files were used; that record is [skills-used.md](skills-used.md), including the four things skills could not answer.
 - [ ] Write the three-minute demo script and the failure-path demo.
@@ -158,14 +166,13 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
   permission for the terminal; neither is set up here, so iOS is verified by
   build, install, launch and render, and the settlement path is verified on
   Android plus the Node proof script.
-- The demo path has no database or API dependency: mobile settlement stays in
-  `mock` mode, `createApiRuntime` keeps in-memory storage while `DATABASE_URL` is
-  unset, and the worker logs `worker_idle` and exits instead of looping.
-- Mock receipts carry `settlementMode: 'mock'`, are shown as `DEMO ONLY` with a
-  `demo:` reference instead of a hash, and expose no explorer link.
+- The Testnet settlement path requires the API, relayer and deployed contract;
+  an unavailable dependency is reported as failure rather than a local success.
+- The SEP-12 mock is intentionally local and does not create settlement receipts.
 - Merchant RTP/1 requests use a separate on-device Ed25519 key generated from
   the platform CSPRNG. The customer payment key remains non-exportable in native
-  secure storage, and insecure randomness is refused outside mock mode.
+  secure storage, and insecure randomness is refused outside the explicit test
+  harness.
 
 ## Paying between two devices
 

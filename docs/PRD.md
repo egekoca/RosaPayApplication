@@ -7,7 +7,7 @@
 **Primary audience:** Customers and small merchants accepting fast Stellar payments  
 **Public website:** https://rosa-pay-app.vercel.app
 **Document language:** English  
-**Last updated:** 2026-08-25
+**Last updated:** 2026-09-16
 
 Implementation status and remaining work are tracked in [`TODO.md`](TODO.md). Public Testnet deployment and smoke-test evidence are recorded under [`../config`](../config).
 
@@ -37,7 +37,8 @@ Make a Stellar payment feel like tapping a card while preserving the strongest p
 ### 4.1 Product goals
 
 - Enable a customer to complete a testnet payment in under 30 seconds after scanning or tapping.
-- Make the exact merchant, recipient, asset, amount, and expiry visible before biometric approval.
+- Show the exact merchant, recipient, asset, amount, and expiry on the confirmation screen and name the merchant and amount in the device authorization prompt.
+- Keep a merchant QR short-lived: default and maximum request lifetime is 60 ledgers (about five minutes at the Testnet cadence).
 - Let one user account operate as a customer by default and activate a merchant profile without a second login.
 - Provide a merchant payment request that can be verified independently of Rosa Pay's backend.
 - Produce a real Stellar testnet transaction and a receipt with a transaction hash.
@@ -63,6 +64,8 @@ Make a Stellar payment feel like tapping a card while preserving the strongest p
   transmission. A Testnet-only SEP-24/SEP-45 reference-client integration may
   prove interoperability, but Rosa Pay never becomes the anchor and must not
   present sandbox activity as real money movement.
+- Treating the hackathon SEP-12 mock as a KYC provider. It is only an
+  in-memory protocol demonstration and discards submitted values.
 - Issuing a new Rosa Pay token.
 - Cross-chain bridges, NFTs, loyalty points, AI features, or multi-chain support.
   On-Stellar liquidity is not in this exclusion: a customer holding the wrong
@@ -81,7 +84,7 @@ A person who wants to pay a participating merchant quickly without copying a lon
 
 ### 6.2 Merchant
 
-A small business, event booth, or demo operator who needs to request a fixed amount in XLM or a supported Stellar asset. The merchant expects a recognizable identity, a payment status, and a reusable payment QR.
+A small business, event booth, or demo operator who needs to request a fixed amount in XLM or a supported Stellar asset. The merchant expects a recognizable identity, a payment status, and a short-lived payment QR for each sale.
 
 ### 6.3 Reviewer / judge
 
@@ -334,17 +337,32 @@ The relayer is a fee-payer and transaction submitter only. It must:
 
 ### 13.1 QR (required)
 
-QR is the cross-platform baseline. The QR payload contains a compact RTP/1 intent or a short-lived intent URL. It must be signed or fetch an intent whose signature is verified before display.
+QR is the cross-platform baseline. It carries the signed RTP/1 intent and is
+displayed only after the API confirms that it stored the same signed request.
+Merchant-created requests expire after 60 ledgers by default and cannot request
+a longer lifetime. The customer validates expiry against the live ledger before
+authorization; expired or completed requests are no longer displayed or
+broadcast and require a new request. A reader applies a slightly looser bound
+than a minter — 72 ledgers — because the merchant, the API and the customer each
+observe `latestLedger` from their own RPC poll, and a receiver a few ledgers
+behind the merchant must not reject an honest request as too long-lived.
 
 ### 13.2 Android NFC (optional fast path)
 
-Android NFC Host Card Emulation/APDU can carry a short intent reference or challenge. NFC must not carry an unsigned amount or recipient. The app still fetches/verifies the canonical intent and shows the same confirmation screen.
+Android Host Card Emulation/APDU carries the same signed RTP/1 payload as the
+QR, divided into bounded chunks. The customer app listens while it is in the
+foreground on normal customer routes, including from the main screen. A tap runs the same payload, live
+ledger, expiry, merchant-signature and funding checks as QR. Once those checks
+pass, the app starts the native device authorization prompt once; that prompt is
+still required to sign, and QR approvals retain their explicit in-app button.
+The Android merchant service is unlock-required. The merchant displays tap-ready status only after native HCE starts; if HCE
+fails, the QR remains available and the UI offers a retry.
 
 ### 13.3 iOS NFC
 
 iOS reads a tap and cannot publish one, and that split is Apple's, not a sequencing choice.
 
-**Reading (implemented).** `RosaPayNfc.swift` opens an `NFCTagReaderSession` and speaks the same ISO 7816-4 exchange the Android reader speaks against the same AID, so an iPhone customer can pay an Android merchant by tapping. This needs the standard Near Field Communication Tag Reading capability (`com.apple.developer.nfc.readersession.formats` = `TAG`) plus the AID in `com.apple.developer.nfc.readersession.iso7816.select-identifiers`; neither requires approval from Apple. A CoreNFC session is a system sheet rather than background polling, so the reader opens on a deliberate press — the status field `needsUserAction` carries that distinction to the UI.
+**Reading (implemented).** `RosaPayNfc.swift` opens an `NFCTagReaderSession` and speaks the same ISO 7816-4 exchange the Android reader speaks against the same AID, so an iPhone customer can pay an Android merchant by tapping. This needs the standard Near Field Communication Tag Reading capability (`com.apple.developer.nfc.readersession.formats` = `TAG`) plus the AID in `com.apple.developer.nfc.readersession.iso7816.select-identifiers`; neither requires approval from Apple. A CoreNFC session is a system sheet rather than background polling, so iOS requires the customer to press the tap-to-pay control on the scan screen before presenting the merchant phone. The verified tap then starts device authorization automatically; biometric/platform confirmation remains mandatory.
 
 **Publishing (not possible).** iOS does not grant third-party apps host card emulation. The exception added in iOS 17.4 requires a commercial agreement with Apple and the NFC & SE Platform entitlement, is limited to the EEA, and is scoped to payment, transit, key and badge categories. An iPhone merchant therefore shows the QR code, and `startBroadcast` rejects instead of silently doing nothing.
 

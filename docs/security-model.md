@@ -24,11 +24,13 @@ Private keys and seed phrases must never be logged, placed in JavaScript state, 
 
 - Canonical hash plus Ed25519 merchant signature prevents QR field tampering.
 - Network, contract, asset, amount, recipient, nonce and expiry are checked on both client boundary and contract.
+- The production API reads the live Stellar ledger before persisting an intent and rejects a different network, an already-expired request, or an expiry more than 60 ledgers away. RPC failure is a 503, so an unverifiable request never becomes a payable QR/NFC offer.
 - Soroban requires customer authorization, verifies the registered merchant signature, persists replay state and transfers only the approved token amount.
 - The API supports idempotency and typed errors; duplicate requests return the original result.
 - Logs are redacted and contain intent IDs/status, never signatures, keys, seed material or full QR payloads.
 - The secure signer is a native port. Production implementations must use Keychain/Secure Enclave or Android Keystore and user presence.
-- QR is the universal path; NFC cannot bypass the RTP/1 validation or signer confirmation flow. A tap read on either platform goes through `readPaymentQr` exactly as a scan does: decode, validate against the live ledger, verify the merchant signature. A hostile tap can at worst present a request the customer declines.
+- QR remains available as the universal path. NFC carries the same signed RTP/1 payload and cannot bypass decode, live-ledger/network/expiry checks, merchant-signature verification or funding checks. A valid Android tap starts the device authorization prompt once; it does not silently sign or submit a payment. The native prompt names the amount and merchant, and the device owner must still authenticate. iOS requires a deliberate Core NFC start action before it can read.
+- The merchant does not display a new QR until the API confirms it stored the exact signed payload. NFC is described as ready only after native HCE accepts it, and Android HCE requires the merchant device to be unlocked. API or HCE failure leaves a retry path and never turns a local-only request into a payable code.
 
 ## Negative-test matrix
 
@@ -50,9 +52,9 @@ Before Testnet release, add device-level tests for signer cancellation, biometri
 
 | Asset | Exposure | Control |
 | --- | --- | --- |
-| Relayer fee balance | Anyone who can reach the API can ask it to sign | It signs only a single `settle_payment` call on the configured contract, sourced by itself; anything else is refused before signing |
+| Relayer fee balance | Anyone who can reach the API can ask it to sign | It signs only a single `settle_payment` or `settle_payment_with_swap` call on the configured contract, sourced by itself; anything else is refused before signing |
 | Deployer funding balance | Creating a wallet spends a starting balance | A device key controls exactly one wallet, so provisioning is idempotent and a repeat call funds nothing; the endpoint is also rate limited |
-| Customer funds | Held by a contract account | Only the device key can authorize a spend; the deployer can create the wallet but never move its funds |
+| Customer funds | Held by a contract account | Only the registered device signer (or recovery/passkey signer where the wallet policy permits it) can authorize a spend; the deployer can create the wallet but never move its funds |
 | Merchant registration | Writes a signing key to the contract | Admin-signed, and merchant profiles are ownership-guarded when auth is enforced |
 
 The rate limits are per process and are a bound on damage, not a distributed

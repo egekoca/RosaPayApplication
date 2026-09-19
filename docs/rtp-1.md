@@ -19,7 +19,18 @@ The signed payload contains:
 - UTC `createdAt`
 - base64 Ed25519 `signature`
 
-QR uses the URI scheme `rosapay://pay/<base64url-json>`. The payload is decoded, parsed with the Zod schema and policy-checked before signature verification. A QR is data, not authorization.
+QR uses the URI scheme `rosapay://pay/<base64url-json>`. Android NFC carries
+that same URI in bounded APDU chunks; it is not a second payment protocol. The
+payload is decoded, parsed with the Zod schema and policy-checked before
+signature verification. A QR or NFC tap is data and user intent, not payment
+authorization: the device still must authenticate the exact settlement digest.
+
+The NFC budget is deliberately bounded: each APDU response carries at most 240
+UTF-8 bytes, and a reader accepts at most 24 chunks (5,760 bytes total). This is
+above the 4,096-character QR input limit, so a valid RTP/1 request fits both
+transports. Android can publish HCE; Android and iPhone customers can read it.
+An iPhone merchant uses QR because iOS cannot publish third-party HCE. CoreNFC
+also requires the customer to start the one-shot reader sheet deliberately.
 
 ## Canonical signing
 
@@ -35,7 +46,11 @@ The digest is prefixed with the legacy UTF-8 domain `RosaPay/RTP/1/PaymentIntent
 
 ## Published test vector
 
-The complete canonical input is `mockSignedIntent.intent` in `apps/mobile/src/features/payments/mockIntent.ts`.
+The test vector is generated in `packages/protocol/test/intentFactory.test.ts`;
+there is no production dependency on a mobile fixture. Merchant-created QR
+requests use a default lifetime of 60 ledgers (approximately five minutes at
+the current Testnet ledger cadence), and both the factory and the consumer-side
+policy reject a longer lifetime.
 
 ```text
 Merchant public key: GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57

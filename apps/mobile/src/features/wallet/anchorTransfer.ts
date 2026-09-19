@@ -15,7 +15,7 @@ import {createStellarConfig, createWalletAuthorizeEntry, testnetDeployment} from
 import {loadSigningKey} from './keyVault';
 import {keypairFromSecret} from './stellarKey';
 import {createHardwareDigestSigner} from '../payments/smartWalletSettlement';
-import {fetchRelayerIdentity} from '../payments/testnetSettlement';
+import {assertRelayerIdentity, fetchRelayerIdentity} from '../payments/testnetSettlement';
 import type {PendingAnchorTransfer, SmartWallet, StellarAccount} from '../../state/appStore';
 
 export const TESTNET_ANCHOR_HOME_DOMAIN = testnetDeployment.anchor.homeDomain;
@@ -47,7 +47,9 @@ export async function startWalletAnchorTransfer(input: {
   assertTestnetAnchorCompatibility(anchor, 'native', 'SEP-45');
 
   const relayer = await fetchRelayerIdentity(input.apiBaseUrl, fetcher);
-  if (relayer.networkPassphrase !== config.networkPassphrase || !/^G[A-Z2-7]{55}$/.test(relayer.address)) {
+  try {
+    assertRelayerIdentity(config, relayer);
+  } catch {
     throw new AnchorTransferError('The relayer is not a usable Stellar Testnet simulation source');
   }
 
