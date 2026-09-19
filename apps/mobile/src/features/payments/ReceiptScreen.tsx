@@ -1,7 +1,7 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Check, ExternalLink, FlaskConical, Share2} from 'lucide-react-native';
 import {Linking, Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
-import {AnimatedContent, Button, colors, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
+import {AnimatedContent, Button, colors, radius, spacing, SplitText, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 
@@ -16,7 +16,7 @@ export function ReceiptScreen({route, navigation}: Props) {
   return (
     <Screen contentStyle={styles.screen}>
       <AnimatedContent distance={8} scaleFrom={0.78} duration={560}><View style={[styles.successIcon, !settled && styles.demoIcon]}>{settled ? <Check color={colors.black} size={32} strokeWidth={3} /> : <FlaskConical color={colors.black} size={30} strokeWidth={2.5} />}</View></AnimatedContent>
-      <AnimatedContent delay={100}><View style={styles.center}><Text style={[styles.eyebrow, !settled && styles.demoEyebrow]}>{settled ? 'PAYMENT COMPLETE' : 'DEMO PAYMENT'}</Text><Text style={styles.title}>{settled ? 'Payment confirmed' : 'Demo payment recorded'}</Text><Text style={styles.merchant}>{settled ? `Your payment to ${receipt.merchantName} was confirmed on Stellar.` : `Nothing was sent to Stellar. This is a local demo receipt for ${receipt.merchantName}.`}</Text></View></AnimatedContent>
+      <AnimatedContent delay={100}><View style={styles.center}><Text style={[styles.eyebrow, !settled && styles.demoEyebrow]}>{settled ? 'PAYMENT COMPLETE' : 'DEMO PAYMENT'}</Text><SplitText delay={140} splitBy="word" style={styles.title} text={settled ? 'Payment confirmed' : 'Demo payment recorded'} /><Text style={styles.merchant}>{settled ? `Your payment to ${receipt.merchantName} was confirmed on Stellar.` : `Nothing was sent to Stellar. This is a local demo receipt for ${receipt.merchantName}.`}</Text></View></AnimatedContent>
       <AnimatedContent delay={180} scaleFrom={0.98}><SurfaceCard accent={settled ? 'success' : 'amber'} style={styles.amountCard}><Text style={styles.amount}>{receipt.amount} <Text style={styles.asset}>{receipt.assetCode}</Text></Text><StatusPill tone={settled ? 'success' : 'pending'}>{settled ? 'CONFIRMED' : 'DEMO ONLY'}</StatusPill></SurfaceCard></AnimatedContent>
       <AnimatedContent delay={240}>
         <SurfaceCard padded={false} style={styles.receipt}>

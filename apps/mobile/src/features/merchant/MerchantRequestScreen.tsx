@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState, type ReactNode} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Store} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -13,6 +13,7 @@ import {useAppStore} from '../../state/appStore';
 import {mobileSettlementMode} from '../payments/settlementAdapter';
 import {createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
 import {registerMerchantForTestnet} from './merchantRegistration';
+import {publishPaymentRequest, usePaymentRequestStatus} from './merchantRequestStatus';
 
 type Props = NativeStackScreenProps<RootStackParams, 'MerchantRequest'>;
 
@@ -65,6 +66,12 @@ export function MerchantRequestScreen({navigation}: Props) {
         randomBytes,
       );
       setPendingRequest(request);
+      // Testnet payments settle against an intent the API already knows about.
+      if (settlementMode === 'testnet') {
+        void publishPaymentRequest(request).catch(failure => {
+          setError(failure instanceof Error ? failure.message : 'The request could not be published to the API');
+        });
+      }
     } catch (failure) {
       setError(
         failure instanceof MerchantProfileError || failure instanceof Error
@@ -103,6 +110,7 @@ export function MerchantRequestScreen({navigation}: Props) {
           latestLedger={stellarHealth.data?.latestLedger}
           onReset={() => setPendingRequest(null)}
           onPreview={() => navigation.navigate('Confirm', {payload: pendingRequest})}
+          status={settlementMode === 'testnet' ? <RequestStatus intentId={pendingRequest.intent.intentId} /> : null}
         />
       ) : (
         <>
@@ -143,16 +151,46 @@ export function MerchantRequestScreen({navigation}: Props) {
   );
 }
 
+function RequestStatus({intentId}: {intentId: string}) {
+  const status = usePaymentRequestStatus(intentId);
+  const settlement = status.data;
+  const tone = settlement?.status === 'confirmed' ? 'success' : settlement?.status === 'failed' ? 'danger' : 'pending';
+
+  return (
+    <SurfaceCard style={styles.statusCard}>
+      <View style={styles.statusRow}>
+        <Text style={styles.statusLabel}>PAYMENT STATUS</Text>
+        <StatusPill tone={tone}>{(settlement?.status ?? (status.isPending ? 'checking' : 'unknown')).toUpperCase()}</StatusPill>
+      </View>
+      <Text style={styles.statusBody}>
+        {settlement?.status === 'confirmed'
+          ? `Settled in ledger ${settlement.ledger} · ${settlement.transactionHash?.slice(0, 16)}…`
+          : settlement?.status === 'submitted'
+            ? 'Sent to Stellar, waiting for the ledger to confirm it.'
+            : settlement?.status === 'authorized'
+              ? 'The customer authorized this payment.'
+              : settlement?.status === 'failed'
+                ? `Settlement failed: ${settlement.failureCode ?? 'unknown reason'}`
+                : status.isError
+                  ? 'The API could not be reached, so the status is unknown here.'
+                  : 'Waiting for a customer to pay this request.'}
+      </Text>
+    </SurfaceCard>
+  );
+}
+
 function RequestCard({
   request,
   latestLedger,
   onReset,
   onPreview,
+  status,
 }: {
   request: SignedPaymentIntentV1;
   latestLedger: number | undefined;
   onReset: () => void;
   onPreview: () => void;
+  status?: ReactNode;
 }) {
   const remaining = latestLedger === undefined ? undefined : request.intent.expiresAtLedger - latestLedger;
   const expired = remaining !== undefined && remaining <= 0;
@@ -180,6 +218,7 @@ function RequestCard({
           </Text>
         </View>
       </SurfaceCard>
+      {status}
       <Button onPress={onPreview}>Preview customer view</Button>
       <Button tone="ghost" onPress={onReset} testID="new-request">New request</Button>
     </>
@@ -210,4 +249,8 @@ const styles = StyleSheet.create({
   warning: {gap: spacing.sm},
   warningTitle: {...typography.label, color: colors.amber},
   warningBody: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
+  statusCard: {gap: spacing.sm},
+  statusRow: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
+  statusLabel: {...typography.label, color: colors.inkMuted, fontSize: 11, letterSpacing: 0.9},
+  statusBody: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
 });

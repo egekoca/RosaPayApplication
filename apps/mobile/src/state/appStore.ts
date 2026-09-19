@@ -1,7 +1,9 @@
 import {create} from 'zustand';
+import {createJSONStorage, persist} from 'zustand/middleware';
 import type {PaymentStatus} from '@rosapay/domain';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 import type {MerchantProfile} from '../features/merchant/merchantProfile';
+import {decodeSecrets, encodeSecrets, secureSessionStorage} from './persistence';
 
 export type SettlementMode = 'mock' | 'testnet';
 
@@ -34,6 +36,8 @@ export type LocalReceipt = {
 };
 
 type AppState = {
+  /** False until the stored session has been read back from secure storage. */
+  hydrated: boolean;
   mode: AppMode;
   settlementMode: SettlementMode;
   merchantProfile: MerchantProfile | null;
@@ -50,23 +54,60 @@ type AppState = {
   addReceipt(receipt: LocalReceipt): void;
 };
 
+/** True once a session exists that a returning user should come back to. */
+export function hasRestorableSession(state: Pick<AppState, 'customerWallet' | 'merchantProfile' | 'receipts'>): boolean {
+  return state.customerWallet !== null || state.merchantProfile !== null || state.receipts.length > 0;
+}
+
 const initialSettlementMode: SettlementMode =
   process.env.ROSAPAY_SETTLEMENT_MODE === 'testnet' ? 'testnet' : 'mock';
 
-export const useAppStore = create<AppState>(set => ({
-  mode: 'customer',
-  settlementMode: initialSettlementMode,
-  merchantProfile: null,
-  merchantRegisteredOnChain: false,
-  customerWallet: null,
-  pendingRequest: null,
-  receipts: [],
-  setMode: mode => set(state => (mode === 'merchant' && !state.merchantProfile ? state : {...state, mode})),
-  setSettlementMode: settlementMode => set({settlementMode}),
-  saveMerchantProfile: profile =>
-    set({merchantProfile: profile, mode: 'merchant', merchantRegisteredOnChain: false}),
-  setMerchantRegisteredOnChain: merchantRegisteredOnChain => set({merchantRegisteredOnChain}),
-  setCustomerWallet: customerWallet => set({customerWallet}),
-  setPendingRequest: request => set({pendingRequest: request}),
-  addReceipt: receipt => set(state => ({receipts: [receipt, ...state.receipts]})),
-}));
+/** Receipts are kept bounded so a long-lived session cannot outgrow secure storage. */
+const MAX_PERSISTED_RECEIPTS = 25;
+
+export const useAppStore = create<AppState>()(
+  persist(
+    set => ({
+      hydrated: false,
+      mode: 'customer',
+      settlementMode: initialSettlementMode,
+      merchantProfile: null,
+      merchantRegisteredOnChain: false,
+      customerWallet: null,
+      pendingRequest: null,
+      receipts: [],
+      setMode: mode => set(state => (mode === 'merchant' && !state.merchantProfile ? state : {...state, mode})),
+      setSettlementMode: settlementMode => set({settlementMode}),
+      saveMerchantProfile: profile =>
+        set({merchantProfile: profile, mode: 'merchant', merchantRegisteredOnChain: false}),
+      setMerchantRegisteredOnChain: merchantRegisteredOnChain => set({merchantRegisteredOnChain}),
+      setCustomerWallet: customerWallet => set({customerWallet}),
+      setPendingRequest: request => set({pendingRequest: request}),
+      addReceipt: receipt =>
+        set(state => ({receipts: [receipt, ...state.receipts].slice(0, MAX_PERSISTED_RECEIPTS)})),
+    }),
+    {
+      name: 'rosapay-session',
+      version: 1,
+      onRehydrateStorage: () => state => {
+        useAppStore.setState({hydrated: true});
+        return state;
+      },
+      storage: createJSONStorage(() => secureSessionStorage, {
+        replacer: (_key, value) => encodeSecrets(value),
+        reviver: (_key, value) => decodeSecrets(value),
+      }),
+      // Everything a returning user needs: their wallet, business profile, the
+      // request still on screen and their receipts.
+      partialize: state => ({
+        mode: state.mode,
+        settlementMode: state.settlementMode,
+        merchantProfile: state.merchantProfile,
+        merchantRegisteredOnChain: state.merchantRegisteredOnChain,
+        customerWallet: state.customerWallet,
+        pendingRequest: state.pendingRequest,
+        receipts: state.receipts,
+      }),
+    },
+  ),
+);

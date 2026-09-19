@@ -124,9 +124,31 @@ merchant profile is present and signs it locally; a request signed by another
 device fails closed with `MERCHANT_KEY_UNAVAILABLE` until the second transport
 leg (the NFC round trip in the plan) exists.
 
+The app mirrors each settlement into the API as it happens: it publishes the
+intent when the merchant creates a request, records the authorizing address once
+the customer signs the authorization entry, and records the transaction hash once
+the relayer submits it. Reporting is strictly ordered and best effort — the chain
+already holds the truth, so a failed report is logged and never fails a payment.
+Only the worker's RPC-verified receipt moves a settlement to `confirmed`, which is
+why the merchant request screen can poll the API and show a status the customer's
+device did not assert on its own.
+
 `scripts/testnet-relayed-settlement.mts` proves the model on-chain: it asserts
 that the transaction source and fee account are the relayer, that the customer is
 debited the amount and nothing more, and that the recipient receives it.
+
+### Session persistence
+
+The app keeps its session in the platform's encrypted store (iOS Keychain,
+Android Keystore-backed storage) rather than plain app storage, because the
+session carries the development signer secrets alongside the merchant profile,
+demo wallet, open request and receipts. Secrets are byte arrays, so they are
+written as hex and restored in place; receipts are capped so a long-lived session
+cannot outgrow the store. Reading it back is asynchronous, so the app renders a
+splash until hydration finishes and only then decides whether a returning user
+sees onboarding or the home screen. Developer settings report whether the session
+is actually being saved, so a device where the store is unavailable says so
+instead of silently losing the wallet on restart.
 
 ### React Native and the Buffer polyfill
 
@@ -142,6 +164,26 @@ generated client is constructed with no callable methods.
 JavaScript never receives a private key. `SecureSigner` accepts an opaque authorization request and returns an opaque signature or a typed error. A production native adapter must keep the key in Secure Enclave/Keychain (iOS) or Android Keystore, require user presence for payment authorization, and expose only public-key metadata to JS.
 
 The account decision is recorded in [ADR 0001](adr/0001-passkey-account-and-native-signer.md): use a Smart Account Kit/OpenZeppelin context-rule-compatible Soroban account, but keep React Native integration provider-neutral through a native bridge. Browser IndexedDB/WebAuthn storage is not used in React Native. Recovery and signer rotation are intentionally single-device for the Testnet demo and gated for production by [ADR 0002](adr/0002-recovery-and-signer-rotation.md). The bridge exposes Stellar SDK-compatible `signAuthEntry` and `signTransaction` operations so the generated contract client can separate customer auth-entry signing from relayer fee-payer signing. The iOS and Android `RosaPaySigner` modules are now registered fail-closed; they return `UNAVAILABLE` until platform credential storage and user-presence signing are implemented.
+
+## Interface and motion
+
+`packages/ui` is the platform-neutral design system. Its motion primitives are
+React Native ports of React Bits components — `AnimatedContent`, `FadeContent`,
+`SplitText`, `AnimatedList`, `CountUp`, `Stepper`, `PressScale` and `Pulse`.
+React Bits itself is a React DOM library built on CSS and web animation
+libraries, so its components cannot be dropped into React Native; each one here
+reimplements the same effect with the `Animated` API and native drivers, which
+keeps behaviour identical on iOS and Android without adding a native dependency.
+Every primitive renders its plain, un-animated content under test so assertions
+and screen readers always see one string.
+
+Screen transitions come from the native stack (`slide_from_right` by default,
+`fade` for root swaps, `slide_from_bottom` for the payment review) rather than a
+JS animation loop, again so both platforms behave the same.
+
+`Stepper` carries the settlement stages — Prepare, Authorize, Submit, Confirm —
+so a payment in flight never looks stalled or finished early, and the transaction
+hash appears as soon as Stellar accepts it rather than only after confirmation.
 
 ## RTP/1 to settlement boundary
 

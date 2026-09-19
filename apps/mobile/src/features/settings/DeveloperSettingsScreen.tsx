@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {CircleAlert, CircleCheck, FlaskConical, Radio, Wallet} from 'lucide-react-native';
@@ -10,6 +10,11 @@ import {Screen} from '../../shared/Screen';
 import {apiBaseUrl} from '../../shared/apiConfig';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useAppStore, type SettlementMode} from '../../state/appStore';
+import {
+  getSessionStorageStatus,
+  subscribeToSessionStorage,
+  type SessionStorageStatus,
+} from '../../state/persistence';
 import {fetchRelayerIdentity} from '../payments/testnetSettlement';
 import {ensureCustomerWallet} from '../payments/settlementAdapter';
 
@@ -25,6 +30,9 @@ export function DeveloperSettingsScreen(_props: Props) {
   const stellarHealth = useStellarHealth();
   const config = createStellarConfig('testnet');
   const [walletError, setWalletError] = useState<string | undefined>();
+  const [session, setSession] = useState<SessionStorageStatus>(getSessionStorageStatus);
+
+  useEffect(() => subscribeToSessionStorage(setSession), []);
 
   const relayer = useQuery({
     queryKey: ['relayer', apiBaseUrl],
@@ -94,6 +102,19 @@ export function DeveloperSettingsScreen(_props: Props) {
           ok={Boolean(relayer.data?.settlementContractId ?? config.settlementContractId)}
         />
         <StatusRow label="API" value={apiBaseUrl.replace(/^https?:\/\//, '')} ok={relayer.isSuccess} />
+        <StatusRow
+          label="Session storage"
+          value={
+            session.state === 'unavailable'
+              ? `Unavailable · ${session.detail?.slice(0, 28) ?? 'unknown'}`
+              : session.state === 'unknown'
+                ? 'Not written yet'
+                : session.state === 'restored'
+                  ? 'Restored'
+                  : 'Saved on this device'
+          }
+          ok={session.state === 'saved' || session.state === 'restored'}
+        />
         <StatusRow
           label="Merchant on-chain"
           value={!merchantProfile ? 'No profile' : merchantRegisteredOnChain ? 'Registered' : 'Not registered'}

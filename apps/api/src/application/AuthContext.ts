@@ -22,6 +22,18 @@ export class CapabilityDeniedError extends Error {
   readonly code = 'CAPABILITY_DENIED';
 }
 
+/** Any signed-in principal may drive their own payment; capability is checked per resource. */
+export async function requireAuthenticatedPrincipal(
+  request: FastifyRequest,
+  options: ApiAuthOptions,
+): Promise<ApiPrincipal | null> {
+  const principal = await options.resolve?.(request) ?? null;
+  if (!principal && options.required) {
+    throw new AuthenticationRequiredError('An authenticated session is required');
+  }
+  return principal;
+}
+
 /** Resolves the caller once and applies the fail-closed capability rule. */
 export async function requireMerchantPrincipal(
   request: FastifyRequest,

@@ -54,5 +54,17 @@ export function describeSettlementError(error: unknown): string {
       : 'This device could not authorize the payment. No funds were moved.';
   }
 
+  // Network-level failures the Stellar dApp checklist calls out explicitly.
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  if (message.includes('insufficient') || message.includes('underfunded')) {
+    return 'This wallet does not have enough XLM for the payment. Top it up and try again.';
+  }
+  if (message.includes('account not found') || message.includes('notfound')) {
+    return 'This wallet is not funded on Stellar yet. Create or fund it from developer settings.';
+  }
+  if (message.includes('network') || message.includes('fetch') || message.includes('timeout')) {
+    return 'Stellar could not be reached, so nothing was submitted. Check the connection and try again.';
+  }
+
   return 'The payment could not be completed. No funds were moved.';
 }

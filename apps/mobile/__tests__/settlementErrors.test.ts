@@ -17,6 +17,12 @@ describe('settlement error messages', () => {
     expect(describeSettlementError(new SettlementServiceError('INVALID_MERCHANT_SIGNATURE', 'x'))).toContain('does not match');
   });
 
+  it('names funding and connectivity failures from the network message', () => {
+    expect(describeSettlementError(new Error('tx_insufficient_balance'))).toContain('enough XLM');
+    expect(describeSettlementError(new Error('Account not found'))).toContain('not funded');
+    expect(describeSettlementError(new Error('Request timeout'))).toContain('could not be reached');
+  });
+
   it('never claims a partial success for an unknown failure', () => {
     expect(describeSettlementError(new Error('boom'))).toContain('No funds were moved');
     expect(describeSettlementError(new SecureSignerError('USER_CANCELLED', 'x'))).toContain('cancelled');

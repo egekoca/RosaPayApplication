@@ -15,6 +15,7 @@ import {
   AuthenticationRequiredError,
   authorizeMerchantIntent,
   CapabilityDeniedError,
+  requireAuthenticatedPrincipal,
   requireMerchantPrincipal,
 } from './application/AuthContext';
 import {
@@ -31,6 +32,12 @@ import {InMemoryMerchantProfileRepository} from './infrastructure/InMemoryMercha
 const paramsSchema = z.object({intentId: z.string().min(1)});
 const profileParamsSchema = z.object({merchantProfileId: z.string().min(1)});
 const relayerTransactionSchema = z.object({xdr: z.string().min(1).max(65_536)});
+const authorizeSchema = z.object({
+  authorizer: z.string().regex(/^[GC][A-Z2-7]{55}$/),
+  authorizationHash: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+  expiresAtLedger: z.number().int().positive().optional(),
+});
+const submitSchema = z.object({transactionHash: z.string().regex(/^[a-f0-9]{64}$/i)});
 
 export type BuildAppOptions = {
   repository?: IntentRepository;
@@ -116,6 +123,24 @@ export function buildApp({
     const {intentId} = paramsSchema.parse(request.params);
     const stored = await intents.get(intentId);
     return stored ?? reply.code(404).send({code: 'INTENT_NOT_FOUND', message: 'Payment intent not found'});
+  });
+  app.post('/v1/payment-intents/:intentId/authorize', async (request, reply) => {
+    const {intentId} = paramsSchema.parse(request.params);
+    await requireAuthenticatedPrincipal(request, authOptions);
+    const settlement = await intents.authorize(intentId, authorizeSchema.parse(request.body));
+    return reply.send(settlement);
+  });
+  app.post('/v1/payment-intents/:intentId/submit', async (request, reply) => {
+    const {intentId} = paramsSchema.parse(request.params);
+    await requireAuthenticatedPrincipal(request, authOptions);
+    const {transactionHash} = submitSchema.parse(request.body);
+    const settlement = await intents.submit(intentId, transactionHash);
+    return reply.send(settlement);
+  });
+  app.get('/v1/payment-intents/:intentId/authorization', async (request, reply) => {
+    const {intentId} = paramsSchema.parse(request.params);
+    const authorization = await intents.getAuthorization(intentId);
+    return authorization ?? reply.code(404).send({code: 'AUTHORIZATION_NOT_FOUND', message: 'Authorization not found'});
   });
   app.get('/v1/payment-intents/:intentId/settlement', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);

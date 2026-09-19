@@ -6,6 +6,7 @@ import {
   healthResponseSchema,
   merchantProfileSchema,
   merchantRegistrationSchema,
+  settlementRecordSchema,
   storedIntentSchema,
 } from './schemas';
 
@@ -94,6 +95,31 @@ export class RosaPayApiClient {
   getPaymentIntent(intentId: string) {
     const id = z.string().min(1).parse(intentId);
     return this.request(`/v1/payment-intents/${encodeURIComponent(id)}`, storedIntentSchema);
+  }
+
+  /** Records who authorized the payment before it is submitted. */
+  authorizePayment(intentId: string, authorization: {authorizer: string; authorizationHash?: string; expiresAtLedger?: number}) {
+    const id = z.string().min(1).parse(intentId);
+    return this.request(`/v1/payment-intents/${encodeURIComponent(id)}/authorize`, settlementRecordSchema, {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify(authorization),
+    });
+  }
+
+  /** Records the transaction the relayer sent, so the worker can reconcile it. */
+  submitPayment(intentId: string, transactionHash: string) {
+    const id = z.string().min(1).parse(intentId);
+    return this.request(`/v1/payment-intents/${encodeURIComponent(id)}/submit`, settlementRecordSchema, {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify({transactionHash}),
+    });
+  }
+
+  getSettlement(intentId: string) {
+    const id = z.string().min(1).parse(intentId);
+    return this.request(`/v1/payment-intents/${encodeURIComponent(id)}/settlement`, settlementRecordSchema);
   }
 
   private async request<T>(path: string, schema: z.ZodType<T>, init: RequestInit = {}): Promise<T> {

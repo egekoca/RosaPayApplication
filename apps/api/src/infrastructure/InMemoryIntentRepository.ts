@@ -1,10 +1,16 @@
-import type {IntentRepository, SettlementRecord, StoredIntent} from '../application/IntentService';
+import type {
+  AuthorizationRecord,
+  IntentRepository,
+  SettlementRecord,
+  StoredIntent,
+} from '../application/IntentService';
 import type {PaymentStatus} from '@rosapay/domain';
 
 export class InMemoryIntentRepository implements IntentRepository {
   private readonly byId = new Map<string, StoredIntent>();
   private readonly byIdempotencyKey = new Map<string, StoredIntent>();
   private readonly settlements = new Map<string, SettlementRecord>();
+  private readonly authorizations = new Map<string, AuthorizationRecord>();
 
   async findByIntentId(intentId: string) {
     return this.byId.get(intentId) ?? null;
@@ -29,6 +35,14 @@ export class InMemoryIntentRepository implements IntentRepository {
   async listSettlements(status?: PaymentStatus) {
     const settlements = [...this.settlements.values()];
     return status ? settlements.filter(settlement => settlement.status === status) : settlements;
+  }
+
+  async saveAuthorization(authorization: AuthorizationRecord) {
+    this.authorizations.set(authorization.intentId, authorization);
+  }
+
+  async findAuthorization(intentId: string) {
+    return this.authorizations.get(intentId) ?? null;
   }
 
   async saveSettlement(settlement: SettlementRecord) {

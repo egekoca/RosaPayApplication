@@ -42,6 +42,16 @@ CREATE TABLE payment_intents (
   CHECK (payload_hash ~ '^[0-9a-fA-F]{64}$')
 );
 
+CREATE TABLE authorizations (
+  intent_id TEXT PRIMARY KEY REFERENCES payment_intents(intent_id),
+  authorizer TEXT NOT NULL CHECK (authorizer ~ '^[GC][A-Z2-7]{55}$'),
+  authorization_hash TEXT CHECK (authorization_hash IS NULL OR authorization_hash ~ '^[0-9a-fA-F]{64}$'),
+  expires_at_ledger BIGINT CHECK (expires_at_ledger IS NULL OR expires_at_ledger > 0),
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX authorizations_authorizer_idx ON authorizations(authorizer);
+
 CREATE TABLE settlements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   intent_id TEXT NOT NULL UNIQUE REFERENCES payment_intents(intent_id),

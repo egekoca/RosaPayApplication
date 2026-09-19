@@ -8,6 +8,18 @@ export type StoredIntent = {
   status: 'created';
 };
 
+/**
+ * What the customer authorized, kept for audit. It never holds key material:
+ * only the authorizing address, a hash of the authorization and its expiry.
+ */
+export type AuthorizationRecord = {
+  intentId: string;
+  authorizer: string;
+  authorizationHash?: string;
+  expiresAtLedger?: number;
+  receivedAt: string;
+};
+
 export type SettlementRecord = {
   intentId: string;
   status: PaymentStatus;
@@ -23,6 +35,8 @@ export interface IntentRepository {
   save(intent: StoredIntent): Promise<void>;
   saveIntentWithSettlement?(intent: StoredIntent, settlement: SettlementRecord): Promise<void>;
   findSettlement(intentId: string): Promise<SettlementRecord | null>;
+  saveAuthorization?(authorization: AuthorizationRecord): Promise<void>;
+  findAuthorization?(intentId: string): Promise<AuthorizationRecord | null>;
   listSettlements(status?: PaymentStatus): Promise<SettlementRecord[]>;
   saveSettlement(settlement: SettlementRecord): Promise<void>;
 }
@@ -79,8 +93,35 @@ export class IntentService {
     return this.repository.listSettlements('submitted');
   }
 
-  authorize(intentId: string) {
+  /**
+   * Records who authorized the payment before moving the settlement forward, so
+   * a submitted transaction can always be traced back to an authorization.
+   */
+  async authorize(intentId: string, authorization?: Omit<AuthorizationRecord, 'intentId' | 'receivedAt'>) {
+    if (authorization) {
+      if (!/^[GC][A-Z2-7]{55}$/.test(authorization.authorizer)) {
+        throw new SettlementInputError('The authorizer must be a Stellar address');
+      }
+      if (authorization.authorizationHash && !/^[a-f0-9]{64}$/i.test(authorization.authorizationHash)) {
+        throw new SettlementInputError('The authorization hash must be a 64-character hexadecimal value');
+      }
+      if (
+        authorization.expiresAtLedger !== undefined &&
+        (!Number.isSafeInteger(authorization.expiresAtLedger) || authorization.expiresAtLedger <= 0)
+      ) {
+        throw new SettlementInputError('The authorization expiry must be a positive ledger');
+      }
+      await this.repository.saveAuthorization?.({
+        intentId,
+        ...authorization,
+        receivedAt: new Date().toISOString(),
+      });
+    }
     return this.transitionSettlement(intentId, 'authorized');
+  }
+
+  getAuthorization(intentId: string): Promise<AuthorizationRecord | null> {
+    return this.repository.findAuthorization?.(intentId) ?? Promise.resolve(null);
   }
 
   async submit(intentId: string, transactionHash: string) {

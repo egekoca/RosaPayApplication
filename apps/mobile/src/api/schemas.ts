@@ -37,3 +37,14 @@ export const merchantRegistrationSchema = z.object({
 
 export type MerchantProfileResponse = z.infer<typeof merchantProfileSchema>;
 export type MerchantRegistrationResponse = z.infer<typeof merchantRegistrationSchema>;
+
+export const settlementRecordSchema = z.object({
+  intentId: z.string().min(1),
+  status: z.enum(['created', 'awaiting_approval', 'authorized', 'submitted', 'confirmed', 'rejected', 'expired', 'failed']),
+  transactionHash: z.string().optional(),
+  ledger: z.number().int().positive().optional(),
+  failureCode: z.string().optional(),
+  confirmedAt: z.string().optional(),
+});
+
+export type SettlementRecordResponse = z.infer<typeof settlementRecordSchema>;

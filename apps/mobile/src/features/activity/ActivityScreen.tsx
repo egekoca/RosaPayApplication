@@ -1,6 +1,6 @@
 import {History, ReceiptText, SlidersHorizontal} from 'lucide-react-native';
 import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
-import {colors, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
+import {AnimatedList, colors, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import {Screen} from '../../shared/Screen';
 import {useAppStore} from '../../state/appStore';
 
@@ -16,9 +16,11 @@ export function ActivityScreen() {
         <SurfaceCard style={styles.empty}>
           <View style={styles.emptyIcon}><History color={colors.amber} size={24} /></View><Text style={styles.emptyTitle}>No activity yet</Text><Text style={styles.body}>Your confirmed payments and receipts will appear here.</Text>
         </SurfaceCard>
-      ) : receipts.map(receipt => (
+      ) : (
+        <AnimatedList style={styles.list}>{receipts.map(receipt => (
         <SurfaceCard key={receipt.intentId} padded={false} style={styles.item}><View style={[styles.itemInner, width < 380 && styles.itemInnerCompact]}><View style={styles.paymentIcon}><ReceiptText color={colors.success} size={17} /></View><View style={styles.copy}><Text style={styles.itemTitle}>{receipt.merchantName}</Text><Text style={styles.body}>{receipt.settlementMode === 'testnet' ? 'Payment · Stellar Testnet' : 'Demo payment · not on-chain'}</Text><Text style={styles.time}>{new Date(receipt.createdAt).toLocaleDateString()}</Text></View><View style={styles.amountBlock}><Text style={styles.amount}>-{receipt.amount}</Text><Text style={styles.asset}>{receipt.assetCode}</Text><StatusPill tone={receipt.settlementMode === 'testnet' ? 'success' : 'pending'}>{receipt.settlementMode === 'testnet' ? 'CONFIRMED' : 'DEMO'}</StatusPill></View></View></SurfaceCard>
-      ))}
+        ))}</AnimatedList>
+      )}
     </Screen>
   );
 }
@@ -38,6 +40,7 @@ const styles = StyleSheet.create({
   filterActiveText: {...typography.label, color: colors.amber, fontSize: 12, textAlign: 'center'},
   filterText: {...typography.label, color: colors.inkMuted, flex: 1, fontSize: 12, textAlign: 'center'},
   empty: {alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl},
+  list: {gap: spacing.md},
   emptyIcon: {alignItems: 'center', backgroundColor: colors.amberSoft, borderRadius: radius.round, height: 48, justifyContent: 'center', width: 48},
   emptyTitle: {...typography.title, color: colors.ink, fontSize: 16},
   body: {color: colors.inkMuted, fontSize: 12, lineHeight: 17, textAlign: 'center'},

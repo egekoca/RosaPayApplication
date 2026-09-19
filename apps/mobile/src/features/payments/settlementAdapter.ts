@@ -13,6 +13,7 @@ import {useAppStore} from '../../state/appStore';
 import {apiBaseUrl} from '../../shared/apiConfig';
 import {createRandomBytes} from '../../shared/randomBytes';
 import type {MerchantProfile} from '../merchant/merchantProfile';
+import {createLifecycleReporter} from './paymentLifecycle';
 import {settleMockPayment} from './mockSettlement';
 import {
   createDevelopmentCustomerKeypair,
@@ -120,6 +121,7 @@ export async function settlePaymentIntent(
   }
 
   const latestLedger = dependencies.latestLedger ?? (await new StellarRpcClient(config).health()).latestLedger;
+  const reporter = createLifecycleReporter(payload.intent.intentId, customer.publicKey());
   const receipt = await settleOnTestnet({
     payload,
     config,
@@ -128,7 +130,12 @@ export async function settlePaymentIntent(
     relayer,
     relayerSigner,
     latestLedger,
-    ...(dependencies.onProgress ? {onProgress: dependencies.onProgress} : {}),
+    onProgress: progress => {
+      dependencies.onProgress?.(progress);
+      reporter.record(progress);
+    },
   });
+  // The chain already settled; recording is best effort and must not fail it.
+  await reporter.flush();
   return toLocalReceipt(payload, receipt.transactionHash, receipt.ledger);
 }

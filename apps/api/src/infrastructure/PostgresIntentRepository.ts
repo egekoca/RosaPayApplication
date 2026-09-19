@@ -2,6 +2,7 @@ import type {PaymentStatus} from '@rosapay/domain';
 import {parseSignedPaymentIntent} from '@rosapay/protocol';
 import type {PostgresQueryClient} from '@rosapay/postgres';
 import type {
+  AuthorizationRecord,
   IntentRepository,
   SettlementRecord,
   StoredIntent,
@@ -15,6 +16,14 @@ type IntentRow = {
   payload_json: unknown;
   idempotency_key: string;
   status: string;
+};
+
+type AuthorizationRow = {
+  intent_id: string;
+  authorizer: string;
+  authorization_hash: string | null;
+  expires_at_ledger: number | string | null;
+  received_at: Date | string;
 };
 
 type SettlementRow = {
@@ -78,6 +87,47 @@ export class PostgresIntentRepository implements IntentRepository {
     }
     // Driver-neutral tests and local adapters may not expose transactions.
     await persist(this.client);
+  }
+
+  async saveAuthorization(authorization: AuthorizationRecord): Promise<void> {
+    await this.client.query(
+      `INSERT INTO authorizations (intent_id, authorizer, authorization_hash, expires_at_ledger, received_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (intent_id) DO UPDATE SET
+         authorizer = EXCLUDED.authorizer,
+         authorization_hash = EXCLUDED.authorization_hash,
+         expires_at_ledger = EXCLUDED.expires_at_ledger,
+         received_at = EXCLUDED.received_at`,
+      [
+        authorization.intentId,
+        authorization.authorizer,
+        authorization.authorizationHash ?? null,
+        authorization.expiresAtLedger ?? null,
+        authorization.receivedAt,
+      ],
+    );
+  }
+
+  async findAuthorization(intentId: string): Promise<AuthorizationRecord | null> {
+    const result = await this.client.query<AuthorizationRow>(
+      `SELECT intent_id, authorizer, authorization_hash, expires_at_ledger, received_at
+         FROM authorizations
+        WHERE intent_id = $1`,
+      [intentId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    const expiresAtLedger = row.expires_at_ledger === null ? undefined : Number(row.expires_at_ledger);
+    if (expiresAtLedger !== undefined && (!Number.isSafeInteger(expiresAtLedger) || expiresAtLedger <= 0)) {
+      throw new Error('Authorization expiry from PostgreSQL must be a positive safe integer');
+    }
+    return {
+      intentId: row.intent_id,
+      authorizer: row.authorizer,
+      ...(row.authorization_hash === null ? {} : {authorizationHash: row.authorization_hash}),
+      ...(expiresAtLedger === undefined ? {} : {expiresAtLedger}),
+      receivedAt: toIsoString(row.received_at),
+    };
   }
 
   async findSettlement(intentId: string): Promise<SettlementRecord | null> {
