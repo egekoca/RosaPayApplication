@@ -6,14 +6,14 @@ import {AnimatedContent, Button, colors, Pulse, radius, spacing, StatusPill, Sur
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {useAppStore} from '../../state/appStore';
-import {settleMockPayment} from './mockSettlement';
+import {settlePaymentIntent} from './settlementAdapter';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Confirm'>;
 
 export function PaymentConfirmationScreen({route, navigation}: Props) {
   const {payload} = route.params;
   const addReceipt = useAppStore(state => state.addReceipt);
-  const mutation = useMutation({mutationFn: () => settleMockPayment(payload), onSuccess: receipt => {addReceipt(receipt); navigation.replace('Receipt', {receipt});}});
+  const mutation = useMutation({mutationFn: () => settlePaymentIntent(payload), onSuccess: receipt => {addReceipt(receipt); navigation.replace('Receipt', {receipt});}});
   const recipient = payload.intent.recipient;
   return (
     <Screen>

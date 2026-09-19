@@ -46,3 +46,28 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 #endif
   }
 }
+
+@objc(RosaPaySigner)
+final class RosaPaySigner: NSObject, RCTBridgeModule {
+  @objc static func moduleName() -> String! { "RosaPaySigner" }
+  @objc static func requiresMainQueueSetup() -> Bool { false }
+
+  private func unavailable(_ reject: RCTPromiseRejectBlock) {
+    reject("UNAVAILABLE", "Native passkey signer is not installed", nil)
+  }
+
+  @objc(getIdentity:rejecter:)
+  func getIdentity(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) { unavailable(reject) }
+
+  @objc(createIdentity:resolver:rejecter:)
+  func createIdentity(_ displayName: String, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) { unavailable(reject) }
+
+  @objc(authorizePayment:resolver:rejecter:)
+  func authorizePayment(_ request: NSDictionary, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) { unavailable(reject) }
+
+  @objc(signTransaction:resolver:rejecter:)
+  func signTransaction(_ request: NSDictionary, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) { unavailable(reject) }
+
+  @objc(signAuthEntry:resolver:rejecter:)
+  func signAuthEntry(_ request: NSDictionary, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) { unavailable(reject) }
+}

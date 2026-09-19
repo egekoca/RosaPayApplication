@@ -1,7 +1,12 @@
 import Fastify from 'fastify';
 import {ZodError, z} from 'zod';
 import {createStellarConfig, StellarRpcClient} from '@rosapay/stellar';
-import {IntentConflictError, IntentService} from './application/IntentService';
+import {
+  IntentConflictError,
+  IntentService,
+  SettlementInputError,
+  SettlementTransitionError,
+} from './application/IntentService';
 import {InMemoryIntentRepository} from './infrastructure/InMemoryIntentRepository';
 
 const paramsSchema = z.object({intentId: z.string().min(1)});
@@ -32,6 +37,11 @@ export function buildApp() {
     const stored = await intents.get(intentId);
     return stored ?? reply.code(404).send({code: 'INTENT_NOT_FOUND', message: 'Payment intent not found'});
   });
+  app.get('/v1/payment-intents/:intentId/settlement', async (request, reply) => {
+    const {intentId} = paramsSchema.parse(request.params);
+    const settlement = await intents.getSettlement(intentId);
+    return settlement ?? reply.code(404).send({code: 'SETTLEMENT_NOT_FOUND', message: 'Settlement not found'});
+  });
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) {
@@ -39,6 +49,12 @@ export function buildApp() {
     }
     if (error instanceof IntentConflictError) {
       return reply.code(409).send({code: 'INTENT_CONFLICT', message: error.message});
+    }
+    if (error instanceof SettlementInputError) {
+      return reply.code(400).send({code: 'INVALID_SETTLEMENT', message: error.message});
+    }
+    if (error instanceof SettlementTransitionError) {
+      return reply.code(409).send({code: 'INVALID_SETTLEMENT_TRANSITION', message: error.message});
     }
     app.log.error({err: error}, 'request_failed');
     return reply.code(500).send({code: 'INTERNAL_ERROR', message: 'The request could not be completed'});

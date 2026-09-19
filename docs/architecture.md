@@ -34,11 +34,16 @@ The repository uses npm workspaces. Dependencies point inward: screens depend on
 - `apps/worker`: background RPC health boundary; durable indexing is intentionally a later phase.
 - `contracts/settlement`: Soroban settlement policy and on-chain replay protection.
 
+The API settlement record follows the domain state machine: `awaiting_approval`
+can become `authorized`, then `submitted`, and only an RPC-verified receipt may
+become `confirmed`. The current API exposes a read-only settlement status route;
+mutation and persistence will move behind authenticated relayer/worker ports.
+
 ## Signing and passkeys
 
 JavaScript never receives a private key. `SecureSigner` accepts an opaque authorization request and returns an opaque signature or a typed error. A production native adapter must keep the key in Secure Enclave/Keychain (iOS) or Android Keystore, require user presence for payment authorization, and expose only public-key metadata to JS.
 
-The account decision is recorded in [ADR 0001](adr/0001-passkey-account-and-native-signer.md): use a Smart Account Kit/OpenZeppelin context-rule-compatible Soroban account, but keep React Native integration provider-neutral through a native bridge. Browser IndexedDB/WebAuthn storage is not used in React Native. Recovery and signer rotation are intentionally single-device for the Testnet demo and gated for production by [ADR 0002](adr/0002-recovery-and-signer-rotation.md). The bridge also exposes Stellar SDK-compatible `signAuthEntry` and `signTransaction` operations so the generated contract client can separate customer auth-entry signing from relayer fee-payer signing. Native iOS/Android implementation and physical-device passkey validation remain release gates.
+The account decision is recorded in [ADR 0001](adr/0001-passkey-account-and-native-signer.md): use a Smart Account Kit/OpenZeppelin context-rule-compatible Soroban account, but keep React Native integration provider-neutral through a native bridge. Browser IndexedDB/WebAuthn storage is not used in React Native. Recovery and signer rotation are intentionally single-device for the Testnet demo and gated for production by [ADR 0002](adr/0002-recovery-and-signer-rotation.md). The bridge exposes Stellar SDK-compatible `signAuthEntry` and `signTransaction` operations so the generated contract client can separate customer auth-entry signing from relayer fee-payer signing. The iOS and Android `RosaPaySigner` modules are now registered fail-closed; they return `UNAVAILABLE` until platform credential storage and user-presence signing are implemented.
 
 ## RTP/1 to settlement boundary
 
@@ -57,6 +62,8 @@ The TypeScript settlement-envelope builder and generated contract binding now li
 - Native and classic assets derive their SAC contract ID for the target network. Explicit SAC assets retain their validated contract ID.
 - The generated binding comes from the optimized settlement WASM and exposes typed simulation, authorization and submission methods.
 - `packages/stellar/src/settlementPipeline.ts` codifies the write path: the generated client simulates first, the customer signer authorizes every non-invoker auth entry, the relayer signs the transaction envelope, and the receipt is accepted only after RPC reports `SUCCESS` with a ledger.
+- `packages/stellar/src/settlementService.ts` validates the QR/RTP payload and merchant signature before building the contract envelope. It requires a separate contract intent-digest signature, so the mobile QR signature cannot be accidentally reused as on-chain merchant authorization.
+- `apps/mobile/src/features/payments/settlementAdapter.ts` is the only mobile settlement entry point. It keeps the local emulator demo behind `ROSAPAY_SETTLEMENT_MODE=mock` and exposes the real generated-client path only when `ROSAPAY_SETTLEMENT_MODE=testnet` plus native customer and relayer signing dependencies are present.
 
 The envelope retains the RTP/1 hash for audit correlation, but does not reuse the QR signature. The merchant must sign the digest returned by the contract's `intent_digest` method, and the customer must separately authorize the exact `settle_payment` invocation.
 

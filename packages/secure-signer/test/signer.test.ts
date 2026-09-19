@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {NativeSecureSigner, SecureSignerError, type NativeSignerBridge} from '../src';
+import {createStellarSignerCallbacks, NativeSecureSigner, SecureSignerError, type NativeSignerBridge} from '../src';
 
 describe('native secure signer boundary', () => {
   it('returns only opaque authorization material to JavaScript', async () => {
@@ -66,6 +66,27 @@ describe('native secure signer boundary', () => {
     await expect(signer.signAuthEntry({authEntry: 'auth-xdr', networkPassphrase: 'testnet'})).rejects.toMatchObject({
       name: 'SecureSignerError',
       code: 'UNAVAILABLE',
+    });
+  });
+
+  it('adapts native methods to Stellar callback shapes without exposing keys', async () => {
+    const bridge: NativeSignerBridge = {
+      async getIdentity() { return null; },
+      async createIdentity() { return {signerId: 'device', publicKey: 'C...', kind: 'passkey'}; },
+      async authorizePayment() { throw new SecureSignerError('USER_CANCELLED', 'cancelled'); },
+      async signAuthEntry(request) { return {signedAuthEntry: `signed:${request.authEntry}`, signerAddress: request.address}; },
+      async signTransaction(request) { return {signedTxXdr: `signed:${request.xdr}`, signerAddress: request.address}; },
+    };
+    const signer = new NativeSecureSigner(bridge);
+    const callbacks = createStellarSignerCallbacks(signer);
+
+    await expect(callbacks.signAuthEntry('auth-xdr', {networkPassphrase: 'testnet', address: 'C...'})).resolves.toEqual({
+      signedAuthEntry: 'signed:auth-xdr',
+      signerAddress: 'C...',
+    });
+    await expect(callbacks.signTransaction('tx-xdr', {networkPassphrase: 'testnet'})).resolves.toEqual({
+      signedTxXdr: 'signed:tx-xdr',
+      signerAddress: undefined,
     });
   });
 });

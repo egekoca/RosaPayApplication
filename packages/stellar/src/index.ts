@@ -6,3 +6,4 @@ export * from './rpc';
 export * from './settlementClient';
 export * from './settlementEnvelope';
 export * from './settlementPipeline';
+export * from './settlementService';

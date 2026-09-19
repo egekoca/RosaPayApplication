@@ -59,6 +59,8 @@ export interface SecureSigner {
   getIdentity(): Promise<SignerIdentity | null>;
   createIdentity(displayName: string): Promise<SignerIdentity>;
   authorizePayment(request: PaymentAuthorizationRequest): Promise<PaymentAuthorization>;
+  signTransaction?(request: SignTransactionRequest): Promise<SignedTransaction>;
+  signAuthEntry?(request: SignAuthEntryRequest): Promise<SignedAuthEntry>;
 }
 
 export type NativeSignerBridge = {
@@ -88,4 +90,28 @@ export class NativeSecureSigner implements SecureSigner {
     }
     return this.bridge.signAuthEntry(request);
   }
+}
+
+export type StellarSignerOptions = {networkPassphrase?: string; address?: string};
+export type StellarTransactionSigner = (xdr: string, options?: StellarSignerOptions) => Promise<SignedTransaction>;
+export type StellarAuthEntrySigner = (authEntry: string, options?: StellarSignerOptions) => Promise<SignedAuthEntry>;
+
+export function createStellarSignerCallbacks(
+  signer: SecureSigner & {
+    signTransaction(request: SignTransactionRequest): Promise<SignedTransaction>;
+    signAuthEntry(request: SignAuthEntryRequest): Promise<SignedAuthEntry>;
+  },
+): {signTransaction: StellarTransactionSigner; signAuthEntry: StellarAuthEntrySigner} {
+  return {
+    signTransaction: (xdr, options) => signer.signTransaction({
+      xdr,
+      networkPassphrase: options?.networkPassphrase ?? '',
+      address: options?.address,
+    }),
+    signAuthEntry: (authEntry, options) => signer.signAuthEntry({
+      authEntry,
+      networkPassphrase: options?.networkPassphrase ?? '',
+      address: options?.address,
+    }),
+  };
 }

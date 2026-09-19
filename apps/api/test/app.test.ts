@@ -68,6 +68,21 @@ describe('API', () => {
     });
     expect(fetched.statusCode).toBe(200);
     expect(fetched.json()).toEqual(created.json());
+
+    const settlement = await app.inject({
+      method: 'GET',
+      url: `/v1/payment-intents/${payload.intent.intentId}/settlement`,
+    });
+    expect(settlement.statusCode).toBe(200);
+    expect(settlement.json()).toMatchObject({intentId: payload.intent.intentId, status: 'awaiting_approval'});
+  });
+
+  it('does not expose a settlement record for an unknown intent', async () => {
+    const app = buildApp();
+    apps.push(app);
+    const response = await app.inject({method: 'GET', url: '/v1/payment-intents/unknown/settlement'});
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({code: 'SETTLEMENT_NOT_FOUND', message: 'Settlement not found'});
   });
 
   it('rejects intent ID reuse under a different idempotency key', async () => {

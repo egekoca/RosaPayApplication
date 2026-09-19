@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@rosapay/domain": "*",
     "@rosapay/protocol": "*",
     "@rosapay/stellar": "*",
     "fastify": "^5.5.0",
