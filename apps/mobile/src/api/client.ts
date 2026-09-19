@@ -1,7 +1,13 @@
 import {signedPaymentIntentV1Schema} from '@rosapay/protocol';
 import {z} from 'zod';
 
-import {apiErrorResponseSchema, healthResponseSchema, storedIntentSchema} from './schemas';
+import {
+  apiErrorResponseSchema,
+  healthResponseSchema,
+  merchantProfileSchema,
+  merchantRegistrationSchema,
+  storedIntentSchema,
+} from './schemas';
 
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -59,6 +65,29 @@ export class RosaPayApiClient {
       method: 'POST',
       headers: {'content-type': 'application/json', 'idempotency-key': key},
       body: JSON.stringify(intent),
+    });
+  }
+
+  createMerchantProfile(profile: {
+    id: string;
+    displayName: string;
+    recipient: string;
+    signingKey: string;
+    network: 'testnet' | 'pubnet';
+  }) {
+    return this.request('/v1/merchant-profiles', merchantProfileSchema, {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify(profile),
+    });
+  }
+
+  /** Registers the merchant on-chain so the settlement contract accepts its key. */
+  registerMerchantOnChain(merchantProfileId: string) {
+    const id = z.string().min(1).parse(merchantProfileId);
+    // No body: sending a JSON content type without one makes Fastify reject it.
+    return this.request(`/v1/merchant-profiles/${encodeURIComponent(id)}/registration`, merchantRegistrationSchema, {
+      method: 'POST',
     });
   }
 

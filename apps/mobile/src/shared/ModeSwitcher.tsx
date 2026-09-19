@@ -4,10 +4,10 @@ import {colors, radius, spacing, typography} from '@rosapay/ui';
 import {useAppStore, type AppMode} from '../state/appStore';
 
 export function ModeSwitcher() {
-  const {mode, merchantEnabled, setMode} = useAppStore();
+  const {mode, merchantProfile, setMode} = useAppStore();
   const options: AppMode[] = ['customer', 'merchant'];
 
-  if (!merchantEnabled) {
+  if (!merchantProfile) {
     return null;
   }
   return (

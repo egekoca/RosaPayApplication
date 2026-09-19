@@ -12,6 +12,8 @@ import {WelcomeScreen} from '../features/onboarding/WelcomeScreen';
 import {ScanScreen} from '../features/payments/ScanScreen';
 import {PaymentConfirmationScreen} from '../features/payments/PaymentConfirmationScreen';
 import {ReceiptScreen} from '../features/payments/ReceiptScreen';
+import {DeveloperSettingsScreen} from '../features/settings/DeveloperSettingsScreen';
+import {MerchantOnboardingScreen} from '../features/merchant/MerchantOnboardingScreen';
 import {MerchantRequestScreen} from '../features/merchant/MerchantRequestScreen';
 import type {LocalReceipt} from '../state/appStore';
 
@@ -21,6 +23,8 @@ export type RootStackParams = {
   Scan: undefined;
   Confirm: {payload: SignedPaymentIntentV1};
   Receipt: {receipt: LocalReceipt};
+  DeveloperSettings: undefined;
+  MerchantOnboarding: undefined;
   MerchantRequest: undefined;
 };
 
@@ -70,6 +74,8 @@ export function RootNavigator() {
       <Stack.Screen name="Scan" component={ScanScreen} options={{title: 'Scan QR'}} />
       <Stack.Screen name="Confirm" component={PaymentConfirmationScreen} options={{title: 'Review payment'}} />
       <Stack.Screen name="Receipt" component={ReceiptScreen} options={{title: 'Receipt', headerBackVisible: false}} />
+      <Stack.Screen name="DeveloperSettings" component={DeveloperSettingsScreen} options={{title: 'Developer settings'}} />
+      <Stack.Screen name="MerchantOnboarding" component={MerchantOnboardingScreen} options={{title: 'Business profile'}} />
       <Stack.Screen name="MerchantRequest" component={MerchantRequestScreen} options={{title: 'Payment request'}} />
     </Stack.Navigator>
   );

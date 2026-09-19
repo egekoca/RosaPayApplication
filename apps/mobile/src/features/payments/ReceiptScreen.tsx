@@ -1,5 +1,5 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Check, ExternalLink, Share2} from 'lucide-react-native';
+import {Check, ExternalLink, FlaskConical, Share2} from 'lucide-react-native';
 import {Linking, Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import {AnimatedContent, Button, colors, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
@@ -10,13 +10,25 @@ type Props = NativeStackScreenProps<RootStackParams, 'Receipt'>;
 export function ReceiptScreen({route, navigation}: Props) {
   const {receipt} = route.params;
   const {width} = useWindowDimensions();
+  // A demo settlement has no Stellar transaction, so it must never be presented
+  // as an on-chain confirmation or link out to an explorer.
+  const settled = receipt.settlementMode === 'testnet';
   return (
     <Screen contentStyle={styles.screen}>
-      <AnimatedContent distance={8} scaleFrom={0.78} duration={560}><View style={styles.successIcon}><Check color={colors.black} size={32} strokeWidth={3} /></View></AnimatedContent>
-      <AnimatedContent delay={100}><View style={styles.center}><Text style={styles.eyebrow}>PAYMENT COMPLETE</Text><Text style={styles.title}>Payment confirmed</Text><Text style={styles.merchant}>Your payment to {receipt.merchantName} was submitted.</Text></View></AnimatedContent>
-      <AnimatedContent delay={180} scaleFrom={0.98}><SurfaceCard accent="success" style={styles.amountCard}><Text style={styles.amount}>{receipt.amount} <Text style={styles.asset}>{receipt.assetCode}</Text></Text><StatusPill tone="success">CONFIRMED</StatusPill></SurfaceCard></AnimatedContent>
-      <AnimatedContent delay={240}><SurfaceCard padded={false} style={styles.receipt}><Row label="Network" value="Stellar Testnet" /><Row label="Intent ID" value={`${receipt.intentId.slice(0, 12)}...`} mono /><Row label="Transaction" value={`${receipt.transactionHash.slice(0, 12)}...`} mono /><Row label="Status" value="Confirmed" success /></SurfaceCard></AnimatedContent>
-      <AnimatedContent delay={300} distance={8}><View style={[styles.actions, width < 380 && styles.actionsStacked]}><Pressable accessibilityRole="link" style={styles.action} onPress={() => Linking.openURL(`https://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`)}><ExternalLink color={colors.amber} size={18} /><Text style={styles.actionText}>View on Explorer</Text></Pressable><Pressable accessibilityRole="button" style={styles.action}><Share2 color={colors.amber} size={18} /><Text style={styles.actionText}>Share receipt</Text></Pressable></View></AnimatedContent>
+      <AnimatedContent distance={8} scaleFrom={0.78} duration={560}><View style={[styles.successIcon, !settled && styles.demoIcon]}>{settled ? <Check color={colors.black} size={32} strokeWidth={3} /> : <FlaskConical color={colors.black} size={30} strokeWidth={2.5} />}</View></AnimatedContent>
+      <AnimatedContent delay={100}><View style={styles.center}><Text style={[styles.eyebrow, !settled && styles.demoEyebrow]}>{settled ? 'PAYMENT COMPLETE' : 'DEMO PAYMENT'}</Text><Text style={styles.title}>{settled ? 'Payment confirmed' : 'Demo payment recorded'}</Text><Text style={styles.merchant}>{settled ? `Your payment to ${receipt.merchantName} was confirmed on Stellar.` : `Nothing was sent to Stellar. This is a local demo receipt for ${receipt.merchantName}.`}</Text></View></AnimatedContent>
+      <AnimatedContent delay={180} scaleFrom={0.98}><SurfaceCard accent={settled ? 'success' : 'amber'} style={styles.amountCard}><Text style={styles.amount}>{receipt.amount} <Text style={styles.asset}>{receipt.assetCode}</Text></Text><StatusPill tone={settled ? 'success' : 'pending'}>{settled ? 'CONFIRMED' : 'DEMO ONLY'}</StatusPill></SurfaceCard></AnimatedContent>
+      <AnimatedContent delay={240}>
+        <SurfaceCard padded={false} style={styles.receipt}>
+          <Row label="Network" value={receipt.network === 'testnet' ? 'Stellar Testnet' : 'Stellar Public'} />
+          <Row label="Intent ID" value={`${receipt.intentId.slice(0, 12)}...`} mono />
+          <Row label={settled ? 'Transaction' : 'Demo reference'} value={`${receipt.transactionHash.slice(0, 16)}...`} mono />
+          {settled && receipt.ledger !== undefined ? <Row label="Ledger" value={String(receipt.ledger)} mono /> : null}
+          {settled && receipt.confirmedAt ? <Row label="Confirmed at" value={new Date(receipt.confirmedAt).toLocaleString()} /> : null}
+          <Row label="Status" value={settled ? 'Confirmed' : 'Not settled on Stellar'} success={settled} />
+        </SurfaceCard>
+      </AnimatedContent>
+      <AnimatedContent delay={300} distance={8}><View style={[styles.actions, width < 380 && styles.actionsStacked]}>{settled ? <Pressable accessibilityRole="link" style={styles.action} onPress={() => Linking.openURL(`https://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`)}><ExternalLink color={colors.amber} size={18} /><Text style={styles.actionText}>View on Explorer</Text></Pressable> : null}<Pressable accessibilityRole="button" style={styles.action}><Share2 color={colors.amber} size={18} /><Text style={styles.actionText}>Share receipt</Text></Pressable></View></AnimatedContent>
       <AnimatedContent delay={360} distance={8}><Button onPress={() => navigation.popToTop()}>Done</Button></AnimatedContent>
     </Screen>
   );
@@ -29,6 +41,8 @@ function Row({label, value, mono, success}: {label: string; value: string; mono?
 const styles = StyleSheet.create({
   screen: {alignItems: 'stretch', justifyContent: 'center'},
   successIcon: {alignItems: 'center', alignSelf: 'center', backgroundColor: colors.success, borderRadius: radius.round, height: 68, justifyContent: 'center', width: 68},
+  demoIcon: {backgroundColor: colors.amber},
+  demoEyebrow: {color: colors.amber},
   center: {alignItems: 'center', gap: spacing.xs},
   eyebrow: {...typography.label, color: colors.success, fontSize: 10, letterSpacing: 1.1},
   title: {...typography.title, color: colors.ink, fontSize: 25, marginTop: spacing.xs},

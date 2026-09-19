@@ -1,7 +1,7 @@
 import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
 import type {CompositeScreenProps} from '@react-navigation/native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ArrowUpRight, Bell, ChevronRight, Copy, QrCode, ScanLine, ShieldCheck, Store, TrendingUp} from 'lucide-react-native';
+import {ArrowUpRight, ChevronRight, Copy, QrCode, ScanLine, ShieldCheck, SlidersHorizontal, Store, TrendingUp} from 'lucide-react-native';
 import {Image, Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import type {ReactNode} from 'react';
 import {AnimatedContent, Button, colors, CountUp, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
@@ -18,7 +18,8 @@ type Props = CompositeScreenProps<
 
 export function HomeScreen({navigation}: Props) {
   const {width} = useWindowDimensions();
-  const {mode, merchantEnabled, activateMerchant} = useAppStore();
+  const {mode, merchantProfile, settlementMode} = useAppStore();
+  const merchantEnabled = merchantProfile !== null;
   const stellarHealth = useStellarHealth();
   return (
     <Screen>
@@ -27,20 +28,20 @@ export function HomeScreen({navigation}: Props) {
           <Image accessibilityLabel="Rosa Pay" source={require('../../assets/rosapay-logo.png')} style={styles.logo} />
           <View><Text style={styles.eyebrow}>ROSA PAY</Text><Text style={styles.greeting}>Good morning</Text></View>
         </View>
-        <Pressable accessibilityLabel="Notifications" style={styles.iconButton}><Bell color={colors.inkMuted} size={19} /></Pressable>
+        <Pressable accessibilityLabel="Developer settings" onPress={() => navigation.navigate('DeveloperSettings')} style={styles.iconButton} testID="open-developer-settings"><SlidersHorizontal color={colors.inkMuted} size={19} /></Pressable>
       </View>
-      <View style={styles.networkRow}><View style={styles.network}><View style={[styles.dot, stellarHealth.isError && styles.dotError]} /><Text style={styles.networkText}>{stellarHealth.isPending ? 'Checking Testnet' : stellarHealth.isError ? 'Testnet unavailable' : 'Stellar Testnet'}</Text><ChevronRight color={colors.inkMuted} size={15} /></View><StatusPill tone={merchantEnabled ? 'pending' : 'success'}>{merchantEnabled ? 'MERCHANT ACCOUNT' : 'SECURE WALLET'}</StatusPill></View>
+      <View style={styles.networkRow}><View style={styles.network}><View style={[styles.dot, stellarHealth.isError && styles.dotError]} /><Text style={styles.networkText}>{stellarHealth.isPending ? 'Checking Testnet' : stellarHealth.isError ? 'Testnet unavailable' : 'Stellar Testnet'}</Text><ChevronRight color={colors.inkMuted} size={15} /></View><StatusPill tone={settlementMode === 'testnet' ? 'success' : 'pending'}>{settlementMode === 'testnet' ? 'TESTNET' : 'DEMO MODE'}</StatusPill></View>
       <ModeSwitcher />
       {mode === 'customer' ? (
-        <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} activateMerchant={activateMerchant} isNarrow={width < 360} />
+        <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} isNarrow={width < 360} />
       ) : (
-        <MerchantHome navigation={navigation} />
+        <MerchantHome navigation={navigation} recipient={merchantProfile?.recipient} />
       )}
     </Screen>
   );
 }
 
-function CustomerHome({navigation, merchantEnabled, activateMerchant, isNarrow}: {navigation: Props['navigation']; merchantEnabled: boolean; activateMerchant: () => void; isNarrow: boolean}) {
+function CustomerHome({navigation, merchantEnabled, isNarrow}: {navigation: Props['navigation']; merchantEnabled: boolean; isNarrow: boolean}) {
   return (
     <>
       <AnimatedContent><SurfaceCard accent="amber" style={styles.balanceCard}>
@@ -61,26 +62,32 @@ function CustomerHome({navigation, merchantEnabled, activateMerchant, isNarrow}:
         <SurfaceCard accent="rose" style={styles.capabilityCard}>
           <View style={styles.capabilityIcon}><Store color={colors.rose} size={20} /></View>
           <View style={styles.capabilityCopy}><Text style={styles.capabilityTitle}>Accept payments</Text><Text style={styles.capabilityBody}>Add merchant tools to this account.</Text></View>
-          <Button tone="ghost" onPress={activateMerchant}>Activate</Button>
+          <Button tone="ghost" onPress={() => navigation.navigate('MerchantOnboarding')}>Activate</Button>
         </SurfaceCard>
       )}
     </>
   );
 }
 
-function MerchantHome({navigation}: {navigation: Props['navigation']}) {
+function MerchantHome({navigation, recipient}: {navigation: Props['navigation']; recipient?: string}) {
+  const receipts = useAppStore(state => state.receipts);
+  // Only this device's own receipts are known locally; merchant-side lookup
+  // still needs the API, so the card reports what it can actually prove.
+  const received = receipts.filter(receipt => receipt.recipient === recipient);
+  const settled = received.filter(receipt => receipt.settlementMode === 'testnet');
+  const total = received.reduce((sum, receipt) => sum + Number(receipt.amount), 0);
   return (
     <>
       <AnimatedContent><SurfaceCard accent="amber" style={styles.merchantHero}>
-        <View style={styles.cardHeader}><Text style={styles.cardLabel}>TODAY'S RECEIVED</Text><StatusPill tone="success">LIVE</StatusPill></View>
-        <View style={styles.balanceLine}><CountUp value={342} decimals={2} style={styles.merchantTotal} /><Text style={styles.balanceAsset}>XLM</Text></View>
-        <Text style={styles.balanceValue}>8 confirmed payments</Text>
-        <View style={styles.merchantMetricRow}><View><Text style={styles.metricValue}>5</Text><Text style={styles.metricLabel}>Pending</Text></View><View><Text style={styles.metricValue}>0</Text><Text style={styles.metricLabel}>Failed</Text></View><View><Text style={styles.metricValue}>100%</Text><Text style={styles.metricLabel}>Success rate</Text></View></View>
+        <View style={styles.cardHeader}><Text style={styles.cardLabel}>RECEIVED ON THIS DEVICE</Text><StatusPill tone={received.length > 0 ? 'success' : 'neutral'}>{received.length > 0 ? 'LIVE' : 'NO PAYMENTS'}</StatusPill></View>
+        <View style={styles.balanceLine}><CountUp value={total} decimals={2} style={styles.merchantTotal} /><Text style={styles.balanceAsset}>XLM</Text></View>
+        <Text style={styles.balanceValue}>{received.length} payment{received.length === 1 ? '' : 's'} recorded</Text>
+        <View style={styles.merchantMetricRow}><View><Text style={styles.metricValue}>{settled.length}</Text><Text style={styles.metricLabel}>On-chain</Text></View><View><Text style={styles.metricValue}>{received.length - settled.length}</Text><Text style={styles.metricLabel}>Demo</Text></View><View><Text style={styles.metricValue}>{received.length === 0 ? '—' : `${Math.round((settled.length / received.length) * 100)}%`}</Text><Text style={styles.metricLabel}>Settled</Text></View></View>
       </SurfaceCard></AnimatedContent>
       <Button icon={<QrCode color={colors.black} size={20} />} onPress={() => navigation.navigate('MerchantRequest')}>Create payment request</Button>
       <SectionTitle title="Merchant status" />
       <SurfaceCard padded={false} style={styles.statusCard}>
-        <View style={styles.statusRow}><View style={styles.capabilityIcon}><ShieldCheck color={colors.success} size={19} /></View><View style={styles.activityCopy}><Text style={styles.activityTitle}>Receiving address verified</Text><Text style={styles.activityHint}>Ready to accept Stellar payments</Text></View><StatusPill tone="success">READY</StatusPill></View>
+        <View style={styles.statusRow}><View style={styles.capabilityIcon}><ShieldCheck color={colors.success} size={19} /></View><View style={styles.activityCopy}><Text style={styles.activityTitle}>Receiving address verified</Text><Text style={styles.address}>{recipient ? `${recipient.slice(0, 8)}...${recipient.slice(-6)}` : 'No address on file'}</Text></View><StatusPill tone="success">READY</StatusPill></View>
       </SurfaceCard>
     </>
   );

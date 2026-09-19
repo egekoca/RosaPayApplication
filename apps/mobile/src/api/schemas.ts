@@ -18,3 +18,22 @@ export const storedIntentSchema = z.object({
 
 export type ApiErrorResponse = z.infer<typeof apiErrorResponseSchema>;
 export type StoredIntentResponse = z.infer<typeof storedIntentSchema>;
+
+export const merchantProfileSchema = z.object({
+  id: z.string().min(1),
+  userId: z.string().min(1).optional(),
+  displayName: z.string().min(1),
+  recipient: z.string().min(1),
+  signingKey: z.string().min(1),
+  network: z.enum(['testnet', 'pubnet']),
+  status: z.literal('active'),
+});
+
+export const merchantRegistrationSchema = z.object({
+  merchantProfileId: z.string().min(1),
+  merchantId: z.string().regex(/^[a-f0-9]{64}$/),
+  transactionHash: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
+export type MerchantProfileResponse = z.infer<typeof merchantProfileSchema>;
+export type MerchantRegistrationResponse = z.infer<typeof merchantRegistrationSchema>;

@@ -102,6 +102,50 @@ Start the API at `http://localhost:4100`:
 npm run api
 ```
 
+The emulator demo needs no database and no API: mobile settlement runs in `mock`
+mode until `ROSAPAY_SETTLEMENT_MODE=testnet` is set, and the API and worker both
+default to in-memory state. If you do point the app at the local API from the
+Android emulator, forward the port with `adb reverse tcp:4100 tcp:4100`.
+
+Set `DATABASE_URL` to use durable PostgreSQL storage instead, apply the
+migrations, then start the reconciliation worker:
+
+```bash
+export DATABASE_URL=postgres://rosapay:rosapay@127.0.0.1:5432/rosapay
+npm run db:migrate
+npm run worker
+```
+
+`API_REQUIRE_DATABASE=true` refuses to start on memory, and
+`API_AUTH_REQUIRED=true` rejects anonymous mutations. The worker only scans
+contract events once `WORKER_EVENT_START_LEDGER` is set; see `.env.example`.
+
+### Real Testnet settlement from the app
+
+The mobile app settles on Testnet through a relayer that pays the fee. Give the
+API a funded relayer account and the contract admin, then start it on an address
+the emulator can reach:
+
+```bash
+export STELLAR_RELAYER_SECRET=$(stellar keys show rosapay-testnet-relayer --config-dir .stellar)
+export STELLAR_ADMIN_SECRET=$(stellar keys show rosapay-testnet-deployer --config-dir .stellar)
+API_HOST=0.0.0.0 npm run api
+adb reverse tcp:4100 tcp:4100    # Android emulator
+```
+
+In the app, open **Developer settings** from the home header, switch the
+settlement mode to **Testnet**, then create a business profile (it is registered
+on-chain) and pay a request. The relayed settlement path is also verifiable
+without the app:
+
+```bash
+npx tsx scripts/testnet-relayed-settlement.mts
+```
+
+It asserts on-chain that the relayer is the transaction source and fee payer,
+that the customer is debited the amount only, and writes the evidence to
+`config/testnet-relayed-evidence.json`.
+
 ## Verify
 
 ```bash

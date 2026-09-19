@@ -27,11 +27,12 @@ The repository uses npm workspaces. Dependencies point inward: screens depend on
 - `packages/protocol`: RTP/1 schemas, canonical JSON, QR URI encoding, policy validation and deterministic payment-intent hashing.
 - `packages/domain`: payment state machine. It accepts events and returns explicit next states; it has no network or UI side effects.
 - `packages/stellar`: Stellar RPC configuration, generated settlement client, RTP/1 settlement mapping, StrKey validation and merchant signature verification.
+- `packages/postgres`: the driver-neutral PostgreSQL port plus the pooled, transaction-capable adapter shared by the API and the worker.
 - `packages/secure-signer`: the only signing port exposed to TypeScript. The first implementation is an injected bridge; production adapters will be Swift/Kotlin backed.
 - `packages/ui`: platform-neutral design tokens and small presentational components.
 - `apps/mobile`: navigation, screen orchestration, runtime-validated API/query boundaries, capability switching and the mocked QR vertical slice.
 - `apps/api`: Fastify transport, request validation, idempotency and repository ports.
-- `apps/worker`: background RPC health, submitted-settlement confirmation and contract-event reconciliation boundary. Event data is treated as an audit/recovery signal and must match the submitted transaction plus an RPC `SUCCESS` receipt before state changes; cursor persistence is exposed as a port and durable storage/indexing plus notifications remain later phases.
+- `apps/worker`: background RPC health, submitted-settlement confirmation and contract-event reconciliation boundary. Event data is treated as an audit/recovery signal and must match the submitted transaction plus an RPC `SUCCESS` receipt before state changes; cursor persistence is exposed as a port with a PostgreSQL adapter and a scheduled runtime, while durable event indexing, retries and notifications remain later phases.
 - `contracts/settlement`: Soroban settlement policy and on-chain replay protection.
 
 The API settlement record follows the domain state machine: `awaiting_approval`
@@ -44,15 +45,97 @@ responses rather than allowing submission acceptance to masquerade as payment.
 
 The API repository port supports an atomic intent-plus-initial-settlement write.
 The PostgreSQL adapter uses `withTransaction` when the injected driver exposes it;
-the in-memory and test adapters retain a deterministic fallback. The server still
-defaults to memory until a deployment supplies a transaction-capable `pg` pool,
-so local emulators cannot accidentally depend on a missing database.
+the in-memory and test adapters retain a deterministic fallback. `packages/postgres`
+owns that driver port and wraps a `pg.Pool`, so a unit of work runs on one checked-out
+connection with `BEGIN`/`COMMIT`/`ROLLBACK` and a nested call joins the same
+transaction instead of opening a second one.
+
+`createApiRuntime` picks the storage for a process: `DATABASE_URL` selects the
+pooled PostgreSQL repository, its absence keeps the in-memory default for local
+emulators, and `API_REQUIRE_DATABASE=true` refuses to start on memory so a
+production deployment can never silently drop settlements. The server closes the
+pool on `SIGINT`/`SIGTERM` after Fastify drains. Schema changes are applied by
+`npm run db:migrate`, which runs each pending `db/migrations/NNN_name.sql` file in
+its own transaction and records a checksum, so an already-applied migration that
+was edited fails closed instead of diverging between environments.
+
+API mutation auth is explicit: `API_AUTH_REQUIRED=true` makes the resolver
+fail closed, and merchant intent creation requires both the merchant capability
+and ownership of the referenced profile. Local emulator mode leaves this boundary
+optional until passkey session issuance is wired. Every request also receives a
+validated `x-request-id` response header for correlation without logging secrets.
 
 Event pagination follows Stellar RPC's two modes: the first page uses a ledger
 range, and later pages use only the returned cursor. The worker persists the
 cursor after a page is reconciled, so a failed fetch does not advance the scan.
-`PostgresEventCursorStore` provides the durable adapter; the worker runtime still
-needs deployment-specific pool wiring before it is enabled in production.
+`PostgresEventCursorStore` provides the durable adapter.
+
+The worker runtime mirrors the API's storage rule. It reports RPC health, and
+without `DATABASE_URL` it logs `worker_idle` and exits rather than looping over
+state it cannot read. With a database it runs one non-overlapping cycle on
+`WORKER_INTERVAL_MS`: submitted settlements are checked against their RPC receipt
+first, then a single contract-event page is reconciled once
+`WORKER_EVENT_START_LEDGER` is configured. `PostgresSettlementState` performs the
+writes the API owns; it re-reads the row, replays the domain transition guard, and
+issues a status-conditional `UPDATE`, so a concurrent API write is detected instead
+of being overwritten.
+
+## Merchant profiles and request creation
+
+A merchant profile carries the display name, the verified receiving address and
+the signing key that publishes RTP/1 requests; `POST /v1/merchant-profiles`
+rejects a malformed receiving address or a non-G signing key before any customer
+can be shown a request, and reads are ownership-guarded. `createPaymentIntent` in
+`@rosapay/protocol` builds the intent from that profile: it canonicalizes the
+amount for the asset's precision, derives the expiry from the live ledger, and
+takes the identifier, nonce and clock as inputs so the randomness source is an
+explicit decision rather than a hidden default.
+
+The mobile merchant flow signs each request with `signMerchantIntent`, and the
+customer path re-verifies that signature at scan time and again on the
+confirmation screen, where approval is blocked if verification fails or the
+request has expired against the live ledger. Until the native signer exists, the
+merchant key is a demo Ed25519 key generated on device: React Native ships no
+`crypto.getRandomValues`, so the insecure fallback is logged and refused outside
+mock mode, and demo receipts are labelled `DEMO ONLY` with no explorer link so a
+local demo can never read as an on-chain settlement.
+
+## Relayed settlement and the fee payer boundary
+
+Authorization and submission are deliberately different actors. The settlement
+service builds the generated-client transaction with the **relayer** as source
+and fee payer, and the customer signs only the Soroban authorization entry for
+that exact invocation; `settleSignedPayment` refuses to run when no relayer is
+supplied or when the relayer address equals the customer, because that would
+collapse "may submit" and "may spend" back into one account.
+
+The API hosts the relayer: `GET /v1/relayer` publishes the address, network and
+contract, and `POST /v1/relayer/transactions` adds the fee-payer signature. It
+never blind-signs — it parses the envelope and refuses anything that is not a
+single `settle_payment` invocation of the configured contract sourced by the
+relayer itself. `POST /v1/merchant-profiles/:id/registration` registers a
+merchant key with the contract using the admin account, since the contract
+rejects requests from unregistered merchants. Both routes report 503 when no
+relayer or admin secret is configured, so the emulator demo is unaffected.
+
+The customer's contract-digest signature covers the customer address, so the
+merchant can only produce it once the payer is known. On a single device the
+merchant profile is present and signs it locally; a request signed by another
+device fails closed with `MERCHANT_KEY_UNAVAILABLE` until the second transport
+leg (the NFC round trip in the plan) exists.
+
+`scripts/testnet-relayed-settlement.mts` proves the model on-chain: it asserts
+that the transaction source and fee account are the relayer, that the customer is
+debited the amount and nothing more, and that the recipient receives it.
+
+### React Native and the Buffer polyfill
+
+`apps/mobile/src/shared/polyfills.ts` must be the first import in the app entry.
+The `buffer` polyfill only re-attaches the Buffer prototype in `slice()`, so its
+`subarray()` returns a plain `Uint8Array`, while Node returns a Buffer. js-xdr
+reads every XDR string through `subarray().toString('utf8')`; without the
+alignment, contract method names decode as comma-separated byte codes and the
+generated client is constructed with no callable methods.
 
 ## Signing and passkeys
 

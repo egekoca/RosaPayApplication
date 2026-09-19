@@ -5,4 +5,5 @@ export * from './PressScale';
 export * from './Pulse';
 export * from './StatusPill';
 export * from './SurfaceCard';
+export * from './TextField';
 export * from './theme';

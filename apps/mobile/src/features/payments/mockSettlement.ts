@@ -42,7 +42,9 @@ export async function settleMockPayment(payload: SignedPaymentIntentV1): Promise
     network: payload.intent.network,
     payloadHash: intentHash,
     status: payment.status,
-    transactionHash: intentHash.repeat(2).slice(0, 64),
+    // Deliberately not hash-shaped: nothing was submitted to Stellar.
+    transactionHash: `demo:${intentHash.slice(0, 16)}`,
     createdAt: new Date().toISOString(),
+    settlementMode: 'mock',
   };
 }
