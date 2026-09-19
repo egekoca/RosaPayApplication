@@ -8,6 +8,7 @@ import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 import {ActivityScreen} from '../features/activity/ActivityScreen';
 import {HomeScreen} from '../features/home/HomeScreen';
 import {WalletScreen} from '../features/wallet/WalletScreen';
+import {AnchorTransferScreen} from '../features/wallet/AnchorTransferScreen';
 import {WelcomeScreen} from '../features/onboarding/WelcomeScreen';
 import {CreateAccountScreen} from '../features/onboarding/CreateAccountScreen';
 import {ScanScreen} from '../features/payments/ScanScreen';
@@ -28,6 +29,7 @@ export type RootStackParams = {
   DeveloperSettings: undefined;
   MerchantOnboarding: undefined;
   MerchantRequest: undefined;
+  AnchorTransfer: {kind: 'deposit' | 'withdraw'};
 };
 
 export type MainTabsParams = {Home: undefined; Activity: undefined; Wallet: undefined};
@@ -87,6 +89,7 @@ export function RootNavigator() {
       <Stack.Screen name="DeveloperSettings" component={DeveloperSettingsScreen} options={{title: 'Developer settings'}} />
       <Stack.Screen name="MerchantOnboarding" component={MerchantOnboardingScreen} options={{title: 'Business profile'}} />
       <Stack.Screen name="MerchantRequest" component={MerchantRequestScreen} options={{title: 'Payment request'}} />
+      <Stack.Screen name="AnchorTransfer" component={AnchorTransferScreen} options={{title: 'Anchor transfer'}} />
     </Stack.Navigator>
   );
 }

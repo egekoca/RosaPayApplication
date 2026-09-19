@@ -1,22 +1,13 @@
-import {Keypair, StrKey} from '@stellar/stellar-sdk';
+import {Keypair} from '@stellar/stellar-sdk';
 import {Buffer} from 'buffer';
-import {createStellarConfig} from '@rosapay/stellar';
 import {createIntentIdentifiers, createPaymentIntent} from '@rosapay/protocol';
 import {signMerchantIntent} from '@rosapay/stellar/merchant-signature';
 import {createMerchantProfile} from '../src/features/merchant/merchantProfile';
 import {createRandomBytes} from '../src/shared/randomBytes';
 import {settlePaymentIntent} from '../src/features/payments/settlementAdapter';
-import {TestnetSettlementError} from '../src/features/payments/testnetSettlement';
 import {useAppStore} from '../src/state/appStore';
 
 const randomBytes = createRandomBytes({allowInsecureFallback: true});
-const relayer = {
-  address: StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 9)),
-  network: 'testnet',
-  networkPassphrase: createStellarConfig('testnet').networkPassphrase,
-  settlementContractId: StrKey.encodeContract(Buffer.alloc(32, 5)),
-};
-
 function profile() {
   return createMerchantProfile(
     {displayName: 'Rose Coffee', recipient: 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57'},

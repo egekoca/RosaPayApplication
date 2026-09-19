@@ -30,7 +30,8 @@
     "testnet:accounts": "tsx --env-file-if-exists=.env scripts/testnet-accounts.mts",
     "testnet:demo-pair": "tsx --env-file-if-exists=.env scripts/testnet-demo-pair.mts",
     "testnet:two-device": "tsx --env-file-if-exists=.env scripts/testnet-two-device.mts",
-    "testnet:offline": "tsx --env-file-if-exists=.env scripts/testnet-offline-customer.mts"
+    "testnet:offline": "tsx --env-file-if-exists=.env scripts/testnet-offline-customer.mts",
+    "testnet:anchor": "tsx --env-file-if-exists=.env scripts/testnet-anchor.mts"
   },
   "devDependencies": {
     "@noble/curves": "^2.3.0",

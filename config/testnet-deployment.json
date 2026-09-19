@@ -3,6 +3,18 @@
   "networkPassphrase": "Test SDF Network ; September 2015",
   "rpcUrl": "https://soroban-testnet.stellar.org",
   "horizonUrl": "https://horizon-testnet.stellar.org",
+  "anchor": {
+    "homeDomain": "testanchor.stellar.org",
+    "interactiveOrigins": [
+      "https://anchor-ref-ui-testanchor.stellar.org"
+    ],
+    "assets": ["native"],
+    "lastProof": {
+      "transactionId": "00b77ef6-0a20-4d45-8f8b-faa8866f519e",
+      "status": "incomplete",
+      "checkedAt": "2026-08-25"
+    }
+  },
   "settlementContractId": "CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO",
   "nativeAssetContractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
   "adminAddress": "GA4AB7OZST6NKRYNAJBIYBPV5ZAOIE4QYNEBTMVS6QBAMNVSQ3XGC22H",

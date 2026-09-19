@@ -6,7 +6,7 @@
 **Network:** Stellar Testnet first, Mainnet-ready architecture  
 **Primary audience:** Customers and small merchants accepting fast Stellar payments  
 **Document language:** English  
-**Last updated:** 2026-08-21
+**Last updated:** 2026-08-25
 
 Implementation status and remaining work are tracked in [`TODO.md`](TODO.md). Public Testnet deployment and smoke-test evidence are recorded under [`../config`](../config).
 
@@ -56,7 +56,10 @@ Make a Stellar payment feel like tapping a card while preserving the strongest p
 ## 5. Non-Goals for the First Production-Quality Demo
 
 - Custody of customer funds or pooled merchant funds.
-- Fiat on-ramp, KYC, or regulated money transmission.
+- Operating a production fiat on-ramp, collecting KYC, or regulated money
+  transmission. A Testnet-only SEP-24/SEP-45 reference-client integration may
+  prove interoperability, but Rosa Pay never becomes the anchor and must not
+  present sandbox activity as real money movement.
 - Issuing a new Rosa Pay token.
 - Cross-chain bridges, NFTs, loyalty points, AI features, or multi-chain support.
 - Full restaurant POS hardware integration.

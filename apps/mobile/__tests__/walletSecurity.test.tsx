@@ -30,10 +30,10 @@ jest.mock('../src/shared/useWalletBalance', () => ({useWalletBalance: () => ({da
 
 const initial = useAppStore.getState();
 
-async function render() {
+async function render(navigation?: {navigate: jest.Mock}) {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   await ReactTestRenderer.act(() => {
-    renderer = ReactTestRenderer.create(<WalletScreen />);
+    renderer = ReactTestRenderer.create(<WalletScreen navigation={navigation} />);
   });
   return renderer;
 }
@@ -57,6 +57,18 @@ describe('the wallet screen', () => {
     const renderer = await render();
     expect(renderer.root.findAllByProps({satisfied: false})).toHaveLength(0);
     expect(JSON.stringify(renderer.toJSON())).toContain('Hardware signer');
+  });
+
+  it('opens contract-account deposit and withdrawal flows from a provisioned wallet', async () => {
+    useAppStore.setState({smartWallet: {contractId: 'CBI3H4RO', devicePublicKey: 'k'}});
+    const navigation = {navigate: jest.fn()};
+    const renderer = await render(navigation);
+
+    await ReactTestRenderer.act(() => renderer.root.findByProps({testID: 'add-money'}).props.onPress());
+    await ReactTestRenderer.act(() => renderer.root.findByProps({testID: 'withdraw-money'}).props.onPress());
+
+    expect(navigation.navigate).toHaveBeenNthCalledWith(1, 'AnchorTransfer', {kind: 'deposit'});
+    expect(navigation.navigate).toHaveBeenNthCalledWith(2, 'AnchorTransfer', {kind: 'withdraw'});
   });
 
   it('lets a signed-in person lock the app from where their account is shown', async () => {

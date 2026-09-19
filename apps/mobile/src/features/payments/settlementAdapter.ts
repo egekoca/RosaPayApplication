@@ -23,7 +23,6 @@ import {
   fetchRelayerIdentity,
   fundTestnetAccount,
   settleOnTestnet,
-  TestnetSettlementError,
   type RelayerIdentity,
 } from './testnetSettlement';
 

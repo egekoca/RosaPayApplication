@@ -1,4 +1,4 @@
-import {Check, Copy, ExternalLink, KeyRound, Lock, LogOut, Minus, Radio, ShieldCheck, UserRound} from 'lucide-react-native';
+import {ArrowDownToLine, ArrowUpFromLine, Check, Copy, ExternalLink, KeyRound, Lock, LogOut, Minus, Radio, ShieldCheck, UserRound} from 'lucide-react-native';
 import {useState} from 'react';
 import {Linking, Pressable, StyleSheet, Text, View} from 'react-native';
 import type {ReactNode} from 'react';
@@ -10,7 +10,11 @@ import {useWalletBalance} from '../../shared/useWalletBalance';
 import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
 
-export function WalletScreen() {
+type WalletNavigation = {
+  navigate(screen: 'AnchorTransfer', params: {kind: 'deposit' | 'withdraw'}): void;
+};
+
+export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {}) {
   const stellarHealth = useStellarHealth();
   const smartWallet = useAppStore(state => state.smartWallet);
   const account = useAppStore(state => state.account);
@@ -90,6 +94,34 @@ export function WalletScreen() {
           </Pressable>
         </View>
       </SurfaceCard>
+      <Text style={styles.sectionTitle}>Testnet anchor</Text>
+      <SurfaceCard padded={false} style={styles.transferCard}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={!address || !navigation}
+          onPress={() => navigation?.navigate('AnchorTransfer', {kind: 'deposit'})}
+          style={[styles.transferRow, (!address || !navigation) && styles.disabledAction]}
+          testID="add-money">
+          <View style={styles.transferIcon}><ArrowDownToLine color={colors.amber} size={19} /></View>
+          <View style={styles.networkCopy}>
+            <Text style={styles.rowTitle}>Add money</Text>
+            <Text style={styles.body}>Hosted SEP-24 deposit · Testnet XLM</Text>
+          </View>
+        </Pressable>
+        <View style={styles.separator} />
+        <Pressable
+          accessibilityRole="button"
+          disabled={!address || !navigation}
+          onPress={() => navigation?.navigate('AnchorTransfer', {kind: 'withdraw'})}
+          style={[styles.transferRow, (!address || !navigation) && styles.disabledAction]}
+          testID="withdraw-money">
+          <View style={styles.transferIcon}><ArrowUpFromLine color={colors.rose} size={19} /></View>
+          <View style={styles.networkCopy}>
+            <Text style={styles.rowTitle}>Withdraw</Text>
+            <Text style={styles.body}>Hosted SEP-24 withdrawal · Testnet XLM</Text>
+          </View>
+        </Pressable>
+      </SurfaceCard>
       <Text style={styles.sectionTitle}>Security</Text>
       <SurfaceCard padded={false} style={styles.securityCard}>
         <SecurityRow satisfied icon={<ShieldCheck color={colors.success} size={19} />} title="Device protected" body="Signing material never enters JavaScript." />
@@ -167,6 +199,10 @@ const styles = StyleSheet.create({
   copyButton: {alignItems: 'center', flexDirection: 'row', gap: spacing.xs},
   copyText: {...typography.label, color: colors.amber, fontSize: 12},
   sectionTitle: {...typography.label, color: colors.ink, fontSize: 14, marginTop: spacing.sm},
+  transferCard: {overflow: 'hidden'},
+  transferRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, padding: spacing.lg},
+  transferIcon: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radius.round, height: 38, justifyContent: 'center', width: 38},
+  disabledAction: {opacity: 0.4},
   securityCard: {overflow: 'hidden'},
   securityRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, padding: spacing.lg},
   securityIcon: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radius.round, height: 36, justifyContent: 'center', width: 36},

@@ -24,6 +24,22 @@ export type SmartWallet = {
   devicePublicKey: string;
 };
 
+/**
+ * Enough encrypted state to resume SEP-24 polling after the hosted browser or
+ * app closes. The bearer token stays inside the same Keychain-backed storage
+ * as the rest of the session and is erased on sign-out/final completion.
+ */
+export type PendingAnchorTransfer = {
+  homeDomain: string;
+  transactionId: string;
+  token: string;
+  account: string;
+  authProtocol: 'SEP-10' | 'SEP-45';
+  kind: 'deposit' | 'withdraw';
+  assetCode: string;
+  startedAt: string;
+};
+
 export type AppMode = 'customer' | 'merchant';
 export type LocalReceipt = {
   intentId: string;
@@ -68,6 +84,7 @@ type AppState = {
   merchantRegisteredOnChain: boolean;
   customerWallet: DevelopmentCustomerWallet | null;
   smartWallet: SmartWallet | null;
+  pendingAnchorTransfer: PendingAnchorTransfer | null;
   pendingRequest: SignedPaymentIntentV1 | null;
   receipts: LocalReceipt[];
   createAccount(account: Omit<Account, 'createdAt'>): void;
@@ -81,6 +98,7 @@ type AppState = {
   setMerchantRegisteredOnChain(registered: boolean): void;
   setCustomerWallet(wallet: DevelopmentCustomerWallet | null): void;
   setSmartWallet(wallet: SmartWallet | null): void;
+  setPendingAnchorTransfer(transfer: PendingAnchorTransfer | null): void;
   setPendingRequest(request: SignedPaymentIntentV1 | null): void;
   addReceipt(receipt: LocalReceipt): void;
 };
@@ -97,13 +115,32 @@ export function dropUnusableSecrets(state: Partial<AppState>): Partial<AppState>
       : null;
   const customerWallet =
     state.customerWallet && isSigningKey(state.customerWallet.seed, 32) ? state.customerWallet : null;
+  const pendingAnchorTransfer = isPendingAnchorTransfer(state.pendingAnchorTransfer)
+    ? state.pendingAnchorTransfer
+    : null;
   return {
     ...state,
     merchantProfile,
     customerWallet,
+    pendingAnchorTransfer,
     // Without a profile there is no merchant mode to return to.
     ...(merchantProfile ? {} : {merchantRegisteredOnChain: false, pendingRequest: null, mode: 'customer' as const}),
   };
+}
+
+function isPendingAnchorTransfer(value: unknown): value is PendingAnchorTransfer {
+  if (!value || typeof value !== 'object') return false;
+  const transfer = value as Partial<PendingAnchorTransfer>;
+  return (
+    transfer.homeDomain === 'testanchor.stellar.org' &&
+    typeof transfer.transactionId === 'string' && transfer.transactionId.length > 0 &&
+    typeof transfer.token === 'string' && transfer.token.length > 0 &&
+    typeof transfer.account === 'string' && /^C[A-Z2-7]{55}$/.test(transfer.account) &&
+    transfer.authProtocol === 'SEP-45' &&
+    (transfer.kind === 'deposit' || transfer.kind === 'withdraw') &&
+    transfer.assetCode === 'native' &&
+    typeof transfer.startedAt === 'string' && Number.isFinite(Date.parse(transfer.startedAt))
+  );
 }
 
 function isSigningKey(value: unknown, length: number): boolean {
@@ -146,6 +183,7 @@ export const useAppStore = create<AppState>()(
       merchantRegisteredOnChain: false,
       customerWallet: null,
       smartWallet: null,
+      pendingAnchorTransfer: null,
       pendingRequest: null,
       receipts: [],
       createAccount: account =>
@@ -161,6 +199,7 @@ export const useAppStore = create<AppState>()(
           merchantRegisteredOnChain: false,
           customerWallet: null,
           smartWallet: null,
+          pendingAnchorTransfer: null,
           pendingRequest: null,
           receipts: [],
         }),
@@ -172,14 +211,15 @@ export const useAppStore = create<AppState>()(
       setMerchantRegisteredOnChain: merchantRegisteredOnChain => set({merchantRegisteredOnChain}),
       setCustomerWallet: customerWallet => set({customerWallet}),
       setSmartWallet: smartWallet => set({smartWallet}),
+      setPendingAnchorTransfer: pendingAnchorTransfer => set({pendingAnchorTransfer}),
       setPendingRequest: request => set({pendingRequest: request}),
       addReceipt: receipt =>
         set(state => ({receipts: [receipt, ...state.receipts].slice(0, MAX_PERSISTED_RECEIPTS)})),
     }),
     {
       name: 'rosapay-session',
-      // Version 2 drops sessions whose signer bytes did not survive storage.
-      version: 2,
+      // Version 3 also rejects malformed/stale anchor session records.
+      version: 3,
       migrate: state => dropUnusableSecrets(state as Partial<AppState>),
       merge: (persisted, current) => ({...current, ...dropUnusableSecrets(persisted as Partial<AppState>)}),
       onRehydrateStorage: () => state => {
@@ -203,6 +243,7 @@ export const useAppStore = create<AppState>()(
         merchantRegisteredOnChain: state.merchantRegisteredOnChain,
         customerWallet: state.customerWallet,
         smartWallet: state.smartWallet,
+        pendingAnchorTransfer: state.pendingAnchorTransfer,
         pendingRequest: state.pendingRequest,
         receipts: state.receipts,
       }),
