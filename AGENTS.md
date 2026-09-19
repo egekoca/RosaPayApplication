@@ -1,4 +1,4 @@
-# Rosa Pay Agent Instructions
+# Lumenade Pay Agent Instructions
 
 ## Sources of truth
 

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Rosa Pay</string>
-    <string name="nfc_service_description">Rosa Pay payment requests</string>
+    <string name="app_name">Lumenade Pay</string>
+    <string name="nfc_service_description">Lumenade Pay payment requests</string>
     <string name="nfc_aid_group_description">Share a payment request by tapping</string>
 </resources>

@@ -54,7 +54,7 @@ export type ContractWebAuthOptions = {
 type ChallengeArgs = Record<string, string>;
 
 /**
- * SEP-45 authentication for Rosa Pay's contract account.
+ * SEP-45 authentication for Lumenade Pay's contract account.
  *
  * Every entry is decoded and checked before the device signs. The signed set is
  * then simulated and its write footprint is constrained to the nonce entries

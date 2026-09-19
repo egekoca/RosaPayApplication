@@ -1,8 +1,8 @@
-# Deploying Rosa Pay
+# Deploying Lumenade Pay
 
 ## What has to run
 
-Rosa Pay is two Node processes and a database, not one deployable unit.
+Lumenade Pay is two Node processes and a database, not one deployable unit.
 
 | Process | Shape | Why |
 | --- | --- | --- |
@@ -80,7 +80,7 @@ cp .env.example .env
 ```
 
 Without `STELLAR_RELAYER_SECRET` the API answers `RELAYER_DISABLED` and the app
-reports "The Rosa Pay relayer is unreachable, so no fee payer could sign.
+reports "The Lumenade Pay relayer is unreachable, so no fee payer could sign.
 Nothing was sent." That is the fail-closed path working: no fee payer, no
 transaction, nothing half-sent. It is also the most common reason a Testnet
 payment stops at Prepare on a fresh checkout.

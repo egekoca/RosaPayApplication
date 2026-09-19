@@ -1,8 +1,8 @@
 {
-  "name": "rosapay",
+  "name": "lumenadepay",
   "version": "0.1.0",
   "private": true,
-  "description": "Rosa Pay monorepo",
+  "description": "Lumenade Pay monorepo",
   "packageManager": "npm@11.6.2",
   "engines": {
     "node": ">=22.11.0"

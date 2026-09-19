@@ -1,6 +1,6 @@
 # RTP/1 Payment Intent
 
-RTP/1 is the transport contract between a Rosa Pay merchant and customer. It is optimized for QR: the payload is self-contained, human-readable after decoding, and independently verifiable before a wallet asks the customer to authorize anything.
+RTP/1 is the transport contract between a Lumenade Pay merchant and customer. It is optimized for QR: the payload is self-contained, human-readable after decoding, and independently verifiable before a wallet asks the customer to authorize anything.
 
 ## Shape
 
@@ -31,7 +31,7 @@ The merchant signs the SHA-256 digest of the canonical intent object (the object
 - no insignificant whitespace is emitted;
 - numbers are not used for monetary values.
 
-The digest is prefixed with the UTF-8 domain `RosaPay/RTP/1/PaymentIntent\0` by the protocol hash helper. The signature is verified against the decoded StrKey merchant signing key. Any mutation to amount, recipient, nonce, expiry, network or asset changes the digest.
+The digest is prefixed with the legacy UTF-8 domain `RosaPay/RTP/1/PaymentIntent\0` by the protocol hash helper. This published compatibility identifier remains unchanged after the Lumenade Pay rebrand so existing signatures and test vectors stay valid. The signature is verified against the decoded StrKey merchant signing key. Any mutation to amount, recipient, nonce, expiry, network or asset changes the digest.
 
 ## Published test vector
 

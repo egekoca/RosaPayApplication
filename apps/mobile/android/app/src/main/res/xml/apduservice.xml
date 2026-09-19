@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   A proprietary AID under the F0 prefix, which the ISO/IEC 7816-5 registry
-  reserves for applications that are not internationally registered. Rosa Pay is
+  reserves for applications that are not internationally registered. Lumenade Pay is
   not a payment card and must not claim a card scheme's AID.
 -->
 <host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"

@@ -29,8 +29,8 @@ export function HomeScreen({navigation}: Props) {
     <Screen>
       <View style={styles.header}>
         <View style={styles.identity}>
-          <Image accessibilityLabel="Rosa Pay" source={require('../../assets/rosapay-logo.png')} style={styles.logo} />
-          <View><Text style={styles.eyebrow}>ROSA PAY</Text><Text style={styles.greeting} numberOfLines={1}>{greetingFor(account?.name)}</Text></View>
+          <Image accessibilityLabel="Lumenade Pay" source={require('../../assets/lumenadepay-logo.png')} style={styles.logo} />
+          <View><Text style={styles.eyebrow}>LUMENADE PAY</Text><Text style={styles.greeting} numberOfLines={1}>{greetingFor(account?.name)}</Text></View>
         </View>
         <Pressable accessibilityLabel="Developer settings" onPress={() => navigation.navigate('DeveloperSettings')} style={styles.iconButton} testID="open-developer-settings"><SlidersHorizontal color={colors.inkMuted} size={19} /></Pressable>
       </View>
@@ -69,7 +69,7 @@ function CustomerHome({navigation, merchantEnabled, isNarrow}: {navigation: Prop
           <Pressable
             accessibilityLabel="Share wallet address"
             disabled={!address}
-            onPress={() => address && void shareValue('My Rosa Pay wallet', address)}
+            onPress={() => address && void shareValue('My Lumenade Pay wallet', address)}
             testID="share-wallet-address">
             <Copy color={address ? colors.amber : colors.inkMuted} size={16} />
           </Pressable>

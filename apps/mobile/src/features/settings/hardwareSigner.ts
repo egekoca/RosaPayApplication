@@ -30,7 +30,7 @@ export async function inspectHardwareSigner(): Promise<HardwareSignerReport> {
 export async function createHardwareSigner(): Promise<HardwareSignerReport> {
   let publicKey: string;
   try {
-    const identity = await signer.createIdentity('Rosa Pay');
+    const identity = await signer.createIdentity('Lumenade Pay');
     logger.info('hardware_signer_created', {kind: identity.kind});
     publicKey = identity.publicKey;
   } catch (error) {

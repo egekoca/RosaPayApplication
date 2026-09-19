@@ -1,4 +1,4 @@
-# Rosa Pay Delivery Backlog
+# Lumenade Pay Delivery Backlog
 
 This backlog is derived from `docs/PRD.md` and reflects the repository state on 2026-08-25.
 
@@ -77,7 +77,7 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [x] Add Testnet XLM **Add money** and **Withdraw** wallet entry points using the smart wallet's C-account, an in-app system browser, encrypted pending-session recovery and resumable SEP-24 polling.
 - [~] Prove testanchor live: `npm run testnet:anchor` opened a genuine SEP-10 session, started native-XLM SEP-24 deposit `00b77ef6-0a20-4d45-8f8b-faa8866f519e`, and read `incomplete`; a physical-device SEP-45/browser completion remains.
 - [ ] Authorize and submit the smart-wallet payment requested by a SEP-24 withdrawal at `pending_user_transfer_start`; initiation/status are implemented but the asset transfer must not be implied.
-- [!] Connect MoneyGram Ramps sandbox after provider allowlisting and a published Rosa Pay domain are available.
+- [!] Connect MoneyGram Ramps sandbox after provider allowlisting and a published Lumenade Pay domain are available.
 - [!] Verify a Testnet USDC issuer/SAC and decimal policy before enabling USDC (PRD 22.2).
 - [ ] Add USDC trustline onboarding only after the asset decision is recorded.
 - [x] Implement Android NFC HCE as an optional transport over the same RTP/1 flow; a merchant publishes the request it is already showing as a QR, a customer reads it in reader mode, and a paid or expired request stops being offered.
@@ -145,7 +145,7 @@ Still open on this path:
 
 ## Getting in
 
-Rosa Pay is non-custodial, so there is no server account for an email and
+Lumenade Pay is non-custodial, so there is no server account for an email and
 password to unlock. The device key is the account. Onboarding says that plainly
 instead of offering wallet vocabulary a customer has no reason to know:
 
@@ -173,7 +173,7 @@ Both stores need the app to declare what it takes and to work without the
 laptop. What is in place:
 
 - Android declares `CAMERA`, `USE_BIOMETRIC` and `NFC`, and removes the storage
-  permissions the camera library adds for a photo feature Rosa Pay does not use —
+  permissions the camera library adds for a photo feature Lumenade Pay does not use —
   a payment app asking to read the gallery is a review risk it does not need.
 - Camera and NFC are declared `required="false"`, so a phone without either can
   still install and still receive payments.

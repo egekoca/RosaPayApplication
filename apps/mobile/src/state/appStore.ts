@@ -60,7 +60,7 @@ export type LocalReceipt = {
 
 /**
  * Who this person is, for their own benefit rather than for authentication.
- * Rosa Pay is non-custodial: the device key is the account, so there is nothing
+ * Lumenade Pay is non-custodial: the device key is the account, so there is nothing
  * a server could check an email against. The name is what a merchant sees on a
  * receipt, and the email is where a receipt can be sent.
  */
@@ -75,7 +75,7 @@ type AppState = {
   hydrated: boolean;
   mode: AppMode;
   settlementMode: SettlementMode;
-  /** Where the Rosa Pay API lives; a phone needs the development machine's address. */
+  /** Where the Lumenade Pay API lives; a phone needs the development machine's address. */
   apiBaseUrl: string;
   account: Account | null;
   /** True while a returning user has not yet proved they are the device owner. */

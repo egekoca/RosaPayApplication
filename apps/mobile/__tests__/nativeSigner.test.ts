@@ -1,6 +1,6 @@
 import {createNativeRosaPaySigner} from '../src/native/nativeSigner';
 
-describe('native Rosa Pay signer adapter', () => {
+describe('native Lumenade Pay signer adapter', () => {
   it('maps native signer methods to the secure signer port', async () => {
     const signer = createNativeRosaPaySigner({
       async getIdentity() { return {signerId: 'device-1', publicKey: 'CACCOUNT', kind: 'passkey'}; },

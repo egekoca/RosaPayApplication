@@ -1,8 +1,8 @@
 # Fiat on and off ramp
 
-Rosa Pay is not an anchor. It is a non-custodial client that talks to licensed
+Lumenade Pay is not an anchor. It is a non-custodial client that talks to licensed
 anchors over the SEP standards, so a customer can bring real money in and take it
-back out without Rosa Pay ever touching their identity documents or their bank
+back out without Lumenade Pay ever touching their identity documents or their bank
 details.
 
 ## What is implemented
@@ -17,19 +17,19 @@ details.
   verified before the customer's key goes near it: signed by the key the anchor
   published, sequence zero so it can never reach the ledger, naming this
   customer, this anchor and this network.
-- **SEP-45** — authenticates Rosa Pay's contract account. Both authorization
+- **SEP-45** — authenticates Lumenade Pay's contract account. Both authorization
   entries must name the published web-auth contract and the exact
   `web_auth_verify` arguments. The anchor entry is checked against its SEP-1
   signing key and live-ledger expiry before the device is asked to sign. The
   device-signed entry is checked again, simulated, and refused if the write
   footprint contains anything except the allowed auth nonce/instance data.
-- **SEP-24** — hosted deposit and withdrawal. The anchor returns a URL Rosa Pay
-  opens and a transaction id to follow. Rosa Pay understands the current SEP-24
+- **SEP-24** — hosted deposit and withdrawal. The anchor returns a URL Lumenade Pay
+  opens and a transaction id to follow. Lumenade Pay understands the current SEP-24
   status set, reduces it to action-required/pending/completed/failed, and keeps
   bounded polling resumable rather than presenting a timeout as failure.
 
 SEP-24 is chosen over SEP-6 deliberately. Identity documents and payment details
-are the anchor's regulated business, and Rosa Pay is better off never holding
+are the anchor's regulated business, and Lumenade Pay is better off never holding
 them.
 
 ## What the client refuses
@@ -46,7 +46,7 @@ them.
 
 ## The account question
 
-Rosa Pay's customer wallet is a contract account, so the mobile integration uses
+Lumenade Pay's customer wallet is a contract account, so the mobile integration uses
 SEP-45 and passes the smart wallet's `C...` address as the SEP-24 destination or
 source. It does not create a classic bridge account.
 
@@ -55,7 +55,7 @@ land directly in the contract account. When a verified USDC asset is enabled,
 the contract account will hold its SAC balance directly; a classic trustline is
 only relevant if a future provider forces a separate `G...` destination. SEP-24
 permits the authenticated account and transfer source/destination to differ, but
-Rosa Pay keeps them equal unless a later product decision explicitly introduces
+Lumenade Pay keeps them equal unless a later product decision explicitly introduces
 that bridge.
 
 ## Mobile behavior

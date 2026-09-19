@@ -33,7 +33,7 @@ export type StartedAnchorTransfer = {
  * Starts a hosted Testnet transfer directly for the device's C-account. SEP-45
  * is deliberate here: authenticating a throwaway classic account would make
  * the anchor deliver funds to the wrong account and introduce a trustline and
- * sweep that Rosa Pay does not need.
+ * sweep that Lumenade Pay does not need.
  */
 export async function startWalletAnchorTransfer(input: {
   kind: InteractiveKind;
@@ -66,7 +66,7 @@ export async function startWalletAnchorTransfer(input: {
         signer: hardwareSigner,
         networkPassphrase,
         validUntilLedger,
-        reason: `Connect Rosa Pay to ${anchor.homeDomain}`,
+        reason: `Connect Lumenade Pay to ${anchor.homeDomain}`,
       })(entry, undefined, validUntilLedger, networkPassphrase);
     },
   }, {

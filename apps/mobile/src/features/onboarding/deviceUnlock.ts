@@ -39,7 +39,7 @@ export async function unlockWithDevice(): Promise<UnlockResult> {
   try {
     const signed = await signer.signDigest({
       digest: Buffer.from(challenge).toString('base64'),
-      reason: 'Unlock Rosa Pay',
+      reason: 'Unlock Lumenade Pay',
     });
     const signature = derToCompactSignature(Uint8Array.from(Buffer.from(signed.signature, 'base64')));
     const point = uncompressedPointFromSpki(Uint8Array.from(Buffer.from(identity.publicKey, 'base64')));
@@ -62,7 +62,7 @@ function describe(error: unknown): string {
       case 'LOCKED_OUT':
         return 'Too many attempts — unlock your phone first, then try again';
       case 'UNAVAILABLE':
-        return 'This device cannot unlock Rosa Pay yet';
+        return 'This device cannot unlock Lumenade Pay yet';
       default:
         return error.message;
     }

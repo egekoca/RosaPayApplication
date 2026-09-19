@@ -86,7 +86,7 @@ export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {})
           <Pressable
             accessibilityLabel="Share wallet address"
             disabled={!address}
-            onPress={() => address && void shareValue('My Rosa Pay wallet', address)}
+            onPress={() => address && void shareValue('My Lumenade Pay wallet', address)}
             style={styles.copyButton}
             testID="share-address">
             <Copy color={address ? colors.amber : colors.inkMuted} size={16} />

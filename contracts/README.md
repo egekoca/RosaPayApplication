@@ -1,4 +1,4 @@
-# Rosa Pay Settlement Contract
+# Lumenade Pay Settlement Contract
 
 The contract accepts only registered merchants and allowlisted SEP-41 token contracts. A payment
 binds the network ID, settlement contract, customer, merchant, recipient, token, integer amount,

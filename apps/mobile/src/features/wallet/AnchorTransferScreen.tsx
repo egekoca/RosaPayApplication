@@ -121,7 +121,7 @@ export function AnchorTransferScreen({route}: Props) {
           <View style={styles.copy}>
             <Text style={styles.cardTitle}>Hosted by {TESTNET_ANCHOR_HOME_DOMAIN}</Text>
             <Text style={styles.body}>
-              Rosa Pay verifies the anchor challenge before your device approves it. Identity and bank details stay on
+              Lumenade Pay verifies the anchor challenge before your device approves it. Identity and bank details stay on
               the anchor's page.
             </Text>
           </View>
@@ -143,8 +143,8 @@ export function AnchorTransferScreen({route}: Props) {
           <Text style={styles.cardTitle}>{isDeposit ? 'Funds land in the smart wallet' : 'The smart wallet remains the source'}</Text>
           <Text style={styles.body}>
             {isDeposit
-              ? 'SEP-45 authenticates the C-account directly, so Rosa Pay does not create a classic holding account or a trustline sweep.'
-              : 'The anchor collects the withdrawal details. If it requests an on-chain transfer, Rosa Pay will keep the transfer action-required until that smart-wallet payment is approved.'}
+              ? 'SEP-45 authenticates the C-account directly, so Lumenade Pay does not create a classic holding account or a trustline sweep.'
+              : 'The anchor collects the withdrawal details. If it requests an on-chain transfer, Lumenade Pay will keep the transfer action-required until that smart-wallet payment is approved.'}
           </Text>
         </SurfaceCard>
       )}

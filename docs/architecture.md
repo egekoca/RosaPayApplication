@@ -1,8 +1,8 @@
-# Rosa Pay Architecture
+# Lumenade Pay Architecture
 
 ## Status
 
-This document describes the implemented foundation and the boundaries that must remain stable as Rosa Pay moves from a mocked QR payment to Testnet settlement. The product name is **Rosa Pay** and the application/package slug is **RosaPay**.
+This document describes the implemented foundation and the boundaries that must remain stable as Lumenade Pay moves from a mocked QR payment to Testnet settlement. The product name is **Lumenade Pay** and the application/package slug is **RosaPay**.
 
 ## Runtime shape
 

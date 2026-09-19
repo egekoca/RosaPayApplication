@@ -1,6 +1,6 @@
-# Rosa Pay
+# Lumenade Pay
 
-Rosa Pay is a non-custodial Stellar payment app for iOS and Android, built with React Native and TypeScript.
+Lumenade Pay is a non-custodial Stellar payment app for iOS and Android, built with React Native and TypeScript.
 
 The product source of truth is [docs/PRD.md](docs/PRD.md), with implementation status tracked in [docs/TODO.md](docs/TODO.md). The implemented boundaries are documented in [architecture.md](docs/architecture.md), [rtp-1.md](docs/rtp-1.md), and [security-model.md](docs/security-model.md).
 
@@ -20,10 +20,16 @@ The settlement contract is deployed on Stellar Testnet as `CBX7XUIEFWMRBZBEJGZ7S
 
 ## Product Terms
 
-- Product display name: `Rosa Pay`
-- Application/package slug: `RosaPay`
+- Product display name: `Lumenade Pay`
+- React Native component name: `LumenadePay`
 - Customer and merchant capabilities live in one mobile application.
 - Stellar Testnet is the first target network.
+
+Published compatibility identifiers remain unchanged for this release: the
+`@rosapay/*` workspace scope, native `RosaPaySigner` bridge, `ROSAPAY_*`
+environment variables, `com.rosapay` bundle identifiers, `rosapay://` QR scheme,
+and RTP/1 signing domain. Renaming them would invalidate existing app storage,
+QR links, signatures, and deployment evidence.
 
 ## Repository
 

@@ -129,7 +129,7 @@ class RosaPayNfcModule(private val reactContext: ReactApplicationContext) :
 
       val selected = isoDep.transceive(selectApdu())
       if (!endsWithOk(selected) || selected.size < 3) {
-        emit(ERROR_EVENT, "That device is not sharing a Rosa Pay request")
+        emit(ERROR_EVENT, "That device is not sharing a Lumenade Pay request")
         return
       }
 

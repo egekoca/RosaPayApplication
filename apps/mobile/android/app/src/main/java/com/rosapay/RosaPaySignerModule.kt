@@ -187,7 +187,7 @@ class RosaPaySignerModule(private val reactContext: ReactApplicationContext) :
       )
 
       val info = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Rosa Pay")
+        .setTitle("Lumenade Pay")
         .setSubtitle(reason)
         .setAllowedAuthenticators(
           BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL,

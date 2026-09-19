@@ -7,7 +7,7 @@
 ## Decision
 
 The first Testnet demo is explicitly single-device. The passkey credential is
-device-bound, private signing material is non-exportable, and Rosa Pay does
+device-bound, private signing material is non-exportable, and Lumenade Pay does
 not present a backup secret or custodial recovery path. Losing the device may
 make the demo wallet inaccessible; the UI must describe this before wallet
 creation and must never imply that the API can restore funds.

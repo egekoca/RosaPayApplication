@@ -22,7 +22,7 @@ export function readPaymentQr(value: string, context: ScanContext): ScanResult {
   try {
     payload = decodePaymentQr(value);
   } catch (error) {
-    return {ok: false, message: messageFor(error, 'This code is not a Rosa Pay payment request')};
+    return {ok: false, message: messageFor(error, 'This code is not a Lumenade Pay payment request')};
   }
 
   try {

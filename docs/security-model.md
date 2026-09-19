@@ -1,4 +1,4 @@
-# Rosa Pay Security Model
+# Lumenade Pay Security Model
 
 ## Trust boundaries
 

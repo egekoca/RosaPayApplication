@@ -144,7 +144,7 @@ function cameraMessage(state: CameraState): string {
     case 'checking':
       return 'Starting the camera';
     case 'denied':
-      return 'Rosa Pay needs the camera to read a merchant QR';
+      return 'Lumenade Pay needs the camera to read a merchant QR';
     case 'unavailable':
       return 'No camera on this device — use the request below';
   }

@@ -1,7 +1,7 @@
 import {z} from 'zod';
 
 /**
- * SEP-1 discovery. Everything Rosa Pay later trusts about an anchor — where to
+ * SEP-1 discovery. Everything Lumenade Pay later trusts about an anchor — where to
  * authenticate, which key signs its challenges, which assets it handles — comes
  * from this one file, so it is fetched over HTTPS from the anchor's own domain
  * and parsed strictly rather than believed.
@@ -105,7 +105,7 @@ export async function discoverAnchor(
 ): Promise<AnchorInfo> {
   const domain = homeDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
   if (!allowInsecure && !/^[a-z0-9.-]+$/i.test(domain)) {
-    throw new AnchorDiscoveryError('INSECURE_DOMAIN', `${homeDomain} is not a domain Rosa Pay will talk to`);
+    throw new AnchorDiscoveryError('INSECURE_DOMAIN', `${homeDomain} is not a domain Lumenade Pay will talk to`);
   }
 
   const url = `${allowInsecure ? 'http' : 'https'}://${domain}/.well-known/stellar.toml`;

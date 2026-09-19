@@ -16,8 +16,8 @@ export function WelcomeScreen({navigation}: Props) {
     <Screen contentStyle={styles.screen}>
       <AnimatedContent>
         <View style={styles.brand}>
-          <Image accessibilityLabel="Rosa Pay" source={require('../../assets/rosapay-logo.png')} style={styles.brandMark} />
-          <Text style={styles.brandName}>Rosa Pay</Text>
+          <Image accessibilityLabel="Lumenade Pay" source={require('../../assets/lumenadepay-logo.png')} style={styles.brandMark} />
+          <Text style={styles.brandName}>Lumenade Pay</Text>
         </View>
       </AnimatedContent>
 
