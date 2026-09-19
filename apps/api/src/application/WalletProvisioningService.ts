@@ -11,7 +11,7 @@ import {
   xdr,
 } from '@stellar/stellar-sdk';
 import {uncompressedPointFromSpki} from '@rosapay/secure-signer';
-import type {StellarConfig} from '@rosapay/stellar';
+import {parseStroops, type StellarConfig} from '@rosapay/stellar';
 import {InMemoryWalletRepository, type WalletRepository} from './WalletRepository';
 import {Buffer} from 'node:buffer';
 import {randomBytes} from 'node:crypto';
@@ -36,7 +36,11 @@ export type ProvisionedWallet = {
 
 export class WalletProvisioningError extends Error {
   constructor(
-    readonly code: 'WALLET_PROVISIONING_DISABLED' | 'INVALID_DEVICE_KEY' | 'WALLET_PROVISIONING_FAILED',
+    readonly code:
+      | 'WALLET_PROVISIONING_DISABLED'
+      | 'INVALID_DEVICE_KEY'
+      | 'WALLET_PROVISIONING_FAILED'
+      | 'WALLET_OWNERSHIP_CONFLICT',
     message: string,
   ) {
     super(message);
@@ -62,7 +66,7 @@ export class WalletProvisioningService {
     return this.deployer !== null && Boolean(this.options.walletWasmHash);
   }
 
-  async provision(devicePublicKeyBase64: string): Promise<ProvisionedWallet> {
+  async provision(devicePublicKeyBase64: string, userId?: string): Promise<ProvisionedWallet> {
     const deployer = this.deployer;
     const wasmHash = this.options.walletWasmHash;
     if (!deployer || !wasmHash) {
@@ -86,6 +90,10 @@ export class WalletProvisioningService {
     const signer = devicePoint.toString('base64');
     const existing = await this.wallets.findBySigner(signer);
     if (existing) {
+      if (userId && existing.userId && existing.userId !== userId) {
+        throw new WalletProvisioningError('WALLET_OWNERSHIP_CONFLICT', 'This wallet belongs to another user');
+      }
+      if (userId && !existing.userId) await this.wallets.save({...existing, userId});
       return {
         walletContractId: existing.contractAddress,
         devicePublicKey: signer,
@@ -135,6 +143,7 @@ export class WalletProvisioningService {
       publicSigner: signer,
       network: this.options.config.network === 'pubnet' ? 'pubnet' : 'testnet',
       status: 'active',
+      ...(userId ? {userId} : {}),
     });
 
     return {
@@ -154,7 +163,7 @@ export class WalletProvisioningService {
     amount: string,
   ): Promise<void> {
     const nativeContract = new Contract(Asset.native().contractId(this.options.config.networkPassphrase));
-    const stroops = BigInt(Math.round(Number(amount) * 10_000_000));
+    const stroops = parseStroops(amount);
     const source = await server.getAccount(deployer.publicKey());
     const transfer = new TransactionBuilder(source, {
       fee: '2000000',

@@ -5,7 +5,7 @@ describe('session restoration', () => {
     expect(hasRestorableSession({merchantProfile: null, receipts: []})).toBe(false);
     expect(
       hasRestorableSession({
-        smartWallet: {contractId: 'CABC', devicePublicKey: 'key'},
+        wallet: {address: 'GDRXE2BQUC3AZNPVFSCEZ76NJ3WWL25FYFK6RGZGIEKWE4SOOHSUJUJ6', origin: 'created' as const},
         merchantProfile: null,
         receipts: [],
       }),

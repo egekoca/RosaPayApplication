@@ -1,4 +1,5 @@
 import {RosaPayApiClient, ApiClientError} from '../src/api';
+import {useAppStore} from '../src/state/appStore';
 import {mockSignedIntent} from './fixtures/signedIntent';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -19,6 +20,24 @@ function storedIntent() {
 }
 
 describe('RosaPayApiClient', () => {
+  afterEach(() => useAppStore.setState({apiSession: null}));
+
+  it('sends the current device session as a bearer token', async () => {
+    useAppStore.setState({apiSession: {
+      token: 'session-token-that-is-long-enough-for-storage',
+      publicSigner: 'A'.repeat(64),
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    }});
+    const fetcher = jest.fn().mockResolvedValue(jsonResponse({status: 'ok', storage: 'memory'}));
+    const client = new RosaPayApiClient({baseUrl: 'https://api.example.com', fetcher});
+
+    await client.health();
+
+    expect(fetcher.mock.calls[0]?.[1]?.headers).toMatchObject({
+      authorization: 'Bearer session-token-that-is-long-enough-for-storage',
+    });
+  });
+
   it('creates and validates a signed payment intent', async () => {
     const fetcher = jest.fn().mockResolvedValue(jsonResponse(storedIntent(), 201));
     const client = new RosaPayApiClient({baseUrl: 'http://127.0.0.1:4100/', fetcher});

@@ -4,6 +4,7 @@ import {ApiClientError, RosaPayApiClient} from '../../api';
 import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
 import {fetchRelayerIdentity} from '../payments/testnetSettlement';
+import {ensureDeviceSession} from '../../api/deviceSession';
 
 
 function apiClient(): RosaPayApiClient {
@@ -13,6 +14,7 @@ function apiClient(): RosaPayApiClient {
 /** Publishes the request so a customer's settlement has an intent to move. */
 export async function publishPaymentRequest(request: SignedPaymentIntentV1): Promise<void> {
   try {
+    await ensureDeviceSession(apiClient());
     // The intent ID is unique per request, so it is also a stable idempotency key.
     await apiClient().createPaymentIntent(request, `intent-${request.intent.intentId}`);
   } catch (error) {
@@ -41,7 +43,11 @@ export function useMerchantPayments(merchantProfileId: string | undefined) {
   return useQuery({
     queryKey: ['merchant-payments', merchantProfileId],
     enabled: Boolean(merchantProfileId),
-    queryFn: () => apiClient().listMerchantPayments(merchantProfileId!),
+    queryFn: async () => {
+      const client = apiClient();
+      await ensureDeviceSession(client);
+      return client.listMerchantPayments(merchantProfileId!);
+    },
     refetchInterval: 15_000,
     retry: false,
   });

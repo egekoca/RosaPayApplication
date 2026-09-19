@@ -1,7 +1,7 @@
 import {describe, expect, it, vi} from 'vitest';
 import {Networks, nativeToScVal, rpc} from '@stellar/stellar-sdk';
 import {createStellarConfig} from '../src/config';
-import {BalanceQueryError, formatStroops, readNativeBalance} from '../src/balances';
+import {BalanceQueryError, formatStroops, parseStroops, readNativeBalance} from '../src/balances';
 
 const holder = 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57';
 
@@ -28,6 +28,14 @@ describe('native balances', () => {
     expect(formatStroops(10_000_000n)).toBe('1');
     expect(formatStroops(0n)).toBe('0');
     expect(formatStroops(-5_000_000n)).toBe('-0.5');
+  });
+
+  it('parses exact decimal amounts without floating-point rounding', () => {
+    expect(parseStroops('25')).toBe(250_000_000n);
+    expect(parseStroops('0.0000001')).toBe(1n);
+    expect(parseStroops('9007199254740993.1234567')).toBe(90_071_992_547_409_931_234_567n);
+    expect(() => parseStroops('1.00000001')).toThrow('at most 7 fractional digits');
+    expect(() => parseStroops('-1')).toThrow('non-negative decimal');
   });
 
   it('fails loudly instead of reporting a zero balance', async () => {

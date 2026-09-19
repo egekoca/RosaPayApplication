@@ -14,6 +14,8 @@ import {PostgresIntentRepository} from './infrastructure/PostgresIntentRepositor
 import {PostgresMerchantProfileRepository} from './infrastructure/PostgresMerchantProfileRepository';
 import {PostgresWalletRepository} from './infrastructure/PostgresWalletRepository';
 import {PostgresAuditLog} from './infrastructure/PostgresAuditLog';
+import {InMemoryDeviceAuthRepository, type DeviceAuthRepository} from './application/DeviceAuthService';
+import {PostgresDeviceAuthRepository} from './infrastructure/PostgresDeviceAuthRepository';
 
 export type ApiStorageMode = 'postgres' | 'memory';
 
@@ -22,6 +24,7 @@ export type ApiRuntime = {
   merchantProfiles: MerchantProfileRepository;
   wallets: WalletRepository;
   auditLog: AuditLogRepository;
+  deviceAuth: DeviceAuthRepository;
   storage: ApiStorageMode;
   close(): Promise<void>;
 };
@@ -51,6 +54,7 @@ export function createApiRuntime({
       merchantProfiles: new InMemoryMerchantProfileRepository(),
       wallets: new InMemoryWalletRepository(),
       auditLog: new InMemoryAuditLog(),
+      deviceAuth: new InMemoryDeviceAuthRepository(),
       storage: 'memory',
       close: async () => undefined,
     };
@@ -62,6 +66,7 @@ export function createApiRuntime({
     merchantProfiles: new PostgresMerchantProfileRepository(connection),
     wallets: new PostgresWalletRepository(connection),
     auditLog: new PostgresAuditLog(connection),
+    deviceAuth: new PostgresDeviceAuthRepository(connection),
     storage: 'postgres',
     close: () => connection.close(),
   };

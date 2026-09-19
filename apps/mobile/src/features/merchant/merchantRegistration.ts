@@ -2,6 +2,7 @@ import {RosaPayApiClient} from '../../api';
 import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
 import type {MerchantProfile} from './merchantProfile';
+import {ensureDeviceSession} from '../../api/deviceSession';
 
 /**
  * Publishes the profile to the API and registers its signing key with the
@@ -12,6 +13,7 @@ export async function registerMerchantForTestnet(
   profile: MerchantProfile,
   client: RosaPayApiClient = new RosaPayApiClient({baseUrl: useAppStore.getState().apiBaseUrl}),
 ): Promise<{transactionHash: string}> {
+  await ensureDeviceSession(client);
   await client.createMerchantProfile({
     id: profile.merchantProfileId,
     displayName: profile.displayName,

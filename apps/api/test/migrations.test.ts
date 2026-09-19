@@ -65,6 +65,8 @@ describe('migrations', () => {
     const migrations = await loadMigrations(path.resolve(import.meta.dirname, '../db/migrations'));
     expect(migrations[0]?.name).toBe('001_initial.sql');
     expect(migrations[0]?.sql).toContain('CREATE TABLE IF NOT EXISTS payment_intents');
+    expect(migrations.at(-1)?.name).toBe('008_device_auth.sql');
+    expect(migrations.at(-1)?.sql).toContain('device_auth_challenges');
   });
 
   it('rejects a badly named migration file', async () => {

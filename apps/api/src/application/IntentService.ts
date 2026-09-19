@@ -108,6 +108,11 @@ export interface IntentRepository {
   listSettlements(status?: PaymentStatus): Promise<SettlementRecord[]>;
   listMerchantPayments?(merchantProfileId: string, limit: number): Promise<MerchantPayment[]>;
   saveSettlement(settlement: SettlementRecord): Promise<void>;
+  compareAndSetSettlement(
+    intentId: string,
+    expectedStatus: PaymentStatus,
+    settlement: SettlementRecord,
+  ): Promise<boolean>;
 }
 
 export class IntentConflictError extends Error {}
@@ -301,30 +306,32 @@ export class IntentService {
     next: PaymentStatus,
     patch: Partial<SettlementRecord> = {},
   ): Promise<SettlementRecord> {
-    const current = await this.repository.findSettlement(intentId);
-    if (!current) throw new SettlementNotFoundError('Settlement not found');
-    if (current.status === next) {
-      if (patch.transactionHash && current.transactionHash && patch.transactionHash !== current.transactionHash) {
-        throw new SettlementTransitionError('A settlement cannot change its transaction hash');
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const current = await this.repository.findSettlement(intentId);
+      if (!current) throw new SettlementNotFoundError('Settlement not found');
+      if (current.status === next) {
+        if (patch.transactionHash && current.transactionHash && patch.transactionHash !== current.transactionHash) {
+          throw new SettlementTransitionError('A settlement cannot change its transaction hash');
+        }
+        return current;
       }
-      return current;
-    }
 
-    const payment: Payment = {
-      intentId,
-      status: current.status,
-      transactionHash: current.transactionHash,
-      failureCode: current.failureCode,
-    };
-    try {
-      transitionPayment(payment, next);
-    } catch (error) {
-      throw new SettlementTransitionError(error instanceof Error ? error.message : 'Invalid settlement transition');
-    }
+      const payment: Payment = {
+        intentId,
+        status: current.status,
+        transactionHash: current.transactionHash,
+        failureCode: current.failureCode,
+      };
+      try {
+        transitionPayment(payment, next);
+      } catch (error) {
+        throw new SettlementTransitionError(error instanceof Error ? error.message : 'Invalid settlement transition');
+      }
 
-    const updated: SettlementRecord = {...current, status: next, ...patch};
-    await this.repository.saveSettlement(updated);
-    return updated;
+      const updated: SettlementRecord = {...current, status: next, ...patch};
+      if (await this.repository.compareAndSetSettlement(intentId, current.status, updated)) return updated;
+    }
+    throw new SettlementTransitionError('The settlement changed concurrently; retry with the latest status');
   }
 }
 

@@ -60,6 +60,16 @@ export function formatStroops(stroops: bigint): string {
   return `${negative ? '-' : ''}${whole}${fraction ? `.${fraction}` : ''}`;
 }
 
+/** Parses an exact Stellar decimal without crossing a floating-point boundary. */
+export function parseStroops(amount: string): bigint {
+  const normalized = amount.trim();
+  if (!/^\d+(?:\.\d{1,7})?$/.test(normalized)) {
+    throw new Error('A Stellar amount must be a non-negative decimal with at most 7 fractional digits');
+  }
+  const [whole = '0', fraction = ''] = normalized.split('.');
+  return BigInt(whole) * 10_000_000n + BigInt(fraction.padEnd(7, '0'));
+}
+
 /**
  * Whether a holder could receive this asset at all.
  *
@@ -78,8 +88,9 @@ export async function canReceiveAsset(
   holder: BalanceHolder,
   assetContractId: string,
   server: rpc.Server = new rpc.Server(config.rpcUrl),
+  readBalance: typeof readAssetBalance = readAssetBalance,
 ): Promise<boolean> {
-  return readAssetBalance(config, holder, assetContractId, server).then(
+  return readBalance(config, holder, assetContractId, server).then(
     () => true,
     () => false,
   );

@@ -58,6 +58,19 @@ function fakeClient(): PostgresQueryClient & {queries: Array<{text: string; valu
         });
         return {rows: [] as Row[]};
       }
+      if (text.startsWith('UPDATE settlements')) {
+        const current = settlements.get(String(values[0]));
+        if (!current || current.status !== values[1]) return {rows: [] as Row[]};
+        settlements.set(String(values[0]), {
+          intent_id: values[0],
+          tx_hash: values[2],
+          ledger: values[3],
+          status: values[4],
+          failure_code: values[5],
+          confirmed_at: values[6],
+        });
+        return {rows: [{intent_id: values[0]}] as Row[]};
+      }
       if (text.includes('FROM settlements') && text.includes('WHERE intent_id')) {
         return {rows: [...settlements.values()].filter(row => row.intent_id === values[0]) as Row[]};
       }
@@ -83,7 +96,7 @@ describe('Postgres intent repository', () => {
       {intentId: payload.intent.intentId, status: 'submitted', transactionHash: hash},
     ]);
     expect(client.queries.some(query => query.text.includes('INSERT INTO payment_intents'))).toBe(true);
-    expect(client.queries.some(query => query.text.includes('ON CONFLICT (intent_id)'))).toBe(true);
+    expect(client.queries.some(query => query.text.includes('AND status = $2'))).toBe(true);
   });
 
   it('maps PostgreSQL date and numeric representations into API records', async () => {

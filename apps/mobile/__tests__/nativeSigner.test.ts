@@ -5,6 +5,7 @@ describe('native Lumenade Pay signer adapter', () => {
     const signer = createNativeRosaPaySigner({
       async getIdentity() { return {signerId: 'device-1', publicKey: 'CACCOUNT', kind: 'passkey'}; },
       async createIdentity() { return {signerId: 'device-1', publicKey: 'CACCOUNT', kind: 'passkey'}; },
+      async deleteIdentity() {},
       async authorizePayment() { return {signerId: 'device-1', authorization: 'opaque', authorizedAt: '2026-08-22T00:00:00.000Z'}; },
       async signTransaction(request) { return {signedTxXdr: `signed:${request.xdr}`}; },
       async signDigest() {

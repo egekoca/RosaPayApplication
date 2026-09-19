@@ -55,6 +55,15 @@ export function UnlockScreen() {
 
   const greeting = account?.name ? `Welcome back, ${account.name.split(' ')[0]}` : 'Welcome back';
 
+  const eraseAccount = useCallback(async () => {
+    setError(undefined);
+    try {
+      await signOut();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'This device could not erase the payment key.');
+    }
+  }, [signOut]);
+
   return (
     <Screen contentStyle={styles.screen}>
       <AnimatedContent>
@@ -86,7 +95,7 @@ export function UnlockScreen() {
             // One tap, not two. The usual confirmation guards something worth
             // keeping; here the key is already destroyed, so there is nothing
             // left to protect the owner from losing.
-            <Button onPress={signOut} testID="set-up-again">Set up this device again</Button>
+            <Button onPress={eraseAccount} testID="set-up-again">Set up this device again</Button>
           ) : (
             <>
               <Button loading={busy} onPress={() => void attempt()} testID="unlock">
@@ -94,7 +103,7 @@ export function UnlockScreen() {
               </Button>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => (confirmingSignOut ? signOut() : setConfirmingSignOut(true))}
+                onPress={() => (confirmingSignOut ? eraseAccount() : setConfirmingSignOut(true))}
                 testID="sign-out">
                 <Text style={[styles.signOut, confirmingSignOut && styles.signOutConfirm]}>
                   {confirmingSignOut

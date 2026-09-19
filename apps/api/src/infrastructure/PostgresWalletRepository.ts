@@ -40,7 +40,8 @@ export class PostgresWalletRepository implements WalletRepository {
     await this.client.query(
       `INSERT INTO wallets (contract_address, public_signer, network, status, user_id)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (public_signer) DO NOTHING`,
+       ON CONFLICT (public_signer) DO UPDATE
+         SET user_id = COALESCE(wallets.user_id, EXCLUDED.user_id)`,
       [wallet.contractAddress, wallet.publicSigner, wallet.network, wallet.status, wallet.userId ?? null],
     );
   }

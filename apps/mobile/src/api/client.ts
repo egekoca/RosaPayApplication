@@ -6,6 +6,8 @@ import {
   apiErrorResponseSchema,
   countersignatureSchema,
   healthResponseSchema,
+  deviceChallengeSchema,
+  deviceSessionSchema,
   merchantProfileSchema,
   merchantPaymentsSchema,
   merchantRegistrationSchema,
@@ -13,6 +15,7 @@ import {
   settlementRecordSchema,
   storedIntentSchema,
 } from './schemas';
+import {useAppStore} from '../state/appStore';
 
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -74,6 +77,22 @@ export class RosaPayApiClient {
 
   health() {
     return this.request('/v1/health', healthResponseSchema, {}, this.timeoutMs, true);
+  }
+
+  createDeviceChallenge(publicSigner: string) {
+    return this.request('/v1/auth/challenges', deviceChallengeSchema, {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify({publicSigner}),
+    });
+  }
+
+  createDeviceSession(input: {challengeId: string; publicSigner: string; signature: string}) {
+    return this.request('/v1/auth/sessions', deviceSessionSchema, {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify(input),
+    });
   }
 
   createPaymentIntent(payload: unknown, idempotencyKey: string) {
@@ -261,7 +280,13 @@ export class RosaPayApiClient {
     try {
       const response = await this.fetcher(`${this.baseUrl}${path}`, {
         ...init,
-        headers: {accept: 'application/json', ...init.headers},
+        headers: {
+          accept: 'application/json',
+          ...(useAppStore.getState().apiSession?.token
+            ? {authorization: `Bearer ${useAppStore.getState().apiSession!.token}`}
+            : {}),
+          ...init.headers,
+        },
         signal: controller.signal,
       });
       const body = await this.readJson(response);

@@ -111,6 +111,20 @@ final class RosaPaySigner: NSObject {
     context = LAContext()
   }
 
+  @objc(deleteIdentity:rejecter:)
+  func deleteIdentity(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+    let status = SecItemDelete([
+      kSecClass as String: kSecClassKey,
+      kSecAttrApplicationTag as String: keyTag,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+    ] as CFDictionary)
+    guard status == errSecSuccess || status == errSecItemNotFound else {
+      reject("UNAVAILABLE", "The payment key could not be deleted", NSError(domain: NSOSStatusErrorDomain, code: Int(status)))
+      return
+    }
+    resolve(nil)
+  }
+
   /// Signs the exact digest the caller passes; the payment is already decided.
   @objc(signDigest:resolver:rejecter:)
   func signDigest(request: NSDictionary, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {

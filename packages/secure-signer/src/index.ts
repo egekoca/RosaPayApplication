@@ -65,6 +65,7 @@ export type SignedAuthEntry = {
 export interface SecureSigner {
   getIdentity(): Promise<SignerIdentity | null>;
   createIdentity(displayName: string): Promise<SignerIdentity>;
+  deleteIdentity(): Promise<void>;
   authorizePayment(request: PaymentAuthorizationRequest): Promise<PaymentAuthorization>;
   signTransaction?(request: SignTransactionRequest): Promise<SignedTransaction>;
   signAuthEntry?(request: SignAuthEntryRequest): Promise<SignedAuthEntry>;
@@ -88,6 +89,7 @@ export type DigestSignature = {
 export type NativeSignerBridge = {
   getIdentity(): Promise<SignerIdentity | null>;
   createIdentity(displayName: string): Promise<SignerIdentity>;
+  deleteIdentity?(): Promise<void>;
   authorizePayment(request: PaymentAuthorizationRequest): Promise<PaymentAuthorization>;
   signTransaction?(request: SignTransactionRequest): Promise<SignedTransaction>;
   signAuthEntry?(request: SignAuthEntryRequest): Promise<SignedAuthEntry>;
@@ -103,6 +105,12 @@ export class NativeSecureSigner implements SecureSigner {
   constructor(private readonly bridge: NativeSignerBridge) {}
   getIdentity = () => this.bridge.getIdentity();
   createIdentity = (displayName: string) => this.bridge.createIdentity(displayName);
+  async deleteIdentity(): Promise<void> {
+    if (!this.bridge.deleteIdentity) {
+      throw new SecureSignerError('UNAVAILABLE', 'This device cannot delete its payment key');
+    }
+    await this.bridge.deleteIdentity();
+  }
   authorizePayment = (request: PaymentAuthorizationRequest) => this.bridge.authorizePayment(request);
 
   async signTransaction(request: SignTransactionRequest): Promise<SignedTransaction> {

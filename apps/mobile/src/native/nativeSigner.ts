@@ -7,6 +7,7 @@ import {
 } from '@rosapay/secure-signer';
 
 type NativeSignerModule = NativeSignerBridge & {
+  deleteIdentity(): Promise<void>;
   signTransaction(request: Parameters<NonNullable<NativeSignerBridge['signTransaction']>>[0]): ReturnType<NonNullable<NativeSignerBridge['signTransaction']>>;
   signAuthEntry(request: Parameters<NonNullable<NativeSignerBridge['signAuthEntry']>>[0]): ReturnType<NonNullable<NativeSignerBridge['signAuthEntry']>>;
   signDigest(request: Parameters<NonNullable<NativeSignerBridge['signDigest']>>[0]): ReturnType<NonNullable<NativeSignerBridge['signDigest']>>;
@@ -38,6 +39,7 @@ export function createNativeRosaPaySigner(nativeModule: NativeSignerModule | nul
   const bridge: NativeSignerBridge = {
     getIdentity: () => nativeModule?.getIdentity?.().catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),
     createIdentity: displayName => nativeModule?.createIdentity?.(displayName).catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),
+    deleteIdentity: () => nativeModule?.deleteIdentity?.().catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),
     authorizePayment: request => nativeModule?.authorizePayment?.(request).catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),
     signTransaction: request => nativeModule?.signTransaction?.(request).catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),
     signAuthEntry: request => nativeModule?.signAuthEntry?.(request).catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),

@@ -28,6 +28,16 @@ CREATE TABLE merchant_profiles (
 
 CREATE INDEX merchant_profiles_user_idx ON merchant_profiles(user_id);
 
+CREATE TABLE device_auth_challenges (
+  id UUID PRIMARY KEY,
+  public_signer TEXT NOT NULL,
+  digest TEXT NOT NULL CHECK (digest ~ '^[A-Za-z0-9+/]{43}=$'),
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX device_auth_challenges_expiry_idx ON device_auth_challenges(expires_at);
+
 CREATE TABLE payment_intents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   intent_id TEXT NOT NULL UNIQUE,

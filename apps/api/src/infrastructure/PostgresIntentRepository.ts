@@ -304,6 +304,34 @@ export class PostgresIntentRepository implements IntentRepository {
       ],
     );
   }
+
+  async compareAndSetSettlement(
+    intentId: string,
+    expectedStatus: PaymentStatus,
+    settlement: SettlementRecord,
+  ): Promise<boolean> {
+    const result = await this.client.query<{intent_id: string}>(
+      `UPDATE settlements
+          SET tx_hash = $3,
+              ledger = $4,
+              status = $5,
+              failure_code = $6,
+              confirmed_at = $7
+        WHERE intent_id = $1
+          AND status = $2
+      RETURNING intent_id`,
+      [
+        intentId,
+        expectedStatus,
+        settlement.transactionHash ?? null,
+        settlement.ledger ?? null,
+        settlement.status,
+        settlement.failureCode ?? null,
+        settlement.confirmedAt ?? null,
+      ],
+    );
+    return result.rows.length === 1;
+  }
 }
 
 function mapIntent(row: IntentRow): StoredIntent {

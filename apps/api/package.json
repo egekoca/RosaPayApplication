@@ -11,9 +11,11 @@
     "db:migrate": "tsx --env-file-if-exists=../../.env src/migrate.ts"
   },
   "dependencies": {
+    "@noble/curves": "^2.3.0",
     "@rosapay/domain": "*",
     "@rosapay/postgres": "*",
     "@rosapay/protocol": "*",
+    "@rosapay/secure-signer": "*",
     "@rosapay/stellar": "*",
     "fastify": "^5.5.0",
     "pg": "^8.23.0",

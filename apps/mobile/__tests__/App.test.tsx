@@ -22,7 +22,7 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-test('offers one way into the app, in words a customer would use', async () => {
+test('offers the hardware-backed production wallet path in customer language', async () => {
   const Screen = WelcomeScreen as unknown as React.ComponentType<{
     navigation: {navigate: jest.Mock};
   }>;
@@ -36,11 +36,27 @@ test('offers one way into the app, in words a customer would use', async () => {
   expect(tree).toContain('Settle on Stellar.');
   expect(tree).toContain('LUMEN');
   expect(tree).toContain('LEMONADE');
-  expect(tree).toContain('Get started');
+  expect(tree).toContain('Create a new wallet');
+  expect(tree).toContain('secure hardware');
+  expect(tree).not.toContain('recovery phrase');
 
   // The screen used to offer "Create your wallet" and "Sign in with passkey"
   // side by side. Both did exactly the same thing, and neither told a customer
   // which one was theirs.
   expect(tree).not.toContain('passkey');
   expect(tree).not.toContain('Create your wallet');
+});
+
+test('sends wallet creation to account setup', async () => {
+  const Screen = WelcomeScreen as unknown as React.ComponentType<{
+    navigation: {navigate: jest.Mock};
+  }>;
+  const navigate = jest.fn();
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<Screen navigation={{navigate}} />);
+  });
+
+  await ReactTestRenderer.act(() => renderer.root.findByProps({testID: 'get-started'}).props.onPress());
+  expect(navigate).toHaveBeenCalledWith('CreateAccount');
 });

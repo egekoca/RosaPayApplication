@@ -12,6 +12,17 @@ export const healthResponseSchema = z.object({
   storage: z.enum(['postgres', 'memory']).optional(),
 });
 
+export const deviceChallengeSchema = z.object({
+  challengeId: z.string().uuid(),
+  challenge: z.string().min(1),
+  expiresAt: z.string().datetime(),
+});
+
+export const deviceSessionSchema = z.object({
+  token: z.string().min(32),
+  expiresAt: z.string().datetime(),
+});
+
 export const storedIntentSchema = z.object({
   payload: signedPaymentIntentV1Schema,
   payloadHash: z.string().regex(/^[a-f0-9]{64}$/),

@@ -1,5 +1,8 @@
 import type {FastifyRequest} from 'fastify';
 import {parseSignedPaymentIntent, type SignedPaymentIntentV1} from '@rosapay/protocol';
+import type {MerchantProfileRepository} from './MerchantProfileService';
+import type {WalletRepository} from './WalletRepository';
+import type {DeviceAuthService} from './DeviceAuthService';
 
 export type ApiCapability = 'customer' | 'merchant';
 
@@ -7,7 +10,40 @@ export type ApiPrincipal = {
   userId: string;
   capabilities: readonly ApiCapability[];
   merchantProfileIds?: readonly string[];
+  publicSigner?: string;
+  walletContractId?: string;
 };
+
+export function createDeviceAuthResolver(
+  sessions: DeviceAuthService,
+  merchants: MerchantProfileRepository,
+  wallets: WalletRepository,
+): NonNullable<ApiAuthOptions['resolve']> {
+  return async request => {
+    const header = request.headers.authorization;
+    if (!header?.startsWith('Bearer ')) return null;
+    const session = sessions.verifySession(header.slice('Bearer '.length));
+    if (!session) return null;
+    const [profiles, wallet] = await Promise.all([
+      merchants.findByOwner(session.userId),
+      wallets.findBySigner(session.publicSigner),
+    ]);
+    const merchantProfileIds = profiles.map(profile => profile.id);
+    return {
+      userId: session.userId,
+      publicSigner: session.publicSigner,
+      capabilities: merchantProfileIds.length > 0 ? ['customer', 'merchant'] : ['customer'],
+      merchantProfileIds,
+      ...(wallet ? {walletContractId: wallet.contractAddress} : {}),
+    };
+  };
+}
+
+export function assertWalletOwnership(principal: ApiPrincipal | null, address: string): void {
+  if (principal && principal.walletContractId !== address) {
+    throw new CapabilityDeniedError('The wallet is not owned by the authenticated device');
+  }
+}
 
 export type ApiAuthOptions = {
   required?: boolean;

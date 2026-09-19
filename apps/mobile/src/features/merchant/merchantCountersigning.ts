@@ -11,6 +11,7 @@ import {ApiClientError, RosaPayApiClient} from '../../api';
 import {logger} from '../../shared/logger';
 import {useAppStore} from '../../state/appStore';
 import type {MerchantProfile} from './merchantProfile';
+import {ensureDeviceSession} from '../../api/deviceSession';
 
 /**
  * Signs the contract digest for whichever customer has claimed this request.
@@ -52,6 +53,7 @@ export async function countersignClaimedRequest(input: {
   const digest = (await digestClient.intent_digest({intent: envelope.intent}, {simulate: true})).result;
   const signature = await signEd25519(Uint8Array.from(digest), input.profile.developmentSigningSecret);
 
+  await ensureDeviceSession(client);
   await client.supplyCountersignature(intentId, claim.customerAddress, Buffer.from(signature).toString('base64'));
   return {signed: true, customerAddress: claim.customerAddress};
 }

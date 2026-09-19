@@ -60,7 +60,7 @@ describe('the account and its lock', () => {
     expect(useAppStore.getState().locked).toBe(false);
   });
 
-  it('leaves nothing behind when the account is erased', () => {
+  it('leaves nothing behind when the account is erased', async () => {
     useAppStore.getState().createAccount({name: 'Ege'});
     useAppStore.setState({
       receipts: [
@@ -80,13 +80,13 @@ describe('the account and its lock', () => {
       merchantRegisteredOnChain: true,
     });
 
-    useAppStore.getState().signOut();
+    await useAppStore.getState().signOut();
     const state = useAppStore.getState();
 
     expect(state.account).toBeNull();
     expect(state.receipts).toEqual([]);
     expect(state.merchantProfile).toBeNull();
-    expect(state.smartWallet).toBeNull();
+    expect(state.wallet).toBeNull();
     expect(state.merchantRegisteredOnChain).toBe(false);
     expect(state.mode).toBe('customer');
     // Nothing is left locked either, or the next person would face a prompt
@@ -105,7 +105,7 @@ describe('what the lock protects', () => {
   it('keeps the session while locked, so unlocking restores rather than rebuilds', () => {
     useAppStore.getState().createAccount({name: 'Ege'});
     useAppStore.getState().setRequireUnlock(true);
-    useAppStore.setState({smartWallet: {contractId: 'C', devicePublicKey: 'k'}});
+    useAppStore.setState({wallet: {address: 'GDRXE2BQUC3AZNPVFSCEZ76NJ3WWL25FYFK6RGZGIEKWE4SOOHSUJUJ6', origin: 'created'}});
 
     useAppStore.getState().lock();
     const locked = useAppStore.getState();
@@ -113,6 +113,6 @@ describe('what the lock protects', () => {
     expect(locked.locked).toBe(true);
     // Locking hides the session; it must never quietly discard it.
     expect(locked.account).not.toBeNull();
-    expect(locked.smartWallet).not.toBeNull();
+    expect(locked.wallet).not.toBeNull();
   });
 });

@@ -104,6 +104,17 @@ class RosaPaySignerModule(private val reactContext: ReactApplicationContext) :
     }
   }
 
+  @ReactMethod
+  fun deleteIdentity(promise: Promise) {
+    try {
+      val store = keystore()
+      if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS)
+      promise.resolve(null)
+    } catch (error: Throwable) {
+      promise.reject("UNAVAILABLE", error.message ?: "The payment key could not be deleted", error)
+    }
+  }
+
   /**
    * Signs the exact digest the caller passes. Everything about the payment is
    * decided before this point; the module only proves user presence and signs.

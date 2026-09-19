@@ -29,38 +29,71 @@ jest.mock('../src/shared/useStellarHealth', () => ({
 jest.mock('../src/shared/useWalletBalance', () => ({useWalletBalance: () => ({data: undefined})}));
 
 const initial = useAppStore.getState();
+const renderers: ReactTestRenderer.ReactTestRenderer[] = [];
 
 async function render(navigation?: {navigate: jest.Mock}) {
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   await ReactTestRenderer.act(() => {
     renderer = ReactTestRenderer.create(<WalletScreen navigation={navigation} />);
   });
+  renderers.push(renderer);
   return renderer;
 }
 
 describe('the wallet screen', () => {
   beforeEach(() => {
-    useAppStore.setState({...initial, account: null, smartWallet: null, locked: false});
+    ReactTestRenderer.act(() => {
+      useAppStore.setState({...initial, account: null, smartWallet: null, wallet: null, locked: false});
+    });
   });
 
-  it('does not claim a device key that does not exist', async () => {
+  afterEach(() => {
+    ReactTestRenderer.act(() => {
+      for (const renderer of renderers.splice(0)) renderer.unmount();
+    });
+  });
+
+  it('does not claim a key that does not exist', async () => {
     const renderer = await render();
     const rows = renderer.root.findAllByProps({satisfied: false});
     // The unsatisfied row used to carry the same green tick as a satisfied one,
     // telling someone with no key that their funds were protected by it.
     expect(rows.length).toBeGreaterThan(0);
-    expect(JSON.stringify(renderer.toJSON())).toContain('No device key yet');
+    expect(JSON.stringify(renderer.toJSON())).toContain('No wallet on this phone yet');
   });
 
-  it('marks the key satisfied once the device has a wallet', async () => {
-    useAppStore.setState({smartWallet: {contractId: 'CBI3H4RO', devicePublicKey: 'k'}});
+  it('marks the key satisfied once the phone has a wallet', async () => {
+    ReactTestRenderer.act(() => {
+      useAppStore.setState({smartWallet: {
+        contractId: 'CBI3H4ROVXGJG3BRPABD2TKSIME2VJCJTKEMOCJNF3BNHYJOBK6U57NS',
+        devicePublicKey: 'A'.repeat(64),
+      }});
+    });
     const renderer = await render();
     expect(renderer.root.findAllByProps({satisfied: false})).toHaveLength(0);
-    expect(JSON.stringify(renderer.toJSON())).toContain('Hardware signer');
+    expect(JSON.stringify(renderer.toJSON())).toContain('Asked for at every payment');
   });
 
-  it('opens contract-account deposit and withdrawal flows from a provisioned wallet', async () => {
-    useAppStore.setState({smartWallet: {contractId: 'CBI3H4RO', devicePublicKey: 'k'}});
+  it('states the actual hardware-backed signing boundary', async () => {
+    ReactTestRenderer.act(() => {
+      useAppStore.setState({smartWallet: {
+        contractId: 'CBI3H4ROVXGJG3BRPABD2TKSIME2VJCJTKEMOCJNF3BNHYJOBK6U57NS',
+        devicePublicKey: 'A'.repeat(64),
+      }});
+    });
+    const renderer = await render();
+    const rendered = JSON.stringify(renderer.toJSON());
+    expect(rendered).toContain('secure hardware');
+    expect(rendered).toContain('JavaScript receives only the public key');
+  });
+
+  it('opens deposit and withdrawal flows once a wallet exists', async () => {
+    ReactTestRenderer.act(() => {
+      useAppStore.setState({smartWallet: {
+        contractId: 'CBI3H4ROVXGJG3BRPABD2TKSIME2VJCJTKEMOCJNF3BNHYJOBK6U57NS',
+        devicePublicKey: 'A'.repeat(64),
+      }});
+    });
     const navigation = {navigate: jest.fn()};
     const renderer = await render(navigation);
 

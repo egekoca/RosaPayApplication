@@ -106,6 +106,17 @@ export class InMemoryIntentRepository implements IntentRepository {
   async saveSettlement(settlement: SettlementRecord) {
     this.settlements.set(settlement.intentId, settlement);
   }
+
+  async compareAndSetSettlement(
+    intentId: string,
+    expectedStatus: PaymentStatus,
+    settlement: SettlementRecord,
+  ): Promise<boolean> {
+    const current = this.settlements.get(intentId);
+    if (!current || current.status !== expectedStatus) return false;
+    this.settlements.set(intentId, settlement);
+    return true;
+  }
 }
 
 /** The middle value, averaging the two middles when the count is even. */

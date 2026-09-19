@@ -2,6 +2,7 @@ import {Buffer} from 'buffer';
 import {createNativeRosaPaySigner} from '../../native/nativeSigner';
 import type {HardwareDigestSigner} from '@rosapay/stellar';
 import {RosaPayApiClient} from '../../api';
+import {ensureDeviceSession} from '../../api/deviceSession';
 import {logger} from '../../shared/logger';
 import {useAppStore, type SmartWallet} from '../../state/appStore';
 
@@ -25,14 +26,7 @@ export function createHardwareDigestSigner(publicKey: string): HardwareDigestSig
   };
 }
 
-/**
- * Returns the smart wallet this device controls, deploying and funding it the
- * first time, and making the device key if the phone does not have one yet.
- *
- * Signing up no longer demands a key, so the first payment is where one has to
- * appear. That is also the honest place to ask: it is the moment the key starts
- * guarding something.
- */
+/** Returns the device-controlled smart wallet, provisioning it on first use. */
 export async function ensureSmartWallet(
   client: RosaPayApiClient = new RosaPayApiClient({baseUrl: useAppStore.getState().apiBaseUrl}),
 ): Promise<SmartWallet> {
@@ -44,15 +38,22 @@ export async function ensureSmartWallet(
     identity = await signer.createIdentity('Lumenade Pay').catch(() => null);
   }
   if (!identity?.publicKey) {
-    // Android will not hold a key that requires the owner unless the phone has
-    // a screen lock, and that is something they can go and fix.
     throw new SmartWalletError(
       'DEVICE_KEY_MISSING',
       'Set a screen lock on this phone so it can hold a payment key, then try again',
     );
   }
 
-  const existing = store.smartWallet;
+  try {
+    await ensureDeviceSession(client);
+  } catch (error) {
+    throw new SmartWalletError(
+      'WALLET_UNAVAILABLE',
+      error instanceof Error ? error.message : 'The device session could not be created',
+    );
+  }
+
+  const existing = useAppStore.getState().smartWallet;
   if (existing && existing.devicePublicKey === identity.publicKey) return existing;
 
   try {

@@ -72,4 +72,21 @@ describe('settlement state service', () => {
       }),
     ]);
   });
+
+  it('allows only one concurrent terminal transition to win', async () => {
+    const repository = new InMemoryIntentRepository();
+    const service = new IntentService(repository);
+    await service.create(payload, 'concurrent-terminal-key');
+    await service.authorize(payload.intent.intentId);
+    await service.submit(payload.intent.intentId, hash);
+
+    const outcomes = await Promise.allSettled([
+      service.confirm(payload.intent.intentId, hash, 123),
+      service.fail(payload.intent.intentId, 'rpc_timeout'),
+    ]);
+
+    expect(outcomes.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(outcomes.filter(result => result.status === 'rejected')).toHaveLength(1);
+    await expect(service.getSettlement(payload.intent.intentId)).resolves.toMatchObject({status: 'confirmed'});
+  });
 });

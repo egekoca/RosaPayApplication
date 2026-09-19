@@ -15,6 +15,7 @@ import {
 import {
   ApiAuthOptions,
   assertResourceOwnership,
+  assertWalletOwnership,
   AuthenticationRequiredError,
   authorizeMerchantIntent,
   CapabilityDeniedError,
@@ -35,6 +36,11 @@ import {RateLimiter, RateLimitError} from './application/RateLimiter';
 import {AuditLog, InMemoryAuditLog, type AuditLogRepository} from './application/AuditLog';
 import {InMemoryIntentRepository} from './infrastructure/InMemoryIntentRepository';
 import {InMemoryMerchantProfileRepository} from './infrastructure/InMemoryMerchantProfileRepository';
+import {
+  canonicalizeDevicePublicSigner,
+  DeviceAuthenticationError,
+  type DeviceAuthService,
+} from './application/DeviceAuthService';
 
 const paramsSchema = z.object({intentId: z.string().min(1)});
 const profileParamsSchema = z.object({merchantProfileId: z.string().min(1)});
@@ -53,6 +59,12 @@ const countersignatureSchema = z.object({
   // A base64 Ed25519 signature is exactly 64 bytes.
   signature: z.string().regex(/^[A-Za-z0-9+/]{86}==$/),
 });
+const deviceAuthChallengeSchema = z.object({publicSigner: z.string().min(64).max(512)});
+const deviceAuthSessionSchema = z.object({
+  challengeId: z.string().uuid(),
+  publicSigner: z.string().min(64).max(512),
+  signature: z.string().min(8).max(256),
+});
 
 export type BuildAppOptions = {
   repository?: IntentRepository;
@@ -64,6 +76,7 @@ export type BuildAppOptions = {
   wallets?: WalletProvisioningService;
   walletRepository?: WalletRepository;
   auditLog?: AuditLogRepository;
+  deviceAuth?: DeviceAuthService;
 };
 
 export function buildApp({
@@ -75,6 +88,7 @@ export function buildApp({
   wallets,
   walletRepository,
   auditLog,
+  deviceAuth,
 }: BuildAppOptions = {}) {
   const app = Fastify({logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']}});
   const intents = new IntentService(repository);
@@ -96,6 +110,7 @@ export function buildApp({
   // The endpoints that spend funds are the ones worth limiting.
   const walletLimiter = new RateLimiter({limit: 3, windowMs: 60 * 60 * 1000});
   const relayerLimiter = new RateLimiter({limit: 30, windowMs: 60 * 1000});
+  const authenticationLimiter = new RateLimiter({limit: 10, windowMs: 60 * 1000});
   const callerKey = (request: FastifyRequest) => request.ip ?? 'unknown';
 
   const relayerService = relayer ?? new RelayerService({
@@ -107,6 +122,19 @@ export function buildApp({
   // The storage mode is part of health because in-memory data disappears on
   // restart, and a client that records payments deserves to know that.
   app.get('/v1/health', async () => ({status: 'ok', storage}));
+  app.post('/v1/auth/challenges', async (request, reply) => {
+    if (!deviceAuth) return reply.code(503).send({code: 'AUTHENTICATION_DISABLED', message: 'Device authentication is unavailable'});
+    const {publicSigner} = deviceAuthChallengeSchema.parse(request.body);
+    const canonicalSigner = canonicalizeDevicePublicSigner(publicSigner);
+    authenticationLimiter.assert(`${callerKey(request)}:${canonicalSigner}`);
+    return reply.code(201).send(await deviceAuth.challenge(canonicalSigner));
+  });
+  app.post('/v1/auth/sessions', async (request, reply) => {
+    if (!deviceAuth) return reply.code(503).send({code: 'AUTHENTICATION_DISABLED', message: 'Device authentication is unavailable'});
+    const input = deviceAuthSessionSchema.parse(request.body);
+    authenticationLimiter.assert(`${callerKey(request)}:${canonicalizeDevicePublicSigner(input.publicSigner)}`);
+    return reply.code(201).send(await deviceAuth.createSession(input));
+  });
   /**
    * What the service has handled. Read-only and free of anything that
    * identifies a person or a payment: counts by outcome and one duration, so it
@@ -147,7 +175,7 @@ export function buildApp({
     return reply.code(201).send(stored);
   });
   app.post('/v1/merchant-profiles', async (request, reply) => {
-    const principal = await requireMerchantPrincipal(request, authOptions);
+    const principal = await requireAuthenticatedPrincipal(request, authOptions);
     const profile = await merchants.create(request.body, principal?.userId);
     await audit.record('merchant_profile_created', profile.id, {
       actor: profile.signingKey,
@@ -167,9 +195,12 @@ export function buildApp({
   });
   app.post('/v1/wallets', async (request, reply) => {
     const {devicePublicKey} = walletSchema.parse(request.body);
-    await requireAuthenticatedPrincipal(request, authOptions);
+    const principal = await requireAuthenticatedPrincipal(request, authOptions);
+    if (principal?.publicSigner && principal.publicSigner !== canonicalizeDevicePublicSigner(devicePublicKey)) {
+      throw new CapabilityDeniedError('A device may only provision a wallet for its own key');
+    }
     walletLimiter.assert(`${callerKey(request)}:${devicePublicKey}`);
-    const wallet = await walletService.provision(devicePublicKey);
+    const wallet = await walletService.provision(devicePublicKey, principal?.userId);
     if (!wallet.reused) {
       await audit.record('wallet_provisioned', wallet.walletContractId, {
         detail: {fundedAmount: wallet.fundedAmount, transactionHash: wallet.transactionHash},
@@ -178,6 +209,7 @@ export function buildApp({
     return reply.code(201).send(wallet);
   });
   app.post('/v1/relayer/transactions', async (request, reply) => {
+    await requireAuthenticatedPrincipal(request, authOptions);
     const {xdr} = relayerTransactionSchema.parse(request.body);
     relayerLimiter.assert(callerKey(request));
     const signed = relayerService.signSettlementTransaction(xdr);
@@ -217,15 +249,21 @@ export function buildApp({
   });
   app.post('/v1/payment-intents/:intentId/authorize', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);
-    await requireAuthenticatedPrincipal(request, authOptions);
+    const principal = await requireAuthenticatedPrincipal(request, authOptions);
     const authorization = authorizeSchema.parse(request.body);
+    assertWalletOwnership(principal, authorization.authorizer);
     const settlement = await intents.authorize(intentId, authorization);
     await audit.record('payment_authorized', intentId, {actor: authorization.authorizer});
     return reply.send(settlement);
   });
   app.post('/v1/payment-intents/:intentId/submit', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);
-    await requireAuthenticatedPrincipal(request, authOptions);
+    const principal = await requireAuthenticatedPrincipal(request, authOptions);
+    if (principal) {
+      const authorization = await intents.getAuthorization(intentId);
+      if (!authorization) throw new SettlementInputError('The payment must be authorized before submission');
+      assertWalletOwnership(principal, authorization.authorizer);
+    }
     const {transactionHash} = submitSchema.parse(request.body);
     const settlement = await intents.submit(intentId, transactionHash);
     await audit.record('payment_submitted', intentId, {detail: {transactionHash}});
@@ -242,8 +280,9 @@ export function buildApp({
    */
   app.post('/v1/payment-intents/:intentId/countersignature/request', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);
-    await requireAuthenticatedPrincipal(request, authOptions);
+    const principal = await requireAuthenticatedPrincipal(request, authOptions);
     const {customerAddress} = countersignatureRequestSchema.parse(request.body);
+    assertWalletOwnership(principal, customerAddress);
     const record = await intents.requestCountersignature(intentId, customerAddress);
     await audit.record('countersignature_requested', intentId, {actor: customerAddress});
     return reply.send(record);
@@ -251,8 +290,13 @@ export function buildApp({
 
   app.post('/v1/payment-intents/:intentId/countersignature', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);
-    await requireAuthenticatedPrincipal(request, authOptions);
+    const principal = await requireMerchantPrincipal(request, authOptions);
     const {customerAddress, signature} = countersignatureSchema.parse(request.body);
+    const stored = await intents.get(intentId);
+    if (!stored) throw new SettlementNotFoundError('Payment intent not found');
+    if (principal && !principal.merchantProfileIds?.includes(stored.payload.intent.merchantProfileId)) {
+      throw new CapabilityDeniedError('Merchant profile is not owned by the authenticated user');
+    }
     const record = await intents.supplyCountersignature(intentId, customerAddress, signature);
     await audit.record('countersignature_supplied', intentId, {actor: customerAddress});
     return reply.send(record);
@@ -284,6 +328,9 @@ export function buildApp({
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) {
       return reply.code(400).send({code: 'INVALID_REQUEST', message: 'Request validation failed', issues: error.issues});
+    }
+    if (error instanceof DeviceAuthenticationError) {
+      return reply.code(401).send({code: error.code, message: error.message});
     }
     if (error instanceof IntentConflictError) {
       return reply.code(409).send({code: 'INTENT_CONFLICT', message: error.message});

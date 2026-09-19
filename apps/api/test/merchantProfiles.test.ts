@@ -89,14 +89,14 @@ describe('merchant profiles', () => {
     expect(response.json()).toMatchObject({code: 'AUTHENTICATION_REQUIRED'});
   });
 
-  it('rejects a customer-only session', async () => {
+  it('lets an authenticated customer activate merchant capability by creating a profile', async () => {
     const app = buildApp({
       auth: {required: true, resolve: async () => ({userId: 'user-1', capabilities: ['customer'] as const})},
     });
     apps.push(app);
     const response = await app.inject({method: 'POST', url: '/v1/merchant-profiles', payload: profile});
-    expect(response.statusCode).toBe(403);
-    expect(response.json()).toMatchObject({code: 'CAPABILITY_DENIED'});
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({userId: 'user-1'});
   });
 
   it('keeps one merchant from reading another merchant profile', async () => {

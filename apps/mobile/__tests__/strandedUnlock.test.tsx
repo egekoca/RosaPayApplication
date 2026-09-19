@@ -22,19 +22,29 @@ import {UnlockScreen} from '../src/features/onboarding/UnlockScreen';
 import {useAppStore} from '../src/state/appStore';
 
 const initial = useAppStore.getState();
+const renderers: ReactTestRenderer.ReactTestRenderer[] = [];
 
 async function render() {
   let renderer: ReactTestRenderer.ReactTestRenderer;
   await ReactTestRenderer.act(async () => {
     renderer = ReactTestRenderer.create(<UnlockScreen />);
   });
+  renderers.push(renderer!);
   return renderer!;
 }
 
 describe('when the payment key is gone for good', () => {
   beforeEach(() => {
-    useAppStore.setState({...initial, account: {name: 'Ege', createdAt: '2026-01-01T00:00:00.000Z'}, locked: true});
+    ReactTestRenderer.act(() => {
+      useAppStore.setState({...initial, account: {name: 'Ege', createdAt: '2026-01-01T00:00:00.000Z'}, locked: true});
+    });
     mockUnlock.mockReset();
+  });
+
+  afterEach(() => {
+    ReactTestRenderer.act(() => {
+      for (const renderer of renderers.splice(0)) renderer.unmount();
+    });
   });
 
   it('offers a way forward instead of a button that can only fail again', async () => {

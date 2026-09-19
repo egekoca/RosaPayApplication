@@ -12,10 +12,9 @@ export type HardwareSignerReport = {
   walletContractId?: string;
 };
 
-const signer = createNativeRosaPaySigner();
-
 /** Reports whether this device already holds a payment key. */
 export async function inspectHardwareSigner(): Promise<HardwareSignerReport> {
+  const signer = createNativeRosaPaySigner();
   try {
     const identity = await signer.getIdentity();
     return identity
@@ -27,40 +26,41 @@ export async function inspectHardwareSigner(): Promise<HardwareSignerReport> {
 }
 
 export async function createHardwareSigner(): Promise<HardwareSignerReport> {
+  const signer = createNativeRosaPaySigner();
   let publicKey: string;
+  let created = false;
   try {
-    const identity = await signer.createIdentity('Lumenade Pay');
-    logger.info('hardware_signer_created', {kind: identity.kind});
+    let identity = await signer.getIdentity();
+    if (!identity) {
+      identity = await signer.createIdentity('Lumenade Pay');
+      created = true;
+      logger.info('hardware_signer_created', {kind: identity.kind});
+    }
     publicKey = identity.publicKey;
   } catch (error) {
     return {state: 'unavailable', detail: describe(error)};
   }
 
-  // Deploying the wallet takes two Testnet transactions, so it happens here
-  // rather than in the middle of a payment.
   try {
     const wallet = await ensureSmartWallet();
     return {
-      state: 'created',
+      state: created ? 'created' : 'ready',
       publicKey,
       walletContractId: wallet.contractId,
       detail: 'Wallet created and funded on Testnet',
     };
   } catch (error) {
     return {
-      state: 'created',
+      state: created ? 'created' : 'ready',
       publicKey,
       detail: `Key created, but the wallet could not be set up yet: ${describe(error)}`,
     };
   }
 }
 
-/**
- * Proves the platform key really signs: asks for a signature over a known digest
- * and verifies it against the exported public key, exactly as the wallet
- * contract would. A device that cannot pass this cannot authorize payments.
- */
+/** Verifies a user-presence signature exactly as the wallet contract would. */
 export async function verifyHardwareSigner(): Promise<HardwareSignerReport> {
+  const signer = createNativeRosaPaySigner();
   const digest = Buffer.alloc(32, 0x2a);
   try {
     const identity = await signer.getIdentity();
