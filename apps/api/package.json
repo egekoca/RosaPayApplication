@@ -17,6 +17,7 @@
     "@rosapay/protocol": "*",
     "@rosapay/secure-signer": "*",
     "@rosapay/stellar": "*",
+    "@rosapay/worker": "*",
     "fastify": "^5.5.0",
     "pg": "^8.23.0",
     "zod": "^4.0.0"

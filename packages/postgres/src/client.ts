@@ -46,6 +46,20 @@ export type PostgresPoolOptions = {
   idleTimeoutMs?: number;
   statementTimeoutMs?: number;
   ssl?: boolean;
+  /**
+   * A PEM certificate authority to verify the server against, for a provider
+   * that runs its own CA rather than a publicly trusted one. Supabase is one:
+   * its pooler presents `Supabase Root 2021 CA`, which is not in any system
+   * trust store, so a verifying client rejects it with
+   * `SELF_SIGNED_CERT_IN_CHAIN` until handed this.
+   *
+   * The alternative offered everywhere is `rejectUnauthorized: false`, which
+   * does not weaken verification so much as remove it — the connection stays
+   * encrypted and becomes willing to encrypt to anyone who answers. That is the
+   * wrong trade for a channel carrying payment records, so it is not an option
+   * here; supply the CA instead.
+   */
+  caCertificate?: string;
 };
 
 /**
@@ -102,7 +116,9 @@ export function createPostgresPool(options: PostgresPoolOptions): PostgresConnec
     connectionTimeoutMillis: options.connectionTimeoutMs ?? 5_000,
     idleTimeoutMillis: options.idleTimeoutMs ?? 30_000,
     statement_timeout: options.statementTimeoutMs ?? 15_000,
-    ...(options.ssl ? {ssl: {rejectUnauthorized: true}} : {}),
+    ...(options.ssl
+      ? {ssl: {rejectUnauthorized: true, ...(options.caCertificate ? {ca: options.caCertificate} : {})}}
+      : {}),
   });
   // An idle client error must not take the process down before shutdown runs.
   pool.on('error', error => {
@@ -116,10 +132,16 @@ export function createPostgresPool(options: PostgresPoolOptions): PostgresConnec
 export function readPostgresOptions(env: NodeJS.ProcessEnv = process.env): PostgresPoolOptions | null {
   const connectionString = env.DATABASE_URL?.trim();
   if (!connectionString) return null;
+  // A PEM pasted into an environment variable arrives with its newlines turned
+  // into the two characters `\` and `n` often enough - Render's dashboard, a
+  // shell that did not quote it - that reading it back is worth doing here
+  // rather than leaving every deployment to discover it as a parse error.
+  const caCertificate = env.DATABASE_CA_CERT?.trim().replace(/\\n/g, '\n');
   return {
     connectionString,
     ...(env.DATABASE_MAX_CONNECTIONS ? {maxConnections: Number(env.DATABASE_MAX_CONNECTIONS)} : {}),
     ...(env.DATABASE_STATEMENT_TIMEOUT_MS ? {statementTimeoutMs: Number(env.DATABASE_STATEMENT_TIMEOUT_MS)} : {}),
+    ...(caCertificate ? {caCertificate} : {}),
     ssl: env.DATABASE_SSL === 'true',
   };
 }

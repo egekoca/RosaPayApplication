@@ -26,6 +26,12 @@ export type ApiRuntime = {
   auditLog: AuditLogRepository;
   deviceAuth: DeviceAuthRepository;
   storage: ApiStorageMode;
+  /**
+   * Present only on a database-backed runtime, so the in-process reconciler can
+   * share this pool rather than opening a second one against the same hosted
+   * database on a plan that counts connections.
+   */
+  connection?: PostgresConnection;
   close(): Promise<void>;
 };
 
@@ -68,6 +74,7 @@ export function createApiRuntime({
     auditLog: new PostgresAuditLog(connection),
     deviceAuth: new PostgresDeviceAuthRepository(connection),
     storage: 'postgres',
+    connection,
     close: () => connection.close(),
   };
 }

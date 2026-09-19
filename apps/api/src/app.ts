@@ -93,6 +93,18 @@ export type BuildAppOptions = {
   repository?: IntentRepository;
   /** Reported by health so a client can tell durable storage from memory. */
   storage?: 'postgres' | 'memory';
+  /**
+   * Asks the database whether it is actually reachable, for health to answer
+   * with rather than assume.
+   *
+   * Without this, health reported the storage mode it had been *configured*
+   * with, which is not the same claim: a deployment whose credentials or TLS
+   * were wrong answered `{"status":"ok","storage":"postgres"}` while every
+   * connection failed, and the first request to touch a table was where anyone
+   * found out. A platform health check believed it too, so nothing was ever
+   * marked unhealthy.
+   */
+  probeDatabase?: () => Promise<void>;
   merchantProfiles?: MerchantProfileRepository;
   auth?: ApiAuthOptions;
   relayer?: RelayerService;
@@ -114,6 +126,7 @@ export function buildApp({
   auditLog,
   deviceAuth,
   prices,
+  probeDatabase,
 }: BuildAppOptions = {}) {
   const app = Fastify({logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']}});
   const intents = new IntentService(repository);
@@ -170,8 +183,23 @@ export function buildApp({
   });
 
   // The storage mode is part of health because in-memory data disappears on
-  // restart, and a client that records payments deserves to know that.
-  app.get('/v1/health', async () => ({status: 'ok', storage}));
+  // restart, and a client that records payments deserves to know that. When
+  // that storage is a database, health asks it rather than repeating what it
+  // was configured with - a health check that cannot fail is not one.
+  app.get('/v1/health', async (_request, reply) => {
+    if (!probeDatabase) return {status: 'ok', storage};
+    try {
+      await probeDatabase();
+    } catch (error) {
+      return reply.code(503).send({
+        status: 'degraded',
+        storage,
+        database: 'unreachable',
+        message: error instanceof Error ? error.message : 'The database did not answer',
+      });
+    }
+    return {status: 'ok', storage, database: 'reachable'};
+  });
   /**
    * SEP-38 indicative prices, served by this deployment rather than an anchor.
    *

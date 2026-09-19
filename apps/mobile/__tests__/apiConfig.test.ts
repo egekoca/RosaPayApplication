@@ -1,9 +1,10 @@
 import {Platform} from 'react-native';
-import {defaultApiBaseUrl, isReachableFromDevice, normalizeApiBaseUrl} from '../src/shared/apiConfig';
+import {defaultApiBaseUrl, hasHostedApi, isReachableFromDevice, normalizeApiBaseUrl} from '../src/shared/apiConfig';
 
 describe('API address', () => {
   it('defaults to a host the emulator can reach', () => {
-    expect(defaultApiBaseUrl).toBe(Platform.OS === 'android' ? 'http://10.0.2.2:4100' : 'http://127.0.0.1:4100');
+    const development = Platform.OS === 'android' ? 'http://10.0.2.2:4100' : 'http://127.0.0.1:4100';
+    expect(defaultApiBaseUrl).toBe(hasHostedApi ? 'https://rosapay-api.onrender.com' : development);
   });
 
   it('accepts a development machine on the local network', () => {

@@ -107,4 +107,35 @@ describe('Postgres connection', () => {
     expect(readPostgresOptions({DATABASE_URL: 'postgres://localhost/rosapay', DATABASE_SSL: 'true', DATABASE_MAX_CONNECTIONS: '4'}))
       .toEqual({connectionString: 'postgres://localhost/rosapay', maxConnections: 4, ssl: true});
   });
+
+  /**
+   * Supabase presents `Supabase Root 2021 CA`, which is in no system trust
+   * store, so a verifying client rejects the pooler outright. The answer on
+   * offer everywhere is `rejectUnauthorized: false`, which does not weaken
+   * verification but removes it. Carrying the CA keeps it.
+   */
+  it('carries a certificate authority for a provider that runs its own', () => {
+    const pem = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----';
+    expect(readPostgresOptions({DATABASE_URL: 'postgres://localhost/rosapay', DATABASE_SSL: 'true', DATABASE_CA_CERT: pem}))
+      .toEqual({connectionString: 'postgres://localhost/rosapay', ssl: true, caCertificate: pem});
+  });
+
+  /**
+   * A PEM pasted into a dashboard field or an unquoted shell variable arrives
+   * with its newlines as the two characters `\` and `n`, and OpenSSL rejects
+   * that as unparseable long after the deployment looked configured.
+   */
+  it('restores newlines a dashboard turned into escapes', () => {
+    const options = readPostgresOptions({
+      DATABASE_URL: 'postgres://localhost/rosapay',
+      DATABASE_SSL: 'true',
+      DATABASE_CA_CERT: '-----BEGIN CERTIFICATE-----\\nMIIB\\n-----END CERTIFICATE-----',
+    });
+    expect(options?.caCertificate).toBe('-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----');
+  });
+
+  it('leaves the certificate out entirely when none is configured', () => {
+    expect(readPostgresOptions({DATABASE_URL: 'postgres://localhost/rosapay', DATABASE_SSL: 'true'}))
+      .toEqual({connectionString: 'postgres://localhost/rosapay', ssl: true});
+  });
 });

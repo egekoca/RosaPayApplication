@@ -4,6 +4,7 @@ import {DeviceAuthService} from './application/DeviceAuthService';
 import {createDeviceAuthResolver} from './application/AuthContext';
 import {PriceService} from './application/PriceService';
 import {CoinGeckoRateProvider} from './infrastructure/CoinGeckoRateProvider';
+import {startReconciler} from '@rosapay/worker';
 
 const port = Number.parseInt(process.env.API_PORT ?? '4100', 10);
 const host = process.env.API_HOST ?? '127.0.0.1';
@@ -37,6 +38,9 @@ const prices = new PriceService({
 const app = buildApp({
   repository: runtime.repository,
   storage: runtime.storage,
+  ...(runtime.connection
+    ? {probeDatabase: async () => void (await runtime.connection!.query('select 1', []))}
+    : {}),
   merchantProfiles: runtime.merchantProfiles,
   walletRepository: runtime.wallets,
   auditLog: runtime.auditLog,
@@ -50,10 +54,32 @@ const app = buildApp({
   } : {}),
 });
 
+/**
+ * The reconciler, optionally in this process rather than beside it.
+ *
+ * A settlement only ever reaches `confirmed` in the reconciliation loop, so a
+ * deployment without it shows a merchant nothing after a payment that in fact
+ * succeeded on chain. Run as its own service that costs a paid plan on hosts
+ * with no free background worker, which is a real bill for a demo settling a
+ * handful of payments. It opens no port and only makes outbound calls, so
+ * nothing about it needs a service of its own.
+ *
+ * It shares the API's pool, and the loop wakes whenever this process is awake -
+ * on a host that sleeps an idle service, the submit that creates work to
+ * reconcile is itself the request that wakes it.
+ */
+const reconciler = process.env.WORKER_IN_PROCESS === 'true'
+  ? await startReconciler({
+      ...(runtime.connection ? {connection: runtime.connection} : {}),
+      log: entry => app.log.info(entry, String(entry.event ?? 'worker')),
+    })
+  : null;
+
 app.log.info({
   storage: runtime.storage,
   authRequired,
   relayer: Boolean(process.env.STELLAR_RELAYER_SECRET),
+  reconciler: Boolean(reconciler),
 }, 'api_starting');
 
 let shuttingDown = false;
@@ -64,6 +90,8 @@ const shutdown = async (signal: NodeJS.Signals) => {
   try {
     await app.close();
   } finally {
+    // Before the pool it borrowed is closed underneath it.
+    await reconciler?.stop();
     await runtime.close();
   }
 };

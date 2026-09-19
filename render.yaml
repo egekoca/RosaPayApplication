@@ -18,8 +18,25 @@ services:
         value: "true"
       - key: API_REQUIRE_DATABASE
         value: "true"
+      # Runs the reconciliation loop inside this service. A settlement only ever
+      # reaches `confirmed` in that loop, and hosts with no free background
+      # worker would otherwise charge for a second service to hold it. It opens
+      # no port and only calls out, so it needs no service of its own; the
+      # submit that creates work to reconcile is also the request that wakes an
+      # idle instance. Set this to false and deploy apps/worker separately when
+      # the traffic justifies its own process.
+      - key: WORKER_IN_PROCESS
+        value: "true"
+      - key: WORKER_INTERVAL_MS
+        value: "10000"
       - key: DATABASE_SSL
         value: "true"
+      # Supabase presents `Supabase Root 2021 CA`, which is in no system trust
+      # store, so a verifying client rejects the pooler until handed it. Paste
+      # the PEM the Supabase dashboard offers under Database -> SSL
+      # Configuration. Leave unset for a provider using a public CA.
+      - key: DATABASE_CA_CERT
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: API_SESSION_SECRET
@@ -42,33 +59,6 @@ services:
         value: "3"
       - key: DATABASE_STATEMENT_TIMEOUT_MS
         value: "15000"
-
-  - type: worker
-    name: rosapay-worker
-    runtime: docker
-    plan: starter
-    region: frankfurt
-    dockerfilePath: ./Dockerfile
-    dockerCommand: npm run start --workspace @rosapay/worker
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        sync: false
-      - key: DATABASE_SSL
-        value: "true"
-      - key: DATABASE_MAX_CONNECTIONS
-        value: "2"
-      - key: DATABASE_STATEMENT_TIMEOUT_MS
-        value: "15000"
-      - key: STELLAR_NETWORK
-        value: testnet
-      - key: STELLAR_RPC_URL
-        value: https://soroban-testnet.stellar.org
-      - key: STELLAR_SETTLEMENT_CONTRACT_ID
-        sync: false
-      - key: WORKER_INTERVAL_MS
-        value: "10000"
 
 # The database is intentionally external. Render's free web plan does not
 # include a durable PostgreSQL instance; use a free Supabase/Neon database and

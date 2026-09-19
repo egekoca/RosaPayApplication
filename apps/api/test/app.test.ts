@@ -430,3 +430,50 @@ describe('two devices completing one payment', () => {
     expect(short.statusCode).toBe(400);
   });
 });
+
+/**
+ * Health used to report the storage mode it had been configured with, which is
+ * a different claim from the database being there. A deployment with the wrong
+ * credentials or an unverifiable certificate answered `status: ok, storage:
+ * postgres` while every connection failed, the platform health check believed
+ * it, and the first request to touch a table was where anyone found out.
+ */
+describe('health as a claim about the database', () => {
+  it('says reachable only after the database answers', async () => {
+    const app = buildApp({storage: 'postgres', probeDatabase: async () => undefined});
+    apps.push(app);
+
+    const response = await app.inject({method: 'GET', url: '/v1/health'});
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({status: 'ok', storage: 'postgres', database: 'reachable'});
+  });
+
+  it('refuses to report ok when the database does not answer', async () => {
+    const app = buildApp({
+      storage: 'postgres',
+      probeDatabase: async () => {
+        throw new Error('self-signed certificate in certificate chain');
+      },
+    });
+    apps.push(app);
+
+    const response = await app.inject({method: 'GET', url: '/v1/health'});
+
+    // 503 rather than 200 is the whole point: a platform health check has to be
+    // able to fail, or an unreachable database deploys green.
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({status: 'degraded', database: 'unreachable'});
+    expect(response.json().message).toMatch(/certificate/);
+  });
+
+  it('still answers for an in-memory deployment, which has nothing to probe', async () => {
+    const app = buildApp({storage: 'memory'});
+    apps.push(app);
+
+    const response = await app.inject({method: 'GET', url: '/v1/health'});
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({status: 'ok', storage: 'memory'});
+  });
+});

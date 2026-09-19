@@ -43,5 +43,5 @@
     "registeredAt": "2026-09-06T20:35:07Z",
     "transactionHash": "cab972eba8641239c8d3001fa43069171ec65d473166717150f23a1c952c0606"
   },
-  "apiBaseUrl": ""
+  "apiBaseUrl": "https://rosapay-api.onrender.com"
 }

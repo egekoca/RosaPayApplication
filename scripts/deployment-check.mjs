@@ -18,6 +18,19 @@ for (const name of required) {
 const databaseUrl = process.env.DATABASE_URL?.trim();
 record('DATABASE_URL scheme', Boolean(databaseUrl && /^postgres(?:ql)?:\/\//i.test(databaseUrl)), 'postgres URL');
 record('DATABASE_SSL', process.env.DATABASE_SSL === 'true', 'must be true for hosted PostgreSQL');
+/*
+ * A provider running its own CA - Supabase presents `Supabase Root 2021 CA` -
+ * is rejected by a verifying client until it is handed that certificate. The
+ * failure is easy to miss because nothing connects until the first query, so
+ * the service starts, reports its configured storage mode and only fails when
+ * someone actually pays.
+ */
+record(
+  'DATABASE_CA_CERT',
+  process.env.DATABASE_SSL !== 'true' || !/supabase/i.test(process.env.DATABASE_URL ?? '')
+    || /BEGIN CERTIFICATE/.test(process.env.DATABASE_CA_CERT ?? ''),
+  'Supabase runs its own CA; paste its root certificate here',
+);
 record('API_AUTH_REQUIRED', process.env.API_AUTH_REQUIRED === 'true', 'must be true for TestFlight');
 record('API_REQUIRE_DATABASE', process.env.API_REQUIRE_DATABASE === 'true', 'must be true for TestFlight');
 record('API_HOST', (process.env.API_HOST ?? '0.0.0.0') === '0.0.0.0', 'must bind all interfaces');
@@ -31,6 +44,17 @@ record(
   'STELLAR_WALLET_WASM_HASH format',
   /^[a-f0-9]{64}$/i.test(process.env.STELLAR_WALLET_WASM_HASH ?? ''),
   '64 hexadecimal characters',
+);
+/*
+ * Somebody has to be reconciling. A settlement only ever reaches `confirmed` in
+ * that loop, so a deployment with neither the in-process loop nor a separate
+ * worker leaves every payment sitting at `submitted` - the money moves, the
+ * merchant's screen never says so, and nothing anywhere reports an error.
+ */
+record(
+  'reconciler',
+  process.env.WORKER_IN_PROCESS === 'true' || process.env.WORKER_STANDALONE === 'true',
+  'set WORKER_IN_PROCESS=true, or WORKER_STANDALONE=true when apps/worker runs as its own service',
 );
 
 const failed = checks.filter(check => !check.ok);
