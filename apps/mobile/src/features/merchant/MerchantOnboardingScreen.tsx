@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ShieldCheck, Store} from 'lucide-react-native';
-import {StyleSheet, Text, View} from 'react-native';
+import {ShieldCheck, Smartphone, Store} from 'lucide-react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Button, colors, radius, spacing, SurfaceCard, TextField, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
@@ -17,7 +17,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'MerchantOnboarding'>;
 const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
 export function MerchantOnboardingScreen({navigation}: Props) {
-  const {saveMerchantProfile, setMerchantRegisteredOnChain} = useAppStore();
+  const {saveMerchantProfile, setMerchantRegisteredOnChain, smartWallet} = useAppStore();
   const [displayName, setDisplayName] = useState('');
   const [recipient, setRecipient] = useState('');
   const [errors, setErrors] = useState<{displayName?: string; recipient?: string; general?: string}>({});
@@ -79,6 +79,24 @@ export function MerchantOnboardingScreen({navigation}: Props) {
           value={displayName}
           {...(errors.displayName ? {error: errors.displayName} : {})}
         />
+        {smartWallet && smartWallet.contractId !== recipient ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setRecipient(smartWallet.contractId);
+              setErrors(current => ({...current, recipient: undefined}));
+            }}
+            style={styles.useWallet}
+            testID="use-this-wallet">
+            <Smartphone color={colors.amber} size={18} />
+            <View style={styles.useWalletCopy}>
+              <Text style={styles.useWalletTitle}>Get paid into this phone</Text>
+              <Text style={styles.useWalletBody}>
+                Takes every asset without setting anything up, and the money is yours the moment it lands.
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
         <TextField
           autoCapitalize="characters"
           hint="Stellar account or contract address that receives payments"
@@ -114,6 +132,10 @@ const styles = StyleSheet.create({
   title: {...typography.title, color: colors.ink, fontSize: 26},
   subtitle: {color: colors.inkMuted, fontSize: 13, lineHeight: 19},
   form: {gap: spacing.lg},
+  useWallet: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm, padding: spacing.md},
+  useWalletCopy: {flex: 1, gap: 2},
+  useWalletTitle: {color: colors.ink, fontSize: 14, fontWeight: '600'},
+  useWalletBody: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
   note: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
   noteText: {color: colors.inkMuted, flex: 1, fontSize: 12, lineHeight: 17},
   error: {...typography.label, color: colors.danger},

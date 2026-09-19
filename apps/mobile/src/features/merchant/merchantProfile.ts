@@ -1,6 +1,7 @@
 import {
   createIntentIdentifiers,
   createPaymentIntent,
+  type PaymentAsset,
   type PaymentIntentV1,
   type RandomBytes,
   type SignedPaymentIntentV1,
@@ -67,6 +68,8 @@ export type PaymentRequestDraft = {
   reference: string;
   latestLedger: number | undefined;
   lifetimeLedgers?: number;
+  /** What the customer sends. Omitted means lumens, which is what most do. */
+  asset?: PaymentAsset;
 };
 
 /**
@@ -99,6 +102,7 @@ export function createSignedPaymentRequest(
     reference: draft.reference,
     latestLedger: draft.latestLedger,
     ...(draft.lifetimeLedgers === undefined ? {} : {lifetimeLedgers: draft.lifetimeLedgers}),
+    ...(draft.asset === undefined ? {} : {asset: draft.asset}),
     ...identifiers,
     createdAt: now.toISOString(),
   });

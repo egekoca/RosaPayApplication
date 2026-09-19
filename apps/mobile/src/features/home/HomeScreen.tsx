@@ -60,7 +60,7 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
     <>
       <AnimatedContent>
         <PaymentCard
-          holdings={balance.data === undefined ? [] : [{code: 'XLM', amount: balance.data}]}
+          holdings={balance.data ?? []}
           {...(value.data ? {value: value.data} : {})}
           {...(address === undefined ? {} : {address})}
           state={

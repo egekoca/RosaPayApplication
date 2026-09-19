@@ -1,5 +1,14 @@
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 
+/**
+ * A signed request, for tests only.
+ *
+ * It lives here rather than under `src/` so that no screen can reach for it.
+ * It used to sit beside the scanner, which is how the app came to offer a
+ * "Scan demo QR" button that walked someone through paying an invented
+ * merchant. Its recipient is the all-zeros address, so it could never have
+ * settled anyway — which is precisely the problem with showing it to anyone.
+ */
 export const mockSignedIntent: SignedPaymentIntentV1 = {
   intent: {
     version: 'RTP/1',

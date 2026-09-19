@@ -1,5 +1,5 @@
 import {RosaPayApiClient, ApiClientError} from '../src/api';
-import {mockSignedIntent} from '../src/features/payments/mockIntent';
+import {mockSignedIntent} from './fixtures/signedIntent';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {

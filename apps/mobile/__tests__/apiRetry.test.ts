@@ -1,6 +1,6 @@
 import {ApiClientError, RosaPayApiClient} from '../src/api/client';
 import {defaultRetryPolicy, isRetryable, retryDelayMs} from '../src/api/retry';
-import {mockSignedIntent} from '../src/features/payments/mockIntent';
+import {mockSignedIntent} from './fixtures/signedIntent';
 
 const noSleep = () => Promise.resolve();
 

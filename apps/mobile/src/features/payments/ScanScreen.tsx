@@ -10,7 +10,6 @@ import {Screen} from '../../shared/Screen';
 import {LumenadeMark} from '../../shared/LumenadeMark';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useAppStore} from '../../state/appStore';
-import {mockSignedIntent} from './mockIntent';
 import {requestCameraPermission} from './cameraPermission';
 import {readPaymentQr} from './readPaymentQr';
 import {useNfcReader} from './useNfc';
@@ -31,7 +30,7 @@ export function ScanScreen({navigation}: Props) {
   useEffect(() => {
     let cancelled = false;
     // A simulator or emulator without a virtual camera resolves to 'unavailable',
-    // and the device-request fallback below keeps the customer path testable there.
+    // and reading this device's own request keeps the customer path testable there.
     void requestCameraPermission().then(result => {
       if (!cancelled) setCamera(result);
     });
@@ -51,18 +50,18 @@ export function ScanScreen({navigation}: Props) {
   );
 
   const scanContext = useCallback(
-    (live: boolean) => ({
+    () => ({
       network: 'testnet' as const,
-      latestLedger: live ? stellarHealth.data?.latestLedger ?? 0 : 1_500_000,
+      latestLedger: stellarHealth.data?.latestLedger ?? 0,
       maxLedgerLifetime: 1_440,
     }),
     [stellarHealth.data?.latestLedger],
   );
 
   const accept = useCallback(
-    (value: string, live: boolean) => {
+    (value: string) => {
       if (handled.current) return;
-      const result = readPaymentQr(value, scanContext(live));
+      const result = readPaymentQr(value, scanContext());
       if (!result.ok) {
         setError(result.message);
         return;
@@ -77,13 +76,17 @@ export function ScanScreen({navigation}: Props) {
   // A tap and a scan carry the same signed request, so both go through the same
   // verification before anything is confirmed.
   const nfc = useNfcReader(!handled.current, {
-    onRequest: useCallback((payload: string) => accept(payload, true), [accept]),
+    onRequest: useCallback((payload: string) => accept(payload), [accept]),
     onError: useCallback((message: string) => setError(message), []),
   });
 
+  // One phone can play both sides on Testnet: make the request in merchant
+  // mode, then read it back here. The request is the real signed one, so it
+  // settles on chain like any other. There is deliberately no fallback when
+  // none exists — an invented merchant is not something to hand anyone.
   const scanOwnRequest = () => {
-    const source = pendingRequest ?? mockSignedIntent;
-    accept(encodePaymentQr(source), Boolean(pendingRequest));
+    if (!pendingRequest) return;
+    accept(encodePaymentQr(pendingRequest));
   };
 
   return (
@@ -96,7 +99,7 @@ export function ScanScreen({navigation}: Props) {
             scanBarcode
             showFrame={false}
             scanThrottleDelay={600}
-            onReadCode={event => accept(event.nativeEvent.codeStringValue, true)}
+            onReadCode={event => accept(event.nativeEvent.codeStringValue)}
             onError={() => setCamera('unavailable')}
             testID="scan-camera"
           />
@@ -107,7 +110,7 @@ export function ScanScreen({navigation}: Props) {
           {camera === 'granted' ? <ScanLine color={colors.amber} size={52} /> : null}
         </View>
         <Text style={styles.cameraText} pointerEvents="none">
-          {cameraMessage(camera)}
+          {cameraMessage(camera, Boolean(pendingRequest))}
         </Text>
       </View>
 
@@ -126,18 +129,20 @@ export function ScanScreen({navigation}: Props) {
         </Button>
       ) : null}
 
-      <Button
-        tone={camera === 'unavailable' ? 'primary' : 'secondary'}
-        onPress={scanOwnRequest}
-        testID="scan-demo">
-        {pendingRequest ? 'Scan this device request' : 'Scan demo QR'}
-      </Button>
+      {pendingRequest ? (
+        <Button
+          tone={camera === 'unavailable' ? 'primary' : 'secondary'}
+          onPress={scanOwnRequest}
+          testID="scan-own-request">
+          Scan this device's request
+        </Button>
+      ) : null}
       <Text style={styles.fallback}>QR is the universal payment path on iOS and Android.</Text>
     </Screen>
   );
 }
 
-function cameraMessage(state: CameraState): string {
+function cameraMessage(state: CameraState, hasOwnRequest: boolean): string {
   switch (state) {
     case 'granted':
       return 'Align the merchant QR inside the frame';
@@ -146,7 +151,11 @@ function cameraMessage(state: CameraState): string {
     case 'denied':
       return 'Lumenade Pay needs the camera to read a merchant QR';
     case 'unavailable':
-      return 'No camera on this device — use the request below';
+      // Only point at the button when there is one. This used to promise a
+      // request below whether or not one existed.
+      return hasOwnRequest
+        ? 'No camera on this device — use the request below'
+        : 'No camera on this device. Make a request in merchant mode to try a payment here.';
   }
 }
 

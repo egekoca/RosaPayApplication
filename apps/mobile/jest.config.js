@@ -1,5 +1,8 @@
 module.exports = {
   preset: '@react-native/jest-preset',
+  // Everything under __tests__ is a suite by default, so shared fixtures need
+  // saying otherwise or jest reports them as suites containing no tests.
+  testMatch: ['**/__tests__/**/*.test.[jt]s?(x)'],
   transform: {
     '^.+\\.(js|mjs|ts|tsx)$': 'babel-jest',
   },

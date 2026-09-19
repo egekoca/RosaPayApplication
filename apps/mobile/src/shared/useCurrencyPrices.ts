@@ -11,15 +11,17 @@ const PRICE_ANCHOR_DOMAIN = 'testanchor.stellar.org';
  * merchant a currency nothing on the network can price, and they would find out
  * at the counter with a customer waiting.
  */
-export function useCurrencyPrices() {
+export function useCurrencyPrices(sellAsset?: string) {
   return useQuery({
-    queryKey: ['currency-prices'],
+    // The rate depends on what is being sold, so asking for lumens and then
+    // pricing in USDC against it would quote the wrong amount.
+    queryKey: ['currency-prices', sellAsset ?? 'native'],
     staleTime: 60_000,
     refetchInterval: 5 * 60_000,
     retry: 1,
     queryFn: async (): Promise<CurrencyPrice[]> => {
       const anchor = await discoverAnchor(PRICE_ANCHOR_DOMAIN);
-      return readCurrencyPrices({anchor});
+      return readCurrencyPrices({anchor, ...(sellAsset ? {sellAsset} : {})});
     },
   });
 }

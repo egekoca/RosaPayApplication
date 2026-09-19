@@ -15,6 +15,8 @@ import {useAppStore} from '../../state/appStore';
 import {useNfcBroadcast} from '../payments/useNfc';
 import {createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
 import {priceRequest, referenceForRequest} from './pricedRequest';
+import {defaultPayableAsset, payableAssets, type PayableAsset} from '../payments/assets';
+import {useRecipientCanReceive} from './useRecipientCanReceive';
 import {registerMerchantForTestnet} from './merchantRegistration';
 import {publishPaymentRequest, useRelayerIdentity, usePaymentRequestStatus} from './merchantRequestStatus';
 import {useMerchantCountersigning} from './merchantCountersigning';
@@ -51,7 +53,11 @@ export function MerchantRequestScreen({navigation}: Props) {
   // Which money the merchant is naming the price in. `undefined` means the
   // asset itself, which is the only option until an anchor answers.
   const [currency, setCurrency] = useState<CurrencyPrice | undefined>();
-  const currencies = useCurrencyPrices();
+  // What actually moves on chain. The contract refuses anything it was not
+  // told about, so this list is the registered one rather than a free choice.
+  const [payable, setPayable] = useState<PayableAsset>(defaultPayableAsset);
+  const currencies = useCurrencyPrices(payable.sep38);
+  const canReceive = useRecipientCanReceive(merchantProfile?.recipient, payable);
   const [error, setError] = useState<string | undefined>();
   const [registering, setRegistering] = useState(false);
 
@@ -89,6 +95,12 @@ export function MerchantRequestScreen({navigation}: Props) {
 
   const createRequest = () => {
     setError(undefined);
+    if (canReceive.data === false) {
+      // Signing a request the recipient cannot be paid on would hand the
+      // customer something guaranteed to fail after they had approved it.
+      setError(`This business cannot receive ${payable.code} yet`);
+      return;
+    }
     if (currency && !priced) {
       setError(`Enter a price in ${currency.currency} to convert`);
       return;
@@ -100,6 +112,7 @@ export function MerchantRequestScreen({navigation}: Props) {
           amount: priced ? priced.assetAmount : amount,
           reference: referenceForRequest(reference, priced),
           latestLedger: stellarHealth.data?.latestLedger,
+          asset: payable.asset,
         },
         randomBytes,
       );
@@ -154,10 +167,34 @@ export function MerchantRequestScreen({navigation}: Props) {
       ) : (
         <>
           <SurfaceCard style={styles.form}>
+            <Text style={styles.fieldLabel}>PAID IN</Text>
+            <View style={styles.currencyRow}>
+              {payableAssets.map(option => (
+                <CurrencyPill
+                  key={option.code}
+                  label={option.code}
+                  selected={payable.code === option.code}
+                  onPress={() => {
+                    setPayable(option);
+                    // The old rate was quoted against the old asset.
+                    setCurrency(undefined);
+                  }}
+                />
+              ))}
+            </View>
+            <Text style={styles.assetNote}>
+              {canReceive.data === false
+                ? `${merchantProfile.recipient.slice(0, 4)}…${merchantProfile.recipient.slice(-4)} has no ${payable.code} trustline, so a payment in it would not arrive. Add one, or receive into this phone instead.`
+                : payable.note}
+            </Text>
+
+            {currencies.data && currencies.data.length > 0 ? (
+              <Text style={styles.fieldLabel}>PRICED IN</Text>
+            ) : null}
             {currencies.data && currencies.data.length > 0 ? (
               <View style={styles.currencyRow}>
                 <CurrencyPill
-                  label="XLM"
+                  label={payable.code}
                   selected={currency === undefined}
                   onPress={() => setCurrency(undefined)}
                 />
@@ -173,7 +210,7 @@ export function MerchantRequestScreen({navigation}: Props) {
             ) : null}
             <TextField
               keyboardType="decimal-pad"
-              label={`AMOUNT (${currency?.currency ?? 'XLM'})`}
+              label={`AMOUNT (${currency?.currency ?? payable.code})`}
               maxLength={20}
               onChangeText={setAmount}
               placeholder={currency ? '500' : '24.5'}
@@ -183,8 +220,8 @@ export function MerchantRequestScreen({navigation}: Props) {
             {currency ? (
               <Text style={styles.conversion} testID="request-conversion">
                 {priced
-                  ? `Customer sends ${priced.assetAmount} XLM · ${currency.perUnit} ${currency.currency} per XLM`
-                  : `Rate ${currency.perUnit} ${currency.currency} per XLM, from the anchor`}
+                  ? `Customer sends ${priced.assetAmount} ${payable.code} · ${currency.perUnit} ${currency.currency} per ${payable.code}`
+                  : `Rate ${currency.perUnit} ${currency.currency} per ${payable.code}, from the anchor`}
               </Text>
             ) : null}
             <TextField
@@ -207,7 +244,12 @@ export function MerchantRequestScreen({navigation}: Props) {
             </Text>
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Button onPress={createRequest} testID="create-request">Create payment request</Button>
+          <Button
+            disabled={canReceive.data === false}
+            onPress={createRequest}
+            testID="create-request">
+            Create payment request
+          </Button>
         </>
       )}
     </Screen>
@@ -332,7 +374,9 @@ const styles = StyleSheet.create({
   requestCard: {gap: spacing.md, marginTop: spacing.sm},
   requestHeader: {alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between'},
   amount: {color: colors.ink, fontSize: 28, fontWeight: '700'},
-  currencyRow: {flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.sm},
+  currencyRow: {flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.xs},
+  fieldLabel: {...typography.label, color: colors.inkMuted, marginBottom: spacing.xs},
+  assetNote: {color: colors.inkMuted, fontSize: 12, lineHeight: 16, marginBottom: spacing.md},
   pill: {borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.xs},
   pillSelected: {backgroundColor: colors.amber, borderColor: colors.amber},
   pillText: {color: colors.inkMuted, fontSize: 13, fontWeight: '600'},

@@ -1,6 +1,6 @@
 import {encodePaymentQr} from '@rosapay/protocol';
 import {readPaymentQr} from '../src/features/payments/readPaymentQr';
-import {mockSignedIntent} from '../src/features/payments/mockIntent';
+import {mockSignedIntent} from './fixtures/signedIntent';
 
 const context = {network: 'testnet' as const, latestLedger: 1_500_000, maxLedgerLifetime: 1_440};
 

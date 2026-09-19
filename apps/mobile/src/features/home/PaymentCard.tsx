@@ -61,6 +61,9 @@ export function PaymentCard({holdings, value, address, state, onCopy}: PaymentCa
   }, [sweep]);
 
   const primary = holdings[0];
+  // Whatever else is in the wallet. Shown small, because a customer reads the
+  // headline number first and only then asks what else is in there.
+  const rest = holdings.slice(1);
   const shown = address
     ? `${address.slice(0, 4)} ${address.slice(4, 8)} •••• ${address.slice(-4)}`
     : '•••• •••• •••• ••••';
@@ -114,6 +117,18 @@ export function PaymentCard({holdings, value, address, state, onCopy}: PaymentCa
             <CountUp value={Number(primary?.amount ?? 0)} decimals={2} style={styles.amount} />
             <Text style={styles.asset}>{primary?.code ?? 'XLM'}</Text>
           </View>
+          {rest.length > 0 ? (
+            <View style={styles.rest}>
+              {rest.map(holding => (
+                <View key={holding.code} style={styles.restItem}>
+                  <AssetMark code={holding.code} size={16} />
+                  <Text style={styles.restText}>
+                    {Number(holding.amount).toFixed(2)} {holding.code}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
           <Text style={styles.caption}>
             {value ? `≈ ${value.amount} ${value.currency} · ${captions[state]}` : captions[state]}
           </Text>
@@ -156,6 +171,9 @@ const styles = StyleSheet.create({
   amountRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
   amount: {color: ink, fontSize: 40, fontWeight: '700', letterSpacing: -1.4, lineHeight: 44},
   asset: {...typography.label, color: inkSoft, fontSize: 14, marginTop: 8},
+  rest: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.xs},
+  restItem: {alignItems: 'center', flexDirection: 'row', gap: 6},
+  restText: {color: inkSoft, fontSize: 13, fontWeight: '600'},
   caption: {color: inkSoft, fontSize: 12.5, marginTop: spacing.xs},
   numberRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between'},
   number: {...typography.mono, color: ink, fontSize: 14, letterSpacing: 1.6},

@@ -6,7 +6,8 @@ import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import {encodePaymentQr} from '@rosapay/protocol';
 import {ScanScreen} from '../src/features/payments/ScanScreen';
-import {mockSignedIntent} from '../src/features/payments/mockIntent';
+import {useAppStore} from '../src/state/appStore';
+import {mockSignedIntent} from './fixtures/signedIntent';
 
 jest.mock('react-native-safe-area-context', () => {
   const ReactModule = require('react');
@@ -96,6 +97,40 @@ describe('the scanner', () => {
     expect(nav.navigate).not.toHaveBeenCalled();
 
     await read(renderer, encodePaymentQr(mockSignedIntent));
+    expect(nav.navigate).toHaveBeenCalledWith('Confirm', {payload: mockSignedIntent});
+  });
+});
+
+describe('what the scanner offers when there is nothing to scan', () => {
+  afterEach(() => {
+    useAppStore.setState({pendingRequest: null});
+  });
+
+  it('offers no payment at all when this device has not made one', async () => {
+    useAppStore.setState({pendingRequest: null});
+
+    const renderer = await renderScanner(navigation());
+    const tree = JSON.stringify(renderer.toJSON());
+
+    // The screen used to fall back to an invented merchant behind a button
+    // reading "Scan demo QR". Its recipient was the all-zeros address, so it
+    // could never settle — it walked someone through a payment that was not one.
+    expect(tree).not.toContain('demo');
+    expect(tree).not.toContain('Demo');
+    expect(renderer.root.findAllByProps({testID: 'scan-own-request'})).toHaveLength(0);
+  });
+
+  it('offers this device’s own request once merchant mode has made one', async () => {
+    useAppStore.setState({pendingRequest: mockSignedIntent});
+
+    const nav = navigation();
+    const renderer = await renderScanner(nav);
+    const button = renderer.root.findByProps({testID: 'scan-own-request'});
+    await ReactTestRenderer.act(() => {
+      button.props.onPress();
+    });
+
+    // The real signed request, so it settles on chain like any other.
     expect(nav.navigate).toHaveBeenCalledWith('Confirm', {payload: mockSignedIntent});
   });
 });

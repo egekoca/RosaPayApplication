@@ -8,7 +8,9 @@
     "interactiveOrigins": [
       "https://anchor-ref-ui-testanchor.stellar.org"
     ],
-    "assets": ["native"],
+    "assets": [
+      "native"
+    ],
     "lastProof": {
       "transactionId": "00b77ef6-0a20-4d45-8f8b-faa8866f519e",
       "status": "incomplete",
@@ -22,5 +24,14 @@
   "wasmUploadTransactionHash": "78fa16f61e74e50db501436cbe3db1f0f2dc0f3810329e09c4962da53c51ee51",
   "deploymentTransactionHash": "0aea8df741e0bbb8fb928f609aa5e892b8b0a7ece61ea9b6f26552def81ca85f",
   "deploymentLedger": 4256774,
-  "deployedAt": "2026-08-21T09:59:56Z"
+  "deployedAt": "2026-08-21T09:59:56Z",
+  "registeredAssets": [
+    {
+      "code": "USDC",
+      "issuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+      "registeredAt": "2026-08-28T22:22:27.465Z",
+      "transactionHash": "5deaab81b43de06d0a467149b08553c19b1a5debe2d17c345cbad9b45f9f2e47"
+    }
+  ]
 }
