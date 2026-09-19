@@ -102,4 +102,7 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // User-presence prompt bound to the hardware signing key.
+    implementation("androidx.biometric:biometric:1.1.0")
 }

@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["settlement"]
-default-members = ["settlement"]
+members = ["settlement", "wallet"]
+default-members = ["settlement", "wallet"]
 
 [profile.release]
 opt-level = "z"

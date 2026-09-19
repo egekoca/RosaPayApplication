@@ -79,7 +79,7 @@ jobs:
         with:
           targets: wasm32v1-none
       - name: Check formatting
-        run: cargo fmt --all -- --check
+        run: cargo fmt --manifest-path contracts/Cargo.toml --all -- --check
       - name: Run contract tests
         run: cargo +stable test --manifest-path contracts/Cargo.toml
       - name: Build optimized contract artifact

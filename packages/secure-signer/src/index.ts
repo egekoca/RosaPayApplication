@@ -1,3 +1,4 @@
+export * from './secp256r1';
 export type SignerIdentity = {
   signerId: string;
   publicKey: string;
@@ -63,12 +64,33 @@ export interface SecureSigner {
   signAuthEntry?(request: SignAuthEntryRequest): Promise<SignedAuthEntry>;
 }
 
+/** A digest the platform key signs after the user is present. */
+export type DigestSignatureRequest = {
+  /** Base64 of the exact 32 bytes to sign. */
+  digest: string;
+  /** Shown in the platform authentication prompt. */
+  reason: string;
+};
+
+export type DigestSignature = {
+  signerId: string;
+  /** Base64 DER signature as returned by the platform keystore. */
+  signature: string;
+  signedAt: string;
+};
+
 export type NativeSignerBridge = {
   getIdentity(): Promise<SignerIdentity | null>;
   createIdentity(displayName: string): Promise<SignerIdentity>;
   authorizePayment(request: PaymentAuthorizationRequest): Promise<PaymentAuthorization>;
   signTransaction?(request: SignTransactionRequest): Promise<SignedTransaction>;
   signAuthEntry?(request: SignAuthEntryRequest): Promise<SignedAuthEntry>;
+  /**
+   * Signs an opaque digest with the hardware key. Contract-account signing keeps
+   * every XDR detail in JavaScript so the platform module only ever handles a
+   * digest and the key never leaves the secure element.
+   */
+  signDigest?(request: DigestSignatureRequest): Promise<DigestSignature>;
 };
 
 export class NativeSecureSigner implements SecureSigner {
@@ -89,6 +111,13 @@ export class NativeSecureSigner implements SecureSigner {
       throw new SecureSignerError('UNAVAILABLE', 'Native auth-entry signing is not available');
     }
     return this.bridge.signAuthEntry(request);
+  }
+
+  async signDigest(request: DigestSignatureRequest): Promise<DigestSignature> {
+    if (!this.bridge.signDigest) {
+      throw new SecureSignerError('UNAVAILABLE', 'This device cannot sign with a hardware key');
+    }
+    return this.bridge.signDigest(request);
   }
 }
 

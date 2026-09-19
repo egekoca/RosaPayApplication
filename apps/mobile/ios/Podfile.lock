@@ -1930,6 +1930,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RosaPaySigner (0.1.0):
+    - React-Core
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -2010,6 +2012,7 @@ DEPENDENCIES:
   - RNKeychain (from `../../../node_modules/react-native-keychain`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
+  - RosaPaySigner (from `./RosaPaySigner`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 EXTERNAL SOURCES:
@@ -2166,6 +2169,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-screens"
   RNSVG:
     :path: "../../../node_modules/react-native-svg"
+  RosaPaySigner:
+    :path: "./RosaPaySigner"
   Yoga:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
@@ -2246,8 +2251,9 @@ SPEC CHECKSUMS:
   RNKeychain: 6778b35b5bd067c322f8479526ac09b1d61f31d0
   RNScreens: de068bbd7d91b820fedac25c597d4b14830de74b
   RNSVG: 0e52210d4d43165e7e2cf9c890a9848b27e513ac
+  RosaPaySigner: 5f23ec3992fd2a409d5bca4a66026d89b141cfd4
   Yoga: e83c3121d079541e69f3c5c623faaaf933fb5812
 
-PODFILE CHECKSUM: 14560788c53d4b72ef2df324c6b67b271f12f4f8
+PODFILE CHECKSUM: c64ee7b986f021535d5dfe3deee7737aa22a3567
 
 COCOAPODS: 1.16.2

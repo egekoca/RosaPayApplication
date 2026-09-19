@@ -7,7 +7,10 @@ describe('native Rosa Pay signer adapter', () => {
       async createIdentity() { return {signerId: 'device-1', publicKey: 'CACCOUNT', kind: 'passkey'}; },
       async authorizePayment() { return {signerId: 'device-1', authorization: 'opaque', authorizedAt: '2026-08-22T00:00:00.000Z'}; },
       async signTransaction(request) { return {signedTxXdr: `signed:${request.xdr}`}; },
-      async signAuthEntry(request) { return {signedAuthEntry: `signed:${request.authEntry}`}; },
+      async signDigest() {
+      return {signerId: 'device', signature: 'ZGVy', signedAt: '2026-08-23T00:00:00.000Z'};
+    },
+    async signAuthEntry(request) { return {signedAuthEntry: `signed:${request.authEntry}`}; },
     });
 
     await expect(signer.getIdentity()).resolves.toMatchObject({publicKey: 'CACCOUNT'});

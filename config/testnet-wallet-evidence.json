@@ -1,0 +1,15 @@
+{
+  "network": "testnet",
+  "walletContractId": "CCAATSIEXIHVMYK7B6WGAGAHSBA4CL24XWCJ6RFW4X7MB53ZN2UELNE7",
+  "devicePublicKey": "046aba99dc31094fb0dfa577d0332f7f005965d770dc439f09a29e66520ad8fe26cfd29885dc091a2361a763ae9de90a3c712bdbecb9f483dc9add95fbaafe954b",
+  "addedSigner": "04f88f7de02509c68cfe36be5306f2e7340634ecdffd4c5183bd1fcf51c7d66f7ceb8fab65390179f4cebc2440ca45fb31f14513dd3cbeff57a61d1455de52bbf9",
+  "relayer": "GA2UEYK57SKOEVWJDEULRMAR2ZHET4O3U6BODTGXWUVNSXDVUIUHHIL3",
+  "transactionHash": "30fd94ef44d0e3fb111dc9264b19ae02c47cb3b0990ca7c71cd022c3adf0d134",
+  "ledger": 4293907,
+  "authorizedAt": "2026-08-23T13:40:06.899Z",
+  "checks": [
+    "p256-check-auth",
+    "relayer-paid-fee",
+    "signer-added"
+  ]
+}

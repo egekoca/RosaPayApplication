@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractevent, contractimpl, contracttype,
-    token::TokenClient, xdr::ToXdr, Address, Bytes, BytesN, Env,
+    contract, contracterror, contractevent, contractimpl, contracttype, token::TokenClient,
+    xdr::ToXdr, Address, Bytes, BytesN, Env,
 };
 
 const DAY_IN_LEDGERS: u32 = 17_280;
@@ -182,11 +182,8 @@ impl SettlementContract {
         intent.customer.require_auth();
         let digest = Self::intent_digest(env.clone(), intent.clone());
         let message: Bytes = digest.clone().into();
-        env.crypto().ed25519_verify(
-            &merchant.signing_key,
-            &message,
-            &merchant_signature,
-        );
+        env.crypto()
+            .ed25519_verify(&merchant.signing_key, &message, &merchant_signature);
 
         env.storage().persistent().set(&consumed_key, &true);
         env.storage()
@@ -252,9 +249,7 @@ fn validate_context(env: &Env, intent: &PaymentIntent) -> Result<(), Error> {
 }
 
 fn bump_instance_ttl(env: &Env) {
-    env.storage()
-        .instance()
-        .extend_ttl(BUMP_THRESHOLD, BUMP_TO);
+    env.storage().instance().extend_ttl(BUMP_THRESHOLD, BUMP_TO);
 }
 
 #[cfg(test)]

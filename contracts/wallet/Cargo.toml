@@ -1,0 +1,16 @@
+[package]
+name = "rosapay-wallet"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+soroban-sdk = "=27.0.6"
+
+[dev-dependencies]
+p256 = { version = "=0.13.2", default-features = false, features = ["ecdsa", "std"] }
+rand_core = { version = "=0.6.4", features = ["getrandom"] }
+soroban-sdk = { version = "=27.0.6", features = ["testutils"] }

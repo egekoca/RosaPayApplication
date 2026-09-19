@@ -9,6 +9,7 @@ import {
 type NativeSignerModule = NativeSignerBridge & {
   signTransaction(request: Parameters<NonNullable<NativeSignerBridge['signTransaction']>>[0]): ReturnType<NonNullable<NativeSignerBridge['signTransaction']>>;
   signAuthEntry(request: Parameters<NonNullable<NativeSignerBridge['signAuthEntry']>>[0]): ReturnType<NonNullable<NativeSignerBridge['signAuthEntry']>>;
+  signDigest(request: Parameters<NonNullable<NativeSignerBridge['signDigest']>>[0]): ReturnType<NonNullable<NativeSignerBridge['signDigest']>>;
 };
 
 const errorCodes: SecureSignerErrorCode[] = [
@@ -40,6 +41,7 @@ export function createNativeRosaPaySigner(nativeModule: NativeSignerModule | nul
     authorizePayment: request => nativeModule?.authorizePayment?.(request).catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),
     signTransaction: request => nativeModule?.signTransaction?.(request).catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),
     signAuthEntry: request => nativeModule?.signAuthEntry?.(request).catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),
+    signDigest: request => nativeModule?.signDigest?.(request).catch(error => Promise.reject(normalizeError(error))) ?? unavailable(),
   };
   return new NativeSecureSigner(bridge);
 }

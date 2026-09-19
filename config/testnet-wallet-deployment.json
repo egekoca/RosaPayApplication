@@ -1,0 +1,9 @@
+{
+  "network": "testnet",
+  "walletContractId": "CCAATSIEXIHVMYK7B6WGAGAHSBA4CL24XWCJ6RFW4X7MB53ZN2UELNE7",
+  "wasmHash": "c64b1c1ef41592825963cf98baff0bd8a26858a4a9e9bdc9c04be8ff7c2eeba2",
+  "devicePublicKey": "046aba99dc31094fb0dfa577d0332f7f005965d770dc439f09a29e66520ad8fe26cfd29885dc091a2361a763ae9de90a3c712bdbecb9f483dc9add95fbaafe954b",
+  "recoverySigner": null,
+  "deployedAt": "2026-08-23T13:35:00Z",
+  "note": "Device private key is kept outside the repository in .stellar/wallet-device-key.json"
+}

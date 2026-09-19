@@ -146,6 +146,13 @@ It asserts on-chain that the relayer is the transaction source and fee payer,
 that the customer is debited the amount only, and writes the evidence to
 `config/testnet-relayed-evidence.json`.
 
+The smart wallet has its own proof, where a P-256 device key authorizes a wallet
+operation through `__check_auth`:
+
+```bash
+npm run testnet:wallet
+```
+
 ## Verify
 
 ```bash

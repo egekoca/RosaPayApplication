@@ -637,6 +637,7 @@ dependencies = [
  "elliptic-curve",
  "rfc6979",
  "signature",
+ "spki",
 ]
 
 [[package]]
@@ -694,6 +695,7 @@ dependencies = [
  "ff",
  "generic-array",
  "group",
+ "pkcs8",
  "rand_core",
  "sec1",
  "subtle",
@@ -1325,6 +1327,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosapay-wallet"
+version = "0.1.0"
+dependencies = [
+ "p256",
+ "rand_core",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1383,6 +1394,7 @@ dependencies = [
  "base16ct",
  "der",
  "generic-array",
+ "pkcs8",
  "subtle",
  "zeroize",
 ]
