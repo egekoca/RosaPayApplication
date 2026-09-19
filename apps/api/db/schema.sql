@@ -20,9 +20,12 @@ CREATE TABLE merchant_profiles (
   user_id UUID REFERENCES users(id),
   display_name TEXT NOT NULL,
   recipient TEXT NOT NULL,
+  signing_key TEXT NOT NULL CHECK (signing_key ~ '^G[A-Z2-7]{55}$'),
   network TEXT NOT NULL,
-  status TEXT NOT NULL
+  status TEXT NOT NULL CHECK (status = 'active')
 );
+
+CREATE INDEX merchant_profiles_user_idx ON merchant_profiles(user_id);
 
 CREATE TABLE payment_intents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

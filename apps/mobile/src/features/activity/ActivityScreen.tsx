@@ -1,11 +1,12 @@
-import {Filter, History, SlidersHorizontal} from 'lucide-react-native';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {History, ReceiptText, SlidersHorizontal} from 'lucide-react-native';
+import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import {colors, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import {Screen} from '../../shared/Screen';
 import {useAppStore} from '../../state/appStore';
 
 export function ActivityScreen() {
   const receipts = useAppStore(state => state.receipts);
+  const {width} = useWindowDimensions();
   return (
     <Screen>
       <View style={styles.header}><View><Text style={styles.eyebrow}>ACCOUNT</Text><Text style={styles.title}>Activity</Text></View><Pressable accessibilityLabel="Filter activity" style={styles.filter}><SlidersHorizontal color={colors.amber} size={18} /></Pressable></View>
@@ -16,7 +17,7 @@ export function ActivityScreen() {
           <View style={styles.emptyIcon}><History color={colors.amber} size={24} /></View><Text style={styles.emptyTitle}>No activity yet</Text><Text style={styles.body}>Your confirmed payments and receipts will appear here.</Text>
         </SurfaceCard>
       ) : receipts.map(receipt => (
-        <SurfaceCard key={receipt.intentId} padded={false} style={styles.item}><View style={styles.itemInner}><View style={styles.paymentIcon}><Filter color={colors.success} size={17} /></View><View style={styles.copy}><Text style={styles.itemTitle}>{receipt.merchantName}</Text><Text style={styles.body}>Payment · Stellar Testnet</Text><Text style={styles.time}>{new Date(receipt.createdAt).toLocaleDateString()}</Text></View><View style={styles.amountBlock}><Text style={styles.amount}>-{receipt.amount}</Text><Text style={styles.asset}>{receipt.assetCode}</Text><StatusPill tone="success">CONFIRMED</StatusPill></View></View></SurfaceCard>
+        <SurfaceCard key={receipt.intentId} padded={false} style={styles.item}><View style={[styles.itemInner, width < 380 && styles.itemInnerCompact]}><View style={styles.paymentIcon}><ReceiptText color={colors.success} size={17} /></View><View style={styles.copy}><Text style={styles.itemTitle}>{receipt.merchantName}</Text><Text style={styles.body}>Payment · Stellar Testnet</Text><Text style={styles.time}>{new Date(receipt.createdAt).toLocaleDateString()}</Text></View><View style={styles.amountBlock}><Text style={styles.amount}>-{receipt.amount}</Text><Text style={styles.asset}>{receipt.assetCode}</Text><StatusPill tone="success">CONFIRMED</StatusPill></View></View></SurfaceCard>
       ))}
     </Screen>
   );
@@ -42,6 +43,7 @@ const styles = StyleSheet.create({
   body: {color: colors.inkMuted, fontSize: 12, lineHeight: 17, textAlign: 'center'},
   item: {marginBottom: spacing.sm},
   itemInner: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, padding: spacing.lg},
+  itemInnerCompact: {alignItems: 'flex-start', flexWrap: 'wrap'},
   paymentIcon: {alignItems: 'center', backgroundColor: colors.successSoft, borderRadius: radius.round, height: 38, justifyContent: 'center', width: 38},
   copy: {flex: 1, gap: 2},
   itemTitle: {...typography.label, color: colors.ink, fontSize: 14},

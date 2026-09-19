@@ -8,6 +8,7 @@ import {settleSignedPayment, SettlementServiceError, type SettlementPipelineClie
 hashes.sha512 = sha512;
 
 const customer = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+const relayer = StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 9));
 const contractId = StrKey.encodeContract(Buffer.alloc(32, 5));
 const merchantSecret = new Uint8Array(32).fill(7);
 
@@ -55,6 +56,7 @@ describe('settlement service', () => {
       payload,
       config: config(),
       customerAddress: customer,
+      relayerAddress: relayer,
       latestLedger: 1_500_000,
       merchantContractSignature: new Uint8Array(64),
       customerSigner: {signAuthEntry: vi.fn()},
@@ -64,6 +66,21 @@ describe('settlement service', () => {
     expect(client.settle_payment).not.toHaveBeenCalled();
   });
 
+  it('refuses to settle when the relayer would also be the customer', async () => {
+    const payload = await signedPayload();
+
+    await expect(settleSignedPayment({
+      payload,
+      config: config(),
+      customerAddress: customer,
+      relayerAddress: customer,
+      latestLedger: 1_500_000,
+      merchantContractSignature: new Uint8Array(64),
+      customerSigner: {signAuthEntry: vi.fn()},
+      relayerSigner: {signTransaction: vi.fn()},
+    })).rejects.toMatchObject({code: 'RELAYER_REQUIRED'});
+  });
+
   it('requires the contract digest signature separately from RTP/1', async () => {
     const payload = await signedPayload();
 
@@ -71,6 +88,7 @@ describe('settlement service', () => {
       payload,
       config: config(),
       customerAddress: customer,
+      relayerAddress: relayer,
       latestLedger: 1_500_000,
       merchantContractSignature: new Uint8Array(),
       customerSigner: {signAuthEntry: vi.fn()},

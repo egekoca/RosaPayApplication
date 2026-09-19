@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import type {FastifyRequest} from 'fastify';
 import {ZodError, z} from 'zod';
 import {createStellarConfig, StellarRpcClient} from '@rosapay/stellar';
 import {
@@ -8,21 +9,56 @@ import {
   SettlementInputError,
   SettlementTransitionError,
 } from './application/IntentService';
+import {
+  ApiAuthOptions,
+  assertResourceOwnership,
+  AuthenticationRequiredError,
+  authorizeMerchantIntent,
+  CapabilityDeniedError,
+  requireMerchantPrincipal,
+} from './application/AuthContext';
+import {
+  type MerchantProfileRepository,
+  MerchantProfileConflictError,
+  MerchantProfileInputError,
+  MerchantProfileNotFoundError,
+  MerchantProfileService,
+} from './application/MerchantProfileService';
+import {RelayerError, RelayerService} from './application/RelayerService';
 import {InMemoryIntentRepository} from './infrastructure/InMemoryIntentRepository';
+import {InMemoryMerchantProfileRepository} from './infrastructure/InMemoryMerchantProfileRepository';
 
 const paramsSchema = z.object({intentId: z.string().min(1)});
+const profileParamsSchema = z.object({merchantProfileId: z.string().min(1)});
+const relayerTransactionSchema = z.object({xdr: z.string().min(1).max(65_536)});
 
 export type BuildAppOptions = {
   repository?: IntentRepository;
+  merchantProfiles?: MerchantProfileRepository;
+  auth?: ApiAuthOptions;
+  relayer?: RelayerService;
 };
 
-export function buildApp({repository = new InMemoryIntentRepository()}: BuildAppOptions = {}) {
+export function buildApp({
+  repository = new InMemoryIntentRepository(),
+  merchantProfiles = new InMemoryMerchantProfileRepository(),
+  auth,
+  relayer,
+}: BuildAppOptions = {}) {
   const app = Fastify({logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']}});
   const intents = new IntentService(repository);
-  const stellar = new StellarRpcClient(createStellarConfig(process.env.STELLAR_NETWORK ?? 'testnet', {
+  const merchants = new MerchantProfileService(merchantProfiles);
+  const authOptions: ApiAuthOptions = auth ?? {required: process.env.API_AUTH_REQUIRED === 'true'};
+  const stellarConfig = createStellarConfig(process.env.STELLAR_NETWORK ?? 'testnet', {
     rpcUrl: process.env.STELLAR_RPC_URL,
     settlementContractId: process.env.STELLAR_SETTLEMENT_CONTRACT_ID,
-  }));
+  });
+  const stellar = new StellarRpcClient(stellarConfig);
+  const relayerService = relayer ?? new RelayerService({
+    config: stellarConfig,
+    ...(process.env.STELLAR_RELAYER_SECRET ? {relayerSecret: process.env.STELLAR_RELAYER_SECRET} : {}),
+    ...(process.env.STELLAR_ADMIN_SECRET ? {adminSecret: process.env.STELLAR_ADMIN_SECRET} : {}),
+  });
 
   app.get('/v1/health', async () => ({status: 'ok'}));
   app.get('/v1/health/stellar', async (_request, reply) => {
@@ -32,10 +68,49 @@ export function buildApp({repository = new InMemoryIntentRepository()}: BuildApp
       return reply.code(503).send({code: 'STELLAR_UNAVAILABLE', message: 'Stellar RPC is unavailable'});
     }
   });
+  app.addHook('onRequest', async (request, reply) => {
+    const incoming = request.headers['x-request-id'];
+    const requestId = typeof incoming === 'string' && /^[A-Za-z0-9._:-]{1,96}$/.test(incoming)
+      ? incoming
+      : request.id;
+    reply.header('x-request-id', requestId);
+  });
   app.post('/v1/payment-intents', async (request, reply) => {
     const idempotencyKey = z.string().min(16).parse(request.headers['idempotency-key']);
-    const stored = await intents.create(request.body, idempotencyKey);
+    const payload = await authorizeMerchantIntent(request.body, request, authOptions);
+    const stored = await intents.create(payload, idempotencyKey);
     return reply.code(201).send(stored);
+  });
+  app.post('/v1/merchant-profiles', async (request, reply) => {
+    const principal = await requireMerchantPrincipal(request, authOptions);
+    const profile = await merchants.create(request.body, principal?.userId);
+    return reply.code(201).send(profile);
+  });
+  app.get('/v1/merchant-profiles/:merchantProfileId', async (request, reply) => {
+    const {merchantProfileId} = profileParamsSchema.parse(request.params);
+    const principal = await requireMerchantPrincipal(request, authOptions);
+    const profile = await merchants.get(merchantProfileId);
+    assertResourceOwnership(principal, profile.userId);
+    return reply.send(profile);
+  });
+  app.get('/v1/relayer', async (_request, reply) => {
+    return reply.send(relayerService.identity());
+  });
+  app.post('/v1/relayer/transactions', async (request, reply) => {
+    const {xdr} = relayerTransactionSchema.parse(request.body);
+    return reply.send(relayerService.signSettlementTransaction(xdr));
+  });
+  app.post('/v1/merchant-profiles/:merchantProfileId/registration', async (request, reply) => {
+    const {merchantProfileId} = profileParamsSchema.parse(request.params);
+    const principal = await requireMerchantPrincipal(request, authOptions);
+    const profile = await merchants.get(merchantProfileId);
+    assertResourceOwnership(principal, profile.userId);
+    const registration = await relayerService.registerMerchant({
+      merchantProfileId: profile.id,
+      signingKey: profile.signingKey,
+      recipient: profile.recipient,
+    });
+    return reply.code(201).send(registration);
   });
   app.get('/v1/payment-intents/:intentId', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);
@@ -60,6 +135,25 @@ export function buildApp({repository = new InMemoryIntentRepository()}: BuildApp
     }
     if (error instanceof SettlementTransitionError) {
       return reply.code(409).send({code: 'INVALID_SETTLEMENT_TRANSITION', message: error.message});
+    }
+    if (error instanceof MerchantProfileInputError) {
+      return reply.code(400).send({code: 'INVALID_MERCHANT_PROFILE', message: error.message});
+    }
+    if (error instanceof MerchantProfileConflictError) {
+      return reply.code(409).send({code: 'MERCHANT_PROFILE_CONFLICT', message: error.message});
+    }
+    if (error instanceof MerchantProfileNotFoundError) {
+      return reply.code(404).send({code: 'MERCHANT_PROFILE_NOT_FOUND', message: error.message});
+    }
+    if (error instanceof RelayerError) {
+      const status = error.code === 'RELAYER_DISABLED' || error.code === 'ADMIN_DISABLED' ? 503 : 400;
+      return reply.code(status).send({code: error.code, message: error.message});
+    }
+    if (error instanceof AuthenticationRequiredError) {
+      return reply.code(401).send({code: error.code, message: error.message});
+    }
+    if (error instanceof CapabilityDeniedError) {
+      return reply.code(403).send({code: error.code, message: error.message});
     }
     app.log.error({err: error}, 'request_failed');
     return reply.code(500).send({code: 'INTERNAL_ERROR', message: 'The request could not be completed'});

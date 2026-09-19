@@ -129,4 +129,39 @@ describe('API', () => {
       message: 'Idempotency key already used for a different intent',
     });
   });
+
+  it('returns a request ID and enforces merchant ownership when auth is required', async () => {
+    const app = buildApp({
+      auth: {
+        required: true,
+        resolve: async () => ({userId: 'user-1', capabilities: ['merchant'], merchantProfileIds: ['other-profile']}),
+      },
+    });
+    apps.push(app);
+    const payload = signedIntent();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': 'auth-request-key-1', 'x-request-id': 'client-request-42'},
+      payload,
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.headers['x-request-id']).toBe('client-request-42');
+    expect(response.json()).toEqual({code: 'CAPABILITY_DENIED', message: 'Merchant profile is not owned by the authenticated user'});
+  });
+
+  it('fails closed for anonymous mutations when auth is required', async () => {
+    const app = buildApp({auth: {required: true}});
+    apps.push(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': 'auth-required-key'},
+      payload: signedIntent(),
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({code: 'AUTHENTICATION_REQUIRED', message: 'An authenticated merchant session is required'});
+  });
 });

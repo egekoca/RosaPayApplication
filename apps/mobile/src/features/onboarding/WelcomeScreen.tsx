@@ -1,6 +1,6 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Fingerprint, LockKeyhole, ShieldCheck, Sparkles} from 'lucide-react-native';
-import {Image, StyleSheet, Text, View} from 'react-native';
+import {Image, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import type {ReactNode} from 'react';
 import {AnimatedContent, Button, colors, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
@@ -9,10 +9,11 @@ import {Screen} from '../../shared/Screen';
 type Props = NativeStackScreenProps<RootStackParams, 'Welcome'>;
 
 export function WelcomeScreen({navigation}: Props) {
+  const {width} = useWindowDimensions();
   return (
     <Screen contentStyle={styles.screen}>
       <AnimatedContent><View style={styles.topline}><View style={styles.brand}><Image accessibilityLabel="Rosa Pay" source={require('../../assets/rosapay-logo.png')} style={styles.brandMark} /><Text style={styles.brandName}>Rosa Pay</Text></View><StatusPill tone="success">TESTNET</StatusPill></View></AnimatedContent>
-      <AnimatedContent delay={90} distance={18} scaleFrom={0.98}><View style={styles.hero}><View style={styles.heroIcon}><Sparkles color={colors.amber} size={28} /></View><Text style={styles.title}>Payments that feel certain.</Text><Text style={styles.subtitle}>Approve the exact merchant, amount and destination. Your wallet stays protected by your device.</Text></View></AnimatedContent>
+      <AnimatedContent delay={90} distance={18} scaleFrom={0.98}><View style={styles.hero}><View accessible accessibilityLabel="Secure payment" style={styles.heroIcon}><Sparkles color={colors.amber} size={28} /></View><Text style={[styles.title, {maxWidth: Math.min(360, width - 48)}]}>Payments that feel certain.</Text><Text style={[styles.subtitle, {maxWidth: Math.min(420, width - 48)}]}>Approve the exact merchant, amount and destination. Your wallet stays protected by your device.</Text></View></AnimatedContent>
       <AnimatedContent delay={180}><SurfaceCard style={styles.securityCard}>
         <SecurityItem icon={<ShieldCheck color={colors.success} size={19} />} title="Non-custodial by design" body="Your signing material never leaves your device." />
         <SecurityItem icon={<LockKeyhole color={colors.amber} size={19} />} title="Verified before approval" body="Every QR payment is checked before you sign." />

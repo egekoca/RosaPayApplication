@@ -2,7 +2,7 @@ import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
 import type {CompositeScreenProps} from '@react-navigation/native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ArrowUpRight, Bell, ChevronRight, Copy, QrCode, ScanLine, ShieldCheck, Store, TrendingUp} from 'lucide-react-native';
-import {Image, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Image, Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import type {ReactNode} from 'react';
 import {AnimatedContent, Button, colors, CountUp, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {MainTabsParams, RootStackParams} from '../../app/navigation';
@@ -17,6 +17,7 @@ type Props = CompositeScreenProps<
 >;
 
 export function HomeScreen({navigation}: Props) {
+  const {width} = useWindowDimensions();
   const {mode, merchantEnabled, activateMerchant} = useAppStore();
   const stellarHealth = useStellarHealth();
   return (
@@ -31,7 +32,7 @@ export function HomeScreen({navigation}: Props) {
       <View style={styles.networkRow}><View style={styles.network}><View style={[styles.dot, stellarHealth.isError && styles.dotError]} /><Text style={styles.networkText}>{stellarHealth.isPending ? 'Checking Testnet' : stellarHealth.isError ? 'Testnet unavailable' : 'Stellar Testnet'}</Text><ChevronRight color={colors.inkMuted} size={15} /></View><StatusPill tone={merchantEnabled ? 'pending' : 'success'}>{merchantEnabled ? 'MERCHANT ACCOUNT' : 'SECURE WALLET'}</StatusPill></View>
       <ModeSwitcher />
       {mode === 'customer' ? (
-        <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} activateMerchant={activateMerchant} />
+        <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} activateMerchant={activateMerchant} isNarrow={width < 360} />
       ) : (
         <MerchantHome navigation={navigation} />
       )}
@@ -39,7 +40,7 @@ export function HomeScreen({navigation}: Props) {
   );
 }
 
-function CustomerHome({navigation, merchantEnabled, activateMerchant}: {navigation: Props['navigation']; merchantEnabled: boolean; activateMerchant: () => void}) {
+function CustomerHome({navigation, merchantEnabled, activateMerchant, isNarrow}: {navigation: Props['navigation']; merchantEnabled: boolean; activateMerchant: () => void; isNarrow: boolean}) {
   return (
     <>
       <AnimatedContent><SurfaceCard accent="amber" style={styles.balanceCard}>
@@ -48,9 +49,9 @@ function CustomerHome({navigation, merchantEnabled, activateMerchant}: {navigati
         <Text style={styles.balanceValue}>≈ $184.32 USD</Text>
         <View style={styles.addressRow}><Text style={styles.address}>GDRX...N7KQ</Text><Copy color={colors.amber} size={16} /></View>
       </SurfaceCard></AnimatedContent>
-      <View style={styles.quickGrid}>
-        <QuickAction icon={<ScanLine color={colors.amber} size={22} />} title="Scan to pay" hint="Use a merchant QR" onPress={() => navigation.navigate('Scan')} />
-        <QuickAction disabled icon={<ArrowUpRight color={colors.inkMuted} size={22} />} title="Send" hint="Coming soon" />
+      <View style={[styles.quickGrid, isNarrow && styles.quickGridStacked]}>
+        <QuickAction stacked={isNarrow} icon={<ScanLine color={colors.amber} size={22} />} title="Scan to pay" hint="Use a merchant QR" onPress={() => navigation.navigate('Scan')} />
+        <QuickAction stacked={isNarrow} disabled icon={<ArrowUpRight color={colors.inkMuted} size={22} />} title="Send" hint="Coming soon" />
       </View>
       <SectionTitle title="Recent activity" action="View all" />
       <SurfaceCard padded={false} style={styles.activityCard}>
@@ -85,8 +86,8 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
   );
 }
 
-function QuickAction({icon, title, hint, onPress, disabled = false}: {icon: ReactNode; title: string; hint: string; onPress?: () => void; disabled?: boolean}) {
-  return <PressScale disabled={disabled} onPress={onPress} style={[styles.quickAction, disabled && styles.disabledAction]}><View style={styles.quickIcon}>{icon}</View><Text style={styles.quickTitle}>{title}</Text><Text style={styles.quickHint}>{hint}</Text></PressScale>;
+function QuickAction({icon, title, hint, onPress, disabled = false, stacked = false}: {icon: ReactNode; title: string; hint: string; onPress?: () => void; disabled?: boolean; stacked?: boolean}) {
+  return <PressScale disabled={disabled} onPress={onPress} style={[styles.quickAction, stacked && styles.quickActionStacked, disabled && styles.disabledAction]}><View style={styles.quickIcon}>{icon}</View><View style={styles.quickCopy}><Text style={styles.quickTitle}>{title}</Text><Text style={styles.quickHint}>{hint}</Text></View></PressScale>;
 }
 
 function SectionTitle({title, action}: {title: string; action?: string}) {
@@ -117,11 +118,14 @@ const styles = StyleSheet.create({
   addressRow: {alignItems: 'center', borderTopColor: colors.line, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.md, paddingTop: spacing.md},
   address: {...typography.mono, color: colors.inkMuted, fontSize: 12},
   quickGrid: {flexDirection: 'row', gap: spacing.md},
+  quickGridStacked: {flexDirection: 'column'},
   quickAction: {backgroundColor: colors.surface, borderColor: colors.line, borderRadius: radius.md, borderWidth: 1, flex: 1, gap: spacing.xs, minHeight: 122, padding: spacing.lg},
+  quickActionStacked: {alignItems: 'center', flex: 0, flexDirection: 'row', minHeight: 72, width: '100%'},
   disabledAction: {opacity: 0.48},
   quickIcon: {alignItems: 'center', backgroundColor: colors.amberSoft, borderRadius: radius.md, height: 40, justifyContent: 'center', marginBottom: spacing.xs, width: 40},
   quickTitle: {...typography.label, color: colors.ink, fontSize: 14},
   quickHint: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
+  quickCopy: {flex: 1, gap: spacing.xs},
   sectionTitle: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm},
   sectionLabel: {...typography.label, color: colors.ink, fontSize: 14},
   sectionAction: {...typography.label, color: colors.amber, fontSize: 12},

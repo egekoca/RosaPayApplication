@@ -33,7 +33,7 @@ export function ScanScreen({navigation}: Props) {
 
 const styles = StyleSheet.create({
   screen: {justifyContent: 'center'},
-  camera: {alignItems: 'center', aspectRatio: 0.82, backgroundColor: colors.black, borderRadius: radius.md, justifyContent: 'center', gap: spacing.xl},
+  camera: {alignItems: 'center', alignSelf: 'center', aspectRatio: 0.82, backgroundColor: colors.black, borderRadius: radius.md, justifyContent: 'center', gap: spacing.xl, maxWidth: 420, width: '100%'},
   scanFrame: {alignItems: 'center', borderColor: colors.amber, borderRadius: radius.md, borderWidth: 3, height: 210, justifyContent: 'center', width: 210},
   cameraText: {...typography.label, color: colors.ink, maxWidth: 260, textAlign: 'center'},
   fallback: {fontSize: 13, lineHeight: 18, color: colors.inkMuted, textAlign: 'center'},

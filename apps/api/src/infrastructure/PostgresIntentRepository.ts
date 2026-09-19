@@ -1,22 +1,13 @@
 import type {PaymentStatus} from '@rosapay/domain';
 import {parseSignedPaymentIntent} from '@rosapay/protocol';
+import type {PostgresQueryClient} from '@rosapay/postgres';
 import type {
   IntentRepository,
   SettlementRecord,
   StoredIntent,
 } from '../application/IntentService';
 
-export type PostgresQueryResult<Row> = {rows: Row[]};
-
-/** Small driver-neutral port; the production app can inject `pg.Pool`. */
-export type PostgresQueryClient = {
-  query<Row = Record<string, unknown>>(
-    text: string,
-    values?: readonly unknown[],
-  ): Promise<PostgresQueryResult<Row>>;
-  /** The production adapter should implement this with a database transaction. */
-  withTransaction?<T>(work: (client: PostgresQueryClient) => Promise<T>): Promise<T>;
-};
+export type {PostgresQueryClient, PostgresQueryResult} from '@rosapay/postgres';
 
 type IntentRow = {
   intent_id: string;

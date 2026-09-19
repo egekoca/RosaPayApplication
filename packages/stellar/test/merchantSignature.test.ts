@@ -1,11 +1,11 @@
 import {getPublicKey, hashes, sign, utils} from '@noble/ed25519';
 import {sha512} from '@noble/hashes/sha2.js';
 import {hexToBytes} from '@noble/hashes/utils.js';
-import {hashPaymentIntent, type SignedPaymentIntentV1} from '@rosapay/protocol';
+import {createPaymentIntent, hashPaymentIntent, type SignedPaymentIntentV1} from '@rosapay/protocol';
 import {StrKey} from '@stellar/stellar-sdk';
 import {Base64} from 'js-base64';
 import {describe, expect, it} from 'vitest';
-import {verifyMerchantSignature} from '../src';
+import {merchantSigningKeyFromSecret, signMerchantIntent, verifyMerchantSignature} from '../src';
 
 hashes.sha512 = sha512;
 
@@ -41,5 +41,37 @@ describe('merchant signature verification', () => {
     const payload = signedPayload();
     payload.intent.amount = '25';
     expect(verifyMerchantSignature(payload)).toBe(false);
+  });
+});
+
+describe('merchant intent signing', () => {
+  const secretKey = new Uint8Array(32).fill(7);
+
+  it('signs an intent that verification then accepts', () => {
+    const intent = createPaymentIntent({
+      profile: {
+        merchantProfileId: '01K36YATYFVQBPR08G2YT29C3S',
+        merchantName: 'Rose Coffee',
+        merchantSigningKey: merchantSigningKeyFromSecret(secretKey),
+        recipient: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        network: 'testnet',
+      },
+      amount: '24.5',
+      reference: 'Table 08',
+      latestLedger: 1_500_000,
+      intentId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+      nonce: 'b9cdb790ee6a4d04a83763c018f532a8',
+      createdAt: '2026-08-23T00:00:00.000Z',
+    });
+
+    const payload = {intent, signature: signMerchantIntent(intent, secretKey)};
+    expect(verifyMerchantSignature(payload)).toBe(true);
+    expect(verifyMerchantSignature({...payload, intent: {...intent, amount: '25'}})).toBe(false);
+  });
+
+  it('derives a Stellar G-address and rejects a wrong-sized secret', () => {
+    expect(merchantSigningKeyFromSecret(secretKey)).toMatch(/^G[A-Z2-7]{55}$/);
+    expect(() => signMerchantIntent({}, new Uint8Array(16))).toThrow('must be 32 bytes');
+    expect(() => merchantSigningKeyFromSecret(new Uint8Array(16))).toThrow('must be 32 bytes');
   });
 });

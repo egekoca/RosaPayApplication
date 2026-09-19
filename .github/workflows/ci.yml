@@ -1,0 +1,86 @@
+name: Rosa Pay CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workspace:
+    name: TypeScript and mobile tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck and test all workspaces
+        run: npm run check
+      - name: Audit production dependencies
+        run: npm audit --audit-level=high --omit=dev
+
+  database:
+    name: PostgreSQL migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rosapay
+          POSTGRES_PASSWORD: rosapay
+          POSTGRES_DB: rosapay
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rosapay -d rosapay"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://rosapay:rosapay@127.0.0.1:5432/rosapay
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply migrations
+        run: npm run db:migrate
+      - name: Re-run migrations to prove they are idempotent
+        run: npm run db:migrate
+
+  contract:
+    name: Soroban contract tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32v1-none
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run contract tests
+        run: cargo +stable test --manifest-path contracts/Cargo.toml
+      - name: Build optimized contract artifact
+        run: cargo +stable build --manifest-path contracts/Cargo.toml --target wasm32v1-none --release

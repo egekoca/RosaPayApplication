@@ -16,12 +16,15 @@
     "ios": "npm run ios --workspace @rosapay/mobile",
     "start": "npm run start --workspace @rosapay/mobile",
     "api": "npm run dev --workspace @rosapay/api",
+    "worker": "npm run start --workspace @rosapay/worker",
+    "db:migrate": "npm run db:migrate --workspace @rosapay/api",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "contract:test": "cargo +stable test --manifest-path contracts/Cargo.toml",
     "contract:build": "stellar contract build --manifest-path contracts/Cargo.toml",
     "testnet:smoke": "node scripts/testnet-smoke.mjs",
+    "testnet:relayed": "tsx scripts/testnet-relayed-settlement.mts",
     "check": "npm run typecheck && npm run test"
   },
   "devDependencies": {
