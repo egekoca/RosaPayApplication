@@ -1,6 +1,6 @@
 import {useQuery} from '@tanstack/react-query';
-import {readCurrencyPrices, type CurrencyPrice} from '@rosapay/anchor';
-import {ownQuoteSource, resolveQuoteSource} from './priceSource';
+import {assetCodeOf, readCurrencyPrices, type CurrencyPrice} from '@rosapay/anchor';
+import {ownQuoteSource, readMarketIndicativePrices, resolveQuoteSource} from './priceSource';
 
 /**
  * The currencies a merchant may name a price in.
@@ -43,6 +43,23 @@ export function useCurrencyPrices(sellAsset?: string) {
           // First writer wins, and the anchor is asked first.
           if (!byCurrency.has(price.currency)) byCurrency.set(price.currency, price);
         }
+      }
+
+      // A hosted API image can advertise NGN/EUR in /info while its older
+      // /prices handler still omits them. Fill only missing currencies from
+      // the same public indicative feed used by the balance card; this is a
+      // display/menu number, never a firm settlement quote.
+      const fallback = await readMarketIndicativePrices(sellAsset ?? 'stellar:native').catch(() => []);
+      for (const price of fallback) {
+        const currency = assetCodeOf(price.asset);
+        if (byCurrency.has(currency)) continue;
+        const perUnit = Number(price.price);
+        if (!Number.isFinite(perUnit) || perUnit <= 0) continue;
+        byCurrency.set(currency, {
+          currency,
+          asset: price.asset,
+          perUnit: (1 / perUnit).toFixed(10),
+        });
       }
       return [...byCurrency.values()];
     },

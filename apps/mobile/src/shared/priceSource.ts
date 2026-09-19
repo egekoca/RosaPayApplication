@@ -59,6 +59,50 @@ export type DisplayCurrency = (typeof DISPLAY_CURRENCIES)[number]['code'];
  */
 const SYMBOLS: Record<string, string> = {TRY: '₺', USD: '$', EUR: '€', GBP: '£', NGN: '₦'};
 
+/**
+ * Last-resort display rates for a stale or partially deployed quote server.
+ * These values are never used to settle a payment: they only keep a wallet
+ * readable while the hosted SEP-38 service catches up with this build.
+ */
+const MARKET_ENDPOINT = 'https://api.coingecko.com/api/v3/simple/price';
+const MARKET_COIN_IDS: Record<string, string> = {
+  'stellar:native': 'stellar',
+  'stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5': 'usd-coin',
+};
+const MARKET_CURRENCIES: Record<string, string> = {
+  TRY: 'try',
+  USD: 'usd',
+  NGN: 'ngn',
+  EUR: 'eur',
+};
+
+export type DisplayIndicativePrice = {asset: string; price: string; decimals: number};
+
+/** Reads a market rate in SEP-38's sold-asset-per-bought-asset direction. */
+export async function readMarketIndicativePrices(
+  sellAsset: string,
+  fetcher: typeof fetch = fetch,
+): Promise<DisplayIndicativePrice[]> {
+  const coinId = MARKET_COIN_IDS[sellAsset];
+  if (!coinId) return [];
+
+  const url = new URL(MARKET_ENDPOINT);
+  url.searchParams.set('ids', coinId);
+  url.searchParams.set('vs_currencies', Object.values(MARKET_CURRENCIES).join(','));
+  const response = await fetcher(url.toString());
+  if (!response.ok) return [];
+
+  const body = (await response.json()) as Record<string, Record<string, unknown>>;
+  const quoted = body[coinId];
+  if (!quoted) return [];
+
+  return Object.entries(MARKET_CURRENCIES).flatMap(([currency, vsCurrency]) => {
+    const value = quoted[vsCurrency];
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return [];
+    return [{asset: `iso4217:${currency}`, price: (1 / value).toFixed(10), decimals: 2}];
+  });
+}
+
 export function currencySymbol(code: string): string {
   return SYMBOLS[code] ?? `${code} `;
 }

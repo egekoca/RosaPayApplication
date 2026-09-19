@@ -3,7 +3,7 @@ import {assetCodeOf, currencyValueOfAsset, readIndicativePrices} from '@rosapay/
 import {payableAssetByCode} from '../features/payments/assets';
 import type {Holding} from './useWalletBalance';
 import {displayAmount} from './displayAmount';
-import {resolveQuoteSource} from './priceSource';
+import {readMarketIndicativePrices, resolveQuoteSource} from './priceSource';
 import {useAppStore} from '../state/appStore';
 
 /** One holding, and what it is worth in the chosen currency. */
@@ -55,7 +55,7 @@ export function useBalanceValue(holdings: Holding[] | undefined) {
         // Each holding is priced by whichever server quotes that asset, so a
         // wallet of lumens and USDC still totals in one currency.
         const source = await resolveQuoteSource(sellAsset, currency);
-        const prices = await readIndicativePrices({
+        let prices = await readIndicativePrices({
           source,
           sellAmount: holding.amount,
           ...(sellAsset ? {sellAsset} : {}),
@@ -71,7 +71,19 @@ export function useBalanceValue(holdings: Holding[] | undefined) {
          * outcome — the card has a state for a rate it does not have, and a
          * currency nobody will quote is exactly that state.
          */
-        const chosen = prices.find(price => assetCodeOf(price.asset) === currency);
+        let chosen = prices.find(price => assetCodeOf(price.asset) === currency);
+        // Render can briefly serve an older image that only knows TRY/USD.
+        // Fill the missing display currency from the public market feed; this
+        // never participates in signing or settlement.
+        if (!chosen && sellAsset) {
+          try {
+            prices = await readMarketIndicativePrices(sellAsset);
+            chosen = prices.find(price => assetCodeOf(price.asset) === currency);
+          } catch {
+            // A display feed outage must not turn a readable wallet into an
+            // error state; the holding itself remains available on the card.
+          }
+        }
         if (!chosen) continue;
 
         const value = currencyValueOfAsset({amount: holding.amount, price: chosen.price});

@@ -11,7 +11,11 @@ jest.mock('../src/shared/Screen', () => ({
 }));
 jest.mock('../src/shared/RosaMark', () => ({RosaMark: () => null}));
 jest.mock('../src/shared/useWalletBalance', () => ({
-  useWalletBalance: () => ({data: [{code: 'XLM', amount: '12'}], isPending: false, isError: false}),
+  useWalletBalance: () => ({
+    data: [{code: 'XLM', amount: '12'}, {code: 'USDC', amount: '10000'}],
+    isPending: false,
+    isError: false,
+  }),
 }));
 jest.mock('../src/shared/useBalanceValue', () => ({useBalanceValue: () => ({data: undefined})}));
 // The picker only offers currencies something will quote, so the screen reads
@@ -64,6 +68,22 @@ it.each(['customer', 'merchant'] as const)('renders the shared balance card in %
   const rendered = JSON.stringify(renderer!.toJSON());
   expect(renderer!.root.findAllByType(PaymentCard)).toHaveLength(1);
   expect(rendered).toContain(mode === 'customer' ? 'Scan to pay' : 'Create payment request');
+  if (mode === 'customer') expect(rendered).toContain('Get paid with this account');
+});
+
+it('keeps USDC in Assets when the selected fiat rate is unavailable', async () => {
+  await ReactTestRenderer.act(() => {
+    useAppStore.setState({account: {name: 'Ege', createdAt: '2026-01-01T00:00:00.000Z'}, mode: 'customer'});
+    renderer = ReactTestRenderer.create(
+      <HomeScreen navigation={{navigate: jest.fn()} as never} route={{} as never} />,
+    );
+  });
+
+  const rendered = JSON.stringify(renderer!.toJSON());
+  expect(rendered).toContain('Assets');
+  expect(rendered).toContain('USD Coin');
+  expect(rendered).toContain('10,000');
+  expect(rendered).toContain('USDC');
 });
 
 it.each(['ios', 'android'] as const)('keeps the card and currency control mounted when switching tasks on %s', async platform => {

@@ -93,6 +93,7 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
   const account = useCurrentAccount();
   const identity = useAppStore(state => state.account);
   const receipts = useAppStore(state => state.receipts);
+  const setMode = useAppStore(state => state.setMode);
   const balance = useWalletBalance();
   const value = useBalanceValue(balance.data);
   const finishWalletSetup = () => {
@@ -149,10 +150,24 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
         </PressScale>
       </AnimatedContent>
 
+      <AnimatedContent delay={110}>
+        <PressScale>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => (merchantEnabled ? setMode('merchant') : navigation.navigate('MerchantOnboarding'))}
+            style={styles.merchantRow}
+            testID="activate-merchant">
+            <Store color={colors.amber} size={18} />
+            <Text style={styles.merchantText}>{t('Get paid with this account')}</Text>
+            <ChevronRight color={colors.inkMuted} size={17} />
+          </Pressable>
+        </PressScale>
+      </AnimatedContent>
+
       {/*
-        Right under the one action, because a wallet with nothing in it can do
-        nothing with the one above. Only a recovery-phrase account can be paid
-        in lira, so a smart-wallet phone is not shown a door that closes.
+        A recovery-phrase account can use the lira rail. Keep that funding
+        action below the two core Pay/Get paid choices; a smart-wallet phone is
+        not shown a door that closes.
       */}
       {account?.kind === 'classic' ? (
         <AnimatedContent delay={120}>
@@ -187,30 +202,30 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
         assets in a wallet raise "worth of what", and doing that arithmetic in
         your head against a single converted number is not a thing to ask.
       */}
-      {value.data && value.data.holdings.length > 0 ? (
+      {(balance.data ?? []).length > 0 ? (
         <AnimatedContent delay={140}>
           <Text style={styles.listTitle}>{t('Assets')}</Text>
           <View style={styles.assetList}>
-            {value.data.holdings.map(holding => (
-              <View key={holding.code} style={styles.assetRow}>
-                <AssetMark code={holding.code} size={34} />
-                <View style={styles.assetCopy}>
-                  <Text style={styles.assetName}>{payableAssetByCode(holding.code)?.name ?? holding.code}</Text>
-                  {/*
-                    The payload's own digits with the trailing zeros dropped.
-                    Rounding here would hide dust someone is holding, and
-                    "10,000.0000000" is seven zeros nobody asked to read.
-                  */}
-                  <Text style={styles.assetAmount}>
-                    {exactAmount(holding.amount)} {holding.code}
-                  </Text>
+            {(balance.data ?? []).map(holding => {
+              const valued = value.data?.holdings.find(entry => entry.code === holding.code);
+              return (
+                <View key={holding.code} style={styles.assetRow}>
+                  <AssetMark code={holding.code} size={34} />
+                  <View style={styles.assetCopy}>
+                    <Text style={styles.assetName}>{payableAssetByCode(holding.code)?.name ?? holding.code}</Text>
+                    {/*
+                      The payload's own digits with the trailing zeros dropped.
+                      Rounding here would hide dust someone is holding, and
+                      "10,000.0000000" is seven zeros nobody asked to read.
+                    */}
+                    <Text style={styles.assetAmount}>
+                      {exactAmount(holding.amount)} {holding.code}
+                    </Text>
+                  </View>
+                  {valued ? <Text style={styles.assetValue}>{currencySymbol(value.data!.currency)}{valued.value}</Text> : null}
                 </View>
-                <Text style={styles.assetValue}>
-                  {currencySymbol(value.data!.currency)}
-                  {holding.value}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </AnimatedContent>
       ) : null}
@@ -244,19 +259,6 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
         )}
       </AnimatedContent>
 
-      {!merchantEnabled && (
-        <AnimatedContent delay={230}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('MerchantOnboarding')}
-            style={styles.merchantRow}
-            testID="activate-merchant">
-            <Store color={colors.amber} size={18} />
-            <Text style={styles.merchantText}>{t('Get paid with this account')}</Text>
-            <ChevronRight color={colors.inkMuted} size={17} />
-          </Pressable>
-        </AnimatedContent>
-      )}
     </>
   );
 }

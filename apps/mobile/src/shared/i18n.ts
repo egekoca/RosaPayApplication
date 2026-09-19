@@ -179,6 +179,7 @@ const TR: Record<string, string> = {
 
   // Scan and pay
   'Allow camera access': 'Kamera erişimine izin ver',
+  'Retry camera': 'Kamerayı tekrar dene',
   "QR is the universal payment path on iOS and Android.": 'QR, iOS ve Android’de ortak ödeme yoludur.',
   "Scan this device's request": 'Bu cihazın isteğini okut',
   "You can also hold this phone against the merchant's":
@@ -327,6 +328,8 @@ const TR: Record<string, string> = {
   'No camera on this device — use the request below': 'Bu cihazda kamera yok — aşağıdaki isteği kullanın',
   'No camera on this device. Make a request in Get paid to try a payment here.':
     'Bu cihazda kamera yok. Burada ödeme denemek için Ödeme al bölümünden bir istek oluşturun.',
+  'The camera could not start. Check camera access and try again.':
+    'Kamera başlatılamadı. Kamera erişimini kontrol edip tekrar deneyin.',
   'Review payment': 'Ödemeyi incele',
   TESTNET: 'TESTNET',
   VERIFIED: 'DOĞRULANDI',

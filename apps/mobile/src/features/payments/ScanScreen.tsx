@@ -16,14 +16,14 @@ import {currencySymbol} from '../../shared/priceSource';
 import {useCurrentAccount} from '../wallet/currentAccount';
 import {AssetMark} from '../home/AssetMark';
 import {useAppStore, type PaymentTransport} from '../../state/appStore';
-import {requestCameraPermission} from './cameraPermission';
+import {requestCameraPermission, type CameraPermission} from './cameraPermission';
 import {readPaymentQr} from './readPaymentQr';
 import {useNfcReader} from './useNfc';
 import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Scan'>;
 
-type CameraState = 'checking' | 'granted' | 'denied' | 'unavailable';
+type CameraState = 'checking' | 'granted' | 'denied' | 'unavailable' | 'error';
 
 export function ScanScreen({navigation}: Props) {
   const t = useTranslate();
@@ -34,28 +34,32 @@ export function ScanScreen({navigation}: Props) {
   // A camera fires repeatedly while a code is in frame. Without this the screen
   // would push the confirmation route once per frame.
   const handled = useRef(false);
+  const cameraPermissionRequest = useRef<Promise<CameraPermission> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    // A simulator or emulator without a virtual camera resolves to 'unavailable',
-    // and reading this device's own request keeps the customer path testable there.
-    void requestCameraPermission().then(result => {
-      if (!cancelled) setCamera(result);
+  const refreshCamera = useCallback(() => {
+    const request = cameraPermissionRequest.current ?? requestCameraPermission();
+    cameraPermissionRequest.current = request;
+    void request.then(setCamera).finally(() => {
+      if (cameraPermissionRequest.current === request) cameraPermissionRequest.current = null;
     });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
+  useEffect(() => {
+    // A simulator or emulator without a virtual camera resolves to 'unavailable',
+    // and reading this device's own request keeps the customer path testable there.
+    refreshCamera();
+  }, [refreshCamera]);
+
   // Coming back from the confirmation screen must re-arm the scanner.
-  useEffect(
-    () =>
-      navigation.addListener('focus', () => {
-        handled.current = false;
-        setError(undefined);
-      }),
-    [navigation],
-  );
+  useEffect(() => {
+    return navigation.addListener('focus', () => {
+      handled.current = false;
+      setError(undefined);
+      // Permission may have been granted in Settings while this screen was
+      // away. Refresh it when returning instead of keeping the old error.
+      refreshCamera();
+    });
+  }, [navigation, refreshCamera]);
 
   const scanContext = useCallback(
     () => ({
@@ -118,7 +122,7 @@ export function ScanScreen({navigation}: Props) {
             showFrame={false}
             scanThrottleDelay={600}
             onReadCode={event => accept(event.nativeEvent.codeStringValue)}
-            onError={() => setCamera('unavailable')}
+            onError={() => setCamera('error')}
             testID="scan-camera"
           />
         ) : null}
@@ -155,6 +159,8 @@ export function ScanScreen({navigation}: Props) {
 
       {camera === 'denied' ? (
         <Button onPress={() => void Linking.openSettings()} testID="scan-open-settings">{t('Allow camera access')}</Button>
+      ) : camera === 'error' ? (
+        <Button onPress={refreshCamera} testID="scan-retry-camera">{t('Retry camera')}</Button>
       ) : null}
 
       {pendingRequest ? (
@@ -182,6 +188,8 @@ function cameraMessage(state: CameraState, hasOwnRequest: boolean): string {
       return hasOwnRequest
         ? 'No camera on this device — use the request below'
         : 'No camera on this device. Make a request in Get paid to try a payment here.';
+    case 'error':
+      return 'The camera could not start. Check camera access and try again.';
   }
 }
 
