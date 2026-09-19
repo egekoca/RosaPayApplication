@@ -14,6 +14,9 @@ jest.mock('../src/shared/useWalletBalance', () => ({
   useWalletBalance: () => ({data: [{code: 'XLM', amount: '12'}], isPending: false, isError: false}),
 }));
 jest.mock('../src/shared/useBalanceValue', () => ({useBalanceValue: () => ({data: undefined})}));
+// The picker only offers currencies something will quote, so the screen reads
+// the quote servers; this test is about modes, not rates.
+jest.mock('../src/shared/useCurrencyPrices', () => ({useCurrencyPrices: () => ({data: undefined})}));
 jest.mock('../src/features/wallet/currentAccount', () => ({
   useCurrentAccount: () => ({address: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', kind: 'classic'}),
 }));

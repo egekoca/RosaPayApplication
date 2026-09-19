@@ -68,6 +68,13 @@ services:
         value: CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
       - key: SOROSWAP_ROUTER_CONTRACT_ID
         value: CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD
+      # USDC is a fully reserved dollar stablecoin, so one of it is one dollar.
+      # Saying so makes the dollar reading of a wallet the swap leg and nothing
+      # else — no market feed to be throttled, and the dollar cannot go missing
+      # from the currency picker. A real anchor quote still beats the peg where
+      # one exists.
+      - key: ANCHOR_BRIDGE_PEGGED_CURRENCIES
+        value: iso4217:USD
       # A new wallet starts with this much of the anchor's asset alongside its
       # lumens, so the ordinary path — a merchant asking for USDC — works before
       # anyone has deposited. It comes out of the deployer's reserve, which is
@@ -77,16 +84,13 @@ services:
       # wallet_bridge_funding_skipped. Unset this to stop sending it at all.
       - key: STELLAR_WALLET_FUNDING_BRIDGE
         value: "1"
-      # CoinGecko now prices only the currencies no anchor quotes — dollar, euro
-      # and naira. Lira no longer depends on it. Still worth a key if those are
-      # wanted, for the reason below. The
-      # keyless tier is rate limited per source IP, which on a shared host is
-      # spent by other tenants as much as by this service, and a 429 clears the
-      # cached rate rather than serving a stale one — so one throttle removes
-      # every conversion until the feed recovers. A free demo key is dedicated
-      # and makes that stop happening. Without it the app still works: amounts
-      # stay in XLM and the "≈ ₺" line disappears rather than showing a number
-      # nobody stands behind.
+      # CoinGecko now prices only euro and naira: lira comes from the anchor and
+      # the dollar from the peg above, so neither depends on it. Worth a key if
+      # those two are wanted. The keyless tier is rate limited per source IP,
+      # which on a shared host is spent by other tenants as much as by this
+      # service, and a 429 clears the cached rate rather than serving a stale
+      # one — so without a key euro and naira are absent from the currency
+      # picker rather than wrong in it.
       - key: RATE_FEED_API_KEY
         sync: false
       - key: DATABASE_MAX_CONNECTIONS

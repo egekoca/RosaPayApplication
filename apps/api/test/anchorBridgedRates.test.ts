@@ -81,6 +81,63 @@ describe('pricing lumens through the asset the anchor ramps', () => {
     await expect(provider.ratesFor('stellar:native')).resolves.toEqual([]);
   });
 
+  it('prices the dollar from the swap leg alone, because USDC is pegged to it', async () => {
+    const provider = new AnchorBridgedRateProvider({
+      ...makeOptions(),
+      peggedCurrencies: ['iso4217:USD'],
+    });
+
+    const rates = await provider.ratesFor('stellar:native');
+    const usd = rates.find(rate => rate.asset === 'iso4217:USD');
+
+    // One USDC is one dollar, so a lumen's dollar price is just what the pool
+    // charges for a USDC: 9.5343945 XLM. No feed is involved, which is why the
+    // dollar cannot go missing from the picker when CoinGecko is throttled.
+    expect(Number(usd!.price)).toBeCloseTo(9.5343945, 6);
+    expect(10_000 / Number(usd!.price)).toBeCloseTo(1048.79, 1);
+  });
+
+  it('lets a real quote beat the peg where the anchor has one', async () => {
+    const provider = new AnchorBridgedRateProvider({
+      ...makeOptions({
+        fetcher: anchorServing([{asset: 'iso4217:USD', price: '0.9980000000'}]) as unknown as typeof fetch,
+      }),
+      peggedCurrencies: ['iso4217:USD'],
+    });
+
+    const [rate] = await provider.ratesFor(usdc);
+
+    // A peg is a claim about the asset; a quote is what somebody would trade
+    // at. Where both exist the quote is the better number.
+    expect(Number(rate!.price)).toBeCloseTo(0.998, 6);
+  });
+
+  it('keeps the pegged currency when the anchor is unreachable', async () => {
+    const provider = new AnchorBridgedRateProvider({
+      ...makeOptions({
+        fetcher: (async () => {
+          throw new Error('anchor unreachable');
+        }) as unknown as typeof fetch,
+      }),
+      peggedCurrencies: ['iso4217:USD'],
+    });
+
+    // The dollar price of a USDC balance needs no anchor at all, so losing the
+    // anchor must not take it down too.
+    const rates = await provider.ratesFor('stellar:native');
+    expect(rates.map(rate => rate.asset)).toEqual(['iso4217:USD']);
+  });
+
+  it('still fails when the anchor is unreachable and nothing is pegged', async () => {
+    const provider = bridged({
+      fetcher: (async () => {
+        throw new Error('anchor unreachable');
+      }) as unknown as typeof fetch,
+    });
+
+    await expect(provider.ratesFor('stellar:native')).rejects.toThrow('anchor unreachable');
+  });
+
   it('carries every currency the anchor quotes, not just lira', async () => {
     const provider = bridged({
       fetcher: anchorServing([

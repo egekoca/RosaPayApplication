@@ -49,6 +49,19 @@ export type AnchorBridgedRateProviderOptions = {
   routerContractId: string;
   network?: 'testnet' | 'pubnet';
   fetcher?: typeof fetch;
+  /**
+   * Currencies one unit of the bridge asset is worth one unit of.
+   *
+   * USDC is a fully reserved dollar stablecoin, so `iso4217:USD` belongs here
+   * when the bridge is USDC: the dollar price of this wallet is the swap leg and
+   * nothing else, with no feed to be throttled. It is stated as configuration
+   * rather than assumed in code because it is a claim about a particular asset —
+   * a bridge that is not dollar-pegged must not inherit it — and because the
+   * peg is a peg rather than a market: it is the right basis for reading a
+   * balance and would be the wrong basis for executing an exchange, which this
+   * deployment does not do.
+   */
+  peggedCurrencies?: readonly string[];
   /** Injectable so tests need neither a pool nor a network. */
   quoteBridgeUnits?(): Promise<bigint>;
 };
@@ -79,21 +92,46 @@ export class AnchorBridgedRateProvider implements RateProvider {
     }));
   }
 
-  /** What the anchor says one unit of its own asset is worth, per currency. */
+  /**
+   * What one unit of the bridge asset is worth, per currency.
+   *
+   * The anchor's quotes, plus any currency the bridge asset is pegged to at one
+   * to one. A pegged currency is added only when the anchor did not already
+   * quote it, so a real quote always wins over the peg.
+   */
   private async anchorRates(): Promise<AssetRate[]> {
-    const prices = await readIndicativePrices({
-      source: {quoteServer: this.options.quoteServer},
-      sellAsset: this.options.bridgeAsset,
-      sellAmount: '1',
-      ...(this.options.fetcher ? {fetcher: this.options.fetcher} : {}),
-    });
-    return prices
-      .filter(price => Number(price.price) > 0)
-      .map(price => ({
-        asset: price.asset,
-        price: price.price,
-        decimals: decimalsFor(price.asset),
-      }));
+    const pegged: AssetRate[] = (this.options.peggedCurrencies ?? []).map(asset => ({
+      asset,
+      price: '1.0000000000',
+      decimals: decimalsFor(asset),
+    }));
+
+    let quoted: AssetRate[] = [];
+    try {
+      const prices = await readIndicativePrices({
+        source: {quoteServer: this.options.quoteServer},
+        sellAsset: this.options.bridgeAsset,
+        sellAmount: '1',
+        ...(this.options.fetcher ? {fetcher: this.options.fetcher} : {}),
+      });
+      quoted = prices
+        .filter(price => Number(price.price) > 0)
+        .map(price => ({
+          asset: price.asset,
+          price: price.price,
+          decimals: decimalsFor(price.asset),
+        }));
+    } catch (error) {
+      // An unreachable anchor must not take the pegged currency down with it:
+      // the dollar price of a USDC balance needs no anchor at all.
+      if (pegged.length === 0) throw error;
+    }
+
+    const byAsset = new Map(quoted.map(rate => [rate.asset, rate]));
+    for (const rate of pegged) {
+      if (!byAsset.has(rate.asset)) byAsset.set(rate.asset, rate);
+    }
+    return [...byAsset.values()];
   }
 
   /**

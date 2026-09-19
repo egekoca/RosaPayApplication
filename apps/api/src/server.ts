@@ -37,6 +37,19 @@ function anchorBridgedProvider(): AnchorBridgedRateProvider | undefined {
     sellContractId: Asset.native().contractId(
       network === 'pubnet' ? Networks.PUBLIC : Networks.TESTNET,
     ),
+    /*
+     * Comma-separated SEP-38 currencies the bridge asset is pegged to. With a
+     * USDC bridge that is `iso4217:USD`, which makes the dollar reading of a
+     * wallet the swap leg alone — no feed to be throttled, and nothing to go
+     * missing from the currency picker.
+     */
+    ...(process.env.ANCHOR_BRIDGE_PEGGED_CURRENCIES
+      ? {
+          peggedCurrencies: process.env.ANCHOR_BRIDGE_PEGGED_CURRENCIES.split(',')
+            .map(entry => entry.trim())
+            .filter(Boolean),
+        }
+      : {}),
   });
 }
 

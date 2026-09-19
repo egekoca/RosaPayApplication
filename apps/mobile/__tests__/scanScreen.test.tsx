@@ -305,6 +305,24 @@ describe('the balance above the camera', () => {
     expect(tree).toContain('ROSA PAY');
   });
 
+  it('does not repeat a single holding as its own total', async () => {
+    // The default mock holds only lumens. A total beside the name would print
+    // the same figure as the row under it, which reads as though the screen is
+    // unsure of the number.
+    valuation.useBalanceValue.mockReturnValue({
+      data: {
+        amount: '50,732.12',
+        currency: 'TRY',
+        holdings: [{code: 'XLM', amount: '37.3134329', value: '50,732.12'}],
+      },
+    });
+
+    const tree = JSON.stringify((await renderScanner(navigation())).toJSON());
+
+    expect(tree).toContain('YOUR BALANCE');
+    expect(tree.split('₺50,732.12').length - 1).toBe(1);
+  });
+
   it('shows the holdings alone when nothing will quote a rate', async () => {
     valuation.useBalanceValue.mockReturnValue({data: null});
 

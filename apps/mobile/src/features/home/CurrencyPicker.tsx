@@ -26,6 +26,13 @@ export function CurrencyPicker({
     <OptionSheet
       onClose={onClose}
       onSelect={onSelect}
+      /*
+       * Every currency the product supports, whether or not a rate happens to
+       * be available this minute. Hiding the ones a throttled feed cannot price
+       * was the wrong place to be honest: it made the list flicker between four
+       * entries and two, and told someone their currency had been removed. The
+       * card is where a missing rate belongs, and it has a state for one.
+       */
       options={DISPLAY_CURRENCIES.map(currency => ({
         value: currency.code,
         label: currency.code,

@@ -3,7 +3,7 @@ import {assetCodeOf, currencyValueOfAsset, readIndicativePrices} from '@rosapay/
 import {payableAssetByCode} from '../features/payments/assets';
 import type {Holding} from './useWalletBalance';
 import {displayAmount} from './displayAmount';
-import {PREFERRED_CURRENCIES, resolveQuoteSource} from './priceSource';
+import {resolveQuoteSource} from './priceSource';
 import {useAppStore} from '../state/appStore';
 
 /** One holding, and what it is worth in the chosen currency. */
@@ -45,37 +45,38 @@ export function useBalanceValue(holdings: Holding[] | undefined) {
     retry: 1,
     queryFn: async (): Promise<BalanceValue | null> => {
       const priced = (holdings ?? []).filter(holding => Number(holding.amount) > 0);
-      // The chosen currency first, then the old order as a fallback: a wallet
-      // holding something nobody will price in lira should still read as
-      // something rather than as nothing.
-      const order = [wanted, ...PREFERRED_CURRENCIES.filter(code => code !== wanted)];
 
       let total = 0;
-      let currency: string | undefined;
+      const currency = wanted;
       const valued: ValuedHolding[] = [];
 
       for (const holding of priced) {
         const sellAsset = payableAssetByCode(holding.code)?.sep38;
         // Each holding is priced by whichever server quotes that asset, so a
         // wallet of lumens and USDC still totals in one currency.
-        const source = await resolveQuoteSource(sellAsset, currency ?? wanted);
+        const source = await resolveQuoteSource(sellAsset, currency);
         const prices = await readIndicativePrices({
           source,
           sellAmount: holding.amount,
           ...(sellAsset ? {sellAsset} : {}),
         });
-        const chosen =
-          order.map(code => prices.find(price => assetCodeOf(price.asset) === code)).find(Boolean) ??
-          // Once one holding has fixed the unit, the rest must be read in it or
-          // the total would add dollars to lira.
-          (currency ? prices.find(price => assetCodeOf(price.asset) === currency) : prices[0]);
+        /*
+         * The currency that was asked for, and no other.
+         *
+         * This used to fall through a preference order, so a wallet asked for
+         * dollars answered in lira whenever nothing would quote dollars. The
+         * figure was labelled honestly and was still the wrong answer: someone
+         * who picks USD and reads "₺50,732.12 TRY" concludes the control is
+         * broken, which is what was reported. Showing nothing is the honest
+         * outcome — the card has a state for a rate it does not have, and a
+         * currency nobody will quote is exactly that state.
+         */
+        const chosen = prices.find(price => assetCodeOf(price.asset) === currency);
         if (!chosen) continue;
 
         const value = currencyValueOfAsset({amount: holding.amount, price: chosen.price});
         if (!Number.isFinite(value)) continue;
 
-        currency ??= assetCodeOf(chosen.asset);
-        if (assetCodeOf(chosen.asset) !== currency) continue;
         total += value;
         valued.push({code: holding.code, amount: holding.amount, value: displayAmount(value)});
       }
