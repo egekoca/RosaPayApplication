@@ -90,7 +90,7 @@ export type RampActivity = {
 
 /**
  * Who this person is, for their own benefit rather than for authentication.
- * Lumenade Pay is non-custodial: the device key is the account, so there is nothing
+ * Rosa Pay is non-custodial: the device key is the account, so there is nothing
  * a server could check an email against. The name is what a merchant sees on a
  * receipt, and the email is where a receipt can be sent.
  */
@@ -104,7 +104,7 @@ type AppState = {
   /** False until the stored session has been read back from secure storage. */
   hydrated: boolean;
   mode: AppMode;
-  /** Where the Lumenade Pay API lives; a phone needs the development machine's address. */
+  /** Where the Rosa Pay API lives; a phone needs the development machine's address. */
   apiBaseUrl: string;
   /**
    * The money a balance is read in. Not a formatting preference — it decides

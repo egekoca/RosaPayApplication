@@ -56,7 +56,7 @@ export function RecoverWalletScreen({navigation}: Props) {
     onSuccess: () => {
       // The account record is only written once the wallet is really back, so a
       // recovery that failed halfway leaves nothing behind to be confused by.
-      createAccount({name: 'Lumenade Pay'});
+      createAccount({name: 'Rosa Pay'});
       navigation.reset({index: 0, routes: [{name: 'Main'}]});
     },
     onError: error => logger.error('wallet_recovery_failed', {code: codeOf(error)}),
@@ -132,9 +132,9 @@ function describe(error: unknown, t: (text: string) => string): string {
   }
   switch (error.code) {
     case 'NO_PASSKEY':
-      return t('This phone has no passkey for a Lumenade Pay wallet. Sign in on a phone that does, or create a new wallet.');
+      return t('This phone has no passkey for a Rosa Pay wallet. Sign in on a phone that does, or create a new wallet.');
     case 'NOT_FOUND':
-      return t('That passkey does not belong to a Lumenade Pay wallet.');
+      return t('That passkey does not belong to a Rosa Pay wallet.');
     case 'CANCELLED':
       return t('You dismissed the prompt, so nothing was changed.');
     default:

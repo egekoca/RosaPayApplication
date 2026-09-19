@@ -27,3 +27,8 @@ contracts/target/
 
 # Demo account secrets created by `npm run testnet:demo-pair`.
 config/testnet-demo-pair.json
+
+# Vercel CLI link and the OIDC token it downloads. The `.env.*` rule above
+# already covers `.env.local`, and re-adding `.env*` here would override the
+# `!.env.example` exception.
+.vercel

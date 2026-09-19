@@ -6,7 +6,7 @@ const RTP_SCHEME = 'rosapay://pay/';
 
 /**
  * A signed intent encodes to roughly 700 characters, and QR itself tops out near
- * 3 kB. Anything larger did not come from a Lumenade Pay merchant, so the decoder
+ * 3 kB. Anything larger did not come from a Rosa Pay merchant, so the decoder
  * refuses it before parsing rather than handing arbitrary input to JSON.parse.
  */
 const MAX_QR_LENGTH = 4_096;

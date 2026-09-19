@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {
   getNfcStatus,
   nfcUnavailable,
@@ -46,15 +46,45 @@ export type NfcReaderHandlers = {
   onError(message: string): void;
 };
 
-/** Reads a merchant's tap while `active`, and stops as soon as it is not. */
-export function useNfcReader(active: boolean, handlers: NfcReaderHandlers): NfcStatus {
+export type NfcReader = NfcStatus & {
+  /**
+   * Opens the reader when the platform will not let it sit armed. Undefined
+   * where `startTap` would be meaningless — Android already listens, and a
+   * device without NFC has nothing to open — so a screen can render its tap
+   * button on exactly `reader.startTap !== undefined`.
+   */
+  startTap?: () => void;
+};
+
+/**
+ * Reads a merchant's tap while `active`, and stops as soon as it is not.
+ *
+ * On Android reader mode polls silently, so it is armed for as long as `active`
+ * holds. On iOS a session puts a system sheet over the screen, so nothing opens
+ * until `startTap` is called and the session closes itself after one read.
+ */
+export function useNfcReader(active: boolean, handlers: NfcReaderHandlers): NfcReader {
   const status = useNfcStatus();
   const {onRequest, onError} = handlers;
+  const [tapRequested, setTapRequested] = useState(false);
+  const ready = status.supported && status.enabled;
+  const listening = active && ready && (!status.needsUserAction || tapRequested);
 
   useEffect(() => {
-    if (!active || !status.supported || !status.enabled) return;
-    return startNfcReader({onRequest, onError});
-  }, [active, status.supported, status.enabled, onRequest, onError]);
+    if (!listening) return;
+    const stop = startNfcReader({onRequest, onError});
+    return () => {
+      // A user-driven session is one read long: clearing the request here means
+      // the next tap needs the button again rather than silently reopening.
+      setTapRequested(false);
+      stop();
+    };
+  }, [listening, onRequest, onError]);
 
-  return status;
+  const startTap = useCallback(() => setTapRequested(true), []);
+
+  return {
+    ...status,
+    startTap: active && ready && status.needsUserAction && !tapRequested ? startTap : undefined,
+  };
 }

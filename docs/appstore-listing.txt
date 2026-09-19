@@ -131,10 +131,10 @@ stellar,xlm,qr,ödeme,cüzdan,işletme,kripto,soroban,tahsilat,fiş,nfc,tara
 
 
 --- Support URL ---
-https://lumenade-pay.vercel.app
+https://rosa-pay-app.vercel.app
 
 --- Marketing URL ---
-https://lumenade-pay.vercel.app
+https://rosa-pay-app.vercel.app
 
 (İkisi de aynı olabilir. Support URL zorunlu ve ÇALIŞAN bir
 adres olmalı; Apple kontrol ediyor. Bu adres şu an 200 dönüyor.)
@@ -199,5 +199,5 @@ DİKKAT EDİLECEK İKİ ŞEY
 
 2) İSİM TUTARSIZLIĞI.
    App Store'da "Rosa Pay" yazacak, ama telefonda ikonun altında
-   "Lumenade Pay" görünecek (Info.plist'te öyle). Test için
+   "Rosa Pay" görünecek (Info.plist'te öyle). Test için
    zararsız. İsme karar verince söyle, tek satırda hizalarım.

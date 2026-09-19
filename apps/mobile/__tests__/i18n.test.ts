@@ -21,7 +21,7 @@ const USED = [
   'Find my wallet',
   'Move it to this phone',
   'Something went wrong. Try again.',
-  'That passkey does not belong to a Lumenade Pay wallet.',
+  'That passkey does not belong to a Rosa Pay wallet.',
   'You dismissed the prompt, so nothing was changed.',
   'PAYING WITH',
   'via Soroswap',
@@ -30,6 +30,9 @@ const USED = [
   'Exchanged for the',
   'You will never pay more than',
   'Allow camera access',
+  // The iPhone tap path: iOS cannot listen in the background, so the customer
+  // opens the reader from this button.
+  'Pay by tapping instead',
   'Anchor transfer',
   'App language',
   'Asset',
@@ -71,7 +74,7 @@ const USED = [
   'LANGUAGE',
   'Ledger',
   'Long-press the recipient or issuer to copy it.',
-  'Lumenade Pay needs a fresh start',
+  'Rosa Pay needs a fresh start',
   'MONEY MOVEMENT',
   'Network',
   'New request',

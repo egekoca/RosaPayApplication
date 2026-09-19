@@ -39,7 +39,7 @@ export async function fetchRelayerIdentity(baseUrl: string, fetcher: typeof fetc
   try {
     response = await fetcher(`${baseUrl}/v1/relayer`);
   } catch {
-    throw new TestnetSettlementError('RELAYER_UNAVAILABLE', 'The Lumenade Pay relayer could not be reached');
+    throw new TestnetSettlementError('RELAYER_UNAVAILABLE', 'The Rosa Pay relayer could not be reached');
   }
   if (!response.ok) {
     throw new TestnetSettlementError('RELAYER_UNAVAILABLE', 'The relayer is not configured for this deployment');

@@ -77,7 +77,7 @@ function passkeySignature(key: Key, payload: Buffer): xdr.ScVal {
     JSON.stringify({
       type: 'webauthn.get',
       challenge: payload.toString('base64url'),
-      origin: 'https://lumenade-pay.vercel.app',
+      origin: 'https://rosa-pay-app.vercel.app',
       crossOrigin: false,
     }),
   );

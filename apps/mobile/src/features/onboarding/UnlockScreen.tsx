@@ -3,7 +3,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {Platform, Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, radius, spacing, typography} from '@rosapay/ui';
 import {Screen} from '../../shared/Screen';
-import {LumenadeMark, LumenadeWordmark} from '../../shared/LumenadeMark';
+import {RosaMark, RosaWordmark} from '../../shared/RosaMark';
 import {useAppStore} from '../../state/appStore';
 import {unlockWithDevice} from './deviceUnlock';
 import {useTranslate} from '../../shared/i18n';
@@ -70,8 +70,8 @@ export function UnlockScreen() {
     <Screen contentStyle={styles.screen}>
       <AnimatedContent>
         <View style={styles.brand}>
-          <LumenadeMark motion={busy ? 'spin' : 'float'} showOrbit size={58} />
-          <LumenadeWordmark compact />
+          <RosaMark motion={busy ? 'spin' : 'float'} showOrbit size={58} />
+          <RosaWordmark compact />
         </View>
       </AnimatedContent>
 

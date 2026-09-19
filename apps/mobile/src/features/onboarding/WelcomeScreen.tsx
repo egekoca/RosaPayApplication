@@ -4,7 +4,7 @@ import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-nati
 import type {ReactNode} from 'react';
 import {AnimatedContent, Button, colors, radius, spacing, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
-import {LumenadeMark, LumenadeWordmark} from '../../shared/LumenadeMark';
+import {RosaMark, RosaWordmark} from '../../shared/RosaMark';
 import {Screen} from '../../shared/Screen';
 import {useTranslate} from '../../shared/i18n';
 
@@ -19,12 +19,12 @@ export function WelcomeScreen({navigation}: Props) {
     <Screen contentStyle={styles.screen}>
       <AnimatedContent>
         <View style={styles.brand}>
-          <LumenadeMark motion="float" showOrbit size={82} />
-          <LumenadeWordmark />
+          <RosaMark motion="float" showOrbit size={82} />
+          <RosaWordmark />
           <View style={styles.originBadge}>
             <Text style={styles.originText}>LUMEN</Text>
             <Text style={styles.originSymbol}>×</Text>
-            <Text style={styles.originText}>LEMONADE</Text>
+            <Text style={styles.originText}>ROSE</Text>
           </View>
         </View>
       </AnimatedContent>

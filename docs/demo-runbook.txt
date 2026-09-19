@@ -158,7 +158,7 @@ kurtarma-cümlesi hesabı seçilirse o yola hiç girilmez.
     kontrolünden sonraki ekranlar gerçek cihazda hiç yürünmedi.
     Sürprizler için zaman ayır.
 
-  * Uygulamanın telefonda görünen adı hâlâ "Lumenade Pay", App
+  * Uygulamanın telefonda görünen adı hâlâ "Rosa Pay", App
     Store Connect'te ise "Rosa Pay". Test için zararsız; isme
     karar verilince tek satırda hizalanır.
 

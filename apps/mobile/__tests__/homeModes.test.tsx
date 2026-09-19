@@ -9,7 +9,7 @@ import {useAppStore} from '../src/state/appStore';
 jest.mock('../src/shared/Screen', () => ({
   Screen: ({children}: {children: React.ReactNode}) => <>{children}</>,
 }));
-jest.mock('../src/shared/LumenadeMark', () => ({LumenadeMark: () => null}));
+jest.mock('../src/shared/RosaMark', () => ({RosaMark: () => null}));
 jest.mock('../src/shared/useWalletBalance', () => ({
   useWalletBalance: () => ({data: [{code: 'XLM', amount: '12'}], isPending: false, isError: false}),
 }));

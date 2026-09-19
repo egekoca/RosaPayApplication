@@ -35,7 +35,7 @@ test('offers the lira-capable wallet path in customer language', async () => {
   expect(tree).toContain('Pay by scanning.');
   expect(tree).toContain('Settle on Stellar.');
   expect(tree).toContain('LUMEN');
-  expect(tree).toContain('LEMONADE');
+  expect(tree).toContain('ROSE');
   expect(tree).toContain('Create a new wallet');
   // Someone who already has a Stellar wallet is not made to create a second one
   // to get in.

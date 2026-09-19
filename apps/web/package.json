@@ -1,8 +1,8 @@
 {
-  "name": "@lumenadepay/web",
+  "name": "@rosapay/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Lumenade Pay public landing page",
+  "description": "Rosa Pay public landing page",
   "scripts": {
     "check": "node scripts/check.mjs",
     "test": "node scripts/check.mjs",

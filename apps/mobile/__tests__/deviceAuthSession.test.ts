@@ -66,7 +66,7 @@ describe('mobile device session bootstrap', () => {
     await ensureSmartWallet(client as never);
 
     expect(client.createDeviceChallenge).toHaveBeenCalledWith(devicePublicKey);
-    expect(mockSigner.signDigest).toHaveBeenCalledWith({digest: 'A'.repeat(44), reason: 'Sign in to Lumenade Pay'});
+    expect(mockSigner.signDigest).toHaveBeenCalledWith({digest: 'A'.repeat(44), reason: 'Sign in to Rosa Pay'});
     expect(client.createDeviceSession).toHaveBeenCalledWith(expect.objectContaining({
       publicSigner: devicePublicKey, signature: 'signed',
     }));

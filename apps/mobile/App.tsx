@@ -9,7 +9,7 @@ import {AppErrorBoundary} from './src/app/AppErrorBoundary';
 import {RootNavigator} from './src/app/navigation';
 import {useAutoLock} from './src/app/useAutoLock';
 import {UnlockScreen} from './src/features/onboarding/UnlockScreen';
-import {LumenadeLoader} from './src/shared/LumenadeMark';
+import {RosaLoader} from './src/shared/RosaMark';
 import {useAppStore} from './src/state/appStore';
 
 const queryClient = new QueryClient({
@@ -42,7 +42,7 @@ function App() {
             </NavigationContainer>
           ) : (
             <View style={styles.splash}>
-              <LumenadeLoader label="Preparing your wallet" />
+              <RosaLoader label="Preparing your wallet" />
             </View>
           )}
         </QueryClientProvider>

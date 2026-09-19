@@ -32,7 +32,7 @@ export async function createHardwareSigner(): Promise<HardwareSignerReport> {
   try {
     let identity = await signer.getIdentity();
     if (!identity) {
-      identity = await signer.createIdentity('Lumenade Pay');
+      identity = await signer.createIdentity('Rosa Pay');
       created = true;
       logger.info('hardware_signer_created', {kind: identity.kind});
     }

@@ -125,7 +125,7 @@ export function CreateAccountScreen({navigation, route}: Props) {
                   <View style={styles.explainerCopy}>
                     <Text style={styles.explainerTitle}>{t('Twelve words are your wallet')}</Text>
                     <Text style={styles.explainerBody}>
-                      {t('The next screen shows them once. They open this same account in Lumenade Pay, Lobstr or Freighter, they are what lets you add money in lira, and they are the only way back if you lose this phone. Nobody can reissue them.')}
+                      {t('The next screen shows them once. They open this same account in Rosa Pay, Lobstr or Freighter, they are what lets you add money in lira, and they are the only way back if you lose this phone. Nobody can reissue them.')}
                     </Text>
                   </View>
                 </View>

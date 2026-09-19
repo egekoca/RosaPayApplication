@@ -1,4 +1,4 @@
-name: Lumenade Pay CI
+name: Rosa Pay CI
 
 on:
   push:

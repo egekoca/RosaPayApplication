@@ -31,7 +31,7 @@
                     "symbol": "Signer"
                   },
                   {
-                    "bytes": "04bd68455670490f9dd82ab8f9421c5101c5b32f45da25a85024b7fea00aac103ac6509fc9dff4e80d18978304d49459d6553656c24d2783980b5753f724451456"
+                    "bytes": "04e6eb803c2474a1ec46adf00426820318daa4c337fa6fa60dcf95e48342d05f4207610f23f955be742c5454cea7ce408d63d975535a4917f3c85d4dac4471da69"
                   }
                 ]
               },
@@ -91,7 +91,7 @@
                               "symbol": "public_key"
                             },
                             "val": {
-                              "bytes": "04e4764942249ede60b54f330a0398f28a5ba9da022703e24684ca3ad9ef137d4bf55da45ae0cb06d568577a74fee800d60e33bccd648e5bc19cd68d2d47ce8386"
+                              "bytes": "04f2c18a6ef49c1d56a171dbfe6593ceed22f9218edd2e6b4f2062944c49cb992da7e996b2871abf181e176eb4a37a2ddc33a36f502cc981a04d621fd1ea3a31c9"
                             }
                           }
                         ]

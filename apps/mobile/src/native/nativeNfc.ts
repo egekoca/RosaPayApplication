@@ -7,6 +7,12 @@ export type NfcStatus = {
   enabled: boolean;
   /** The device can publish a request for another phone to read. */
   canBroadcast: boolean;
+  /**
+   * Reading has to be started by a deliberate tap on a button rather than armed
+   * when the screen opens. True on iOS, where a reader session puts a system
+   * sheet on screen that would cover the camera and block the QR path.
+   */
+  needsUserAction: boolean;
 };
 
 export type NfcModule = {
@@ -21,19 +27,37 @@ const READ_EVENT = 'RosaPayNfcRequestRead';
 const ERROR_EVENT = 'RosaPayNfcError';
 
 /**
- * Tapping is an Android transport. iOS gives no app the ability to emulate a
- * card, and Apple's reader session cannot be driven the way this flow needs, so
- * on iOS the QR code is the whole story rather than a degraded tap.
+ * Tapping works in three of the four directions between the two platforms.
+ * Android publishes a request and reads one; an iPhone can only read, because
+ * iOS gives no third-party app the ability to emulate a card. So an iPhone
+ * merchant shows the QR code and an iPhone customer may tap or scan.
  */
-export const nfcUnavailable: NfcStatus = {supported: false, enabled: false, canBroadcast: false};
+export const nfcUnavailable: NfcStatus = {
+  supported: false,
+  enabled: false,
+  canBroadcast: false,
+  needsUserAction: false,
+};
 
 function module(): NfcModule | null {
-  if (Platform.OS !== 'android') return null;
+  if (Platform.OS !== 'android' && Platform.OS !== 'ios') return null;
   return (NativeModules.RosaPayNfc as NfcModule | undefined) ?? null;
 }
 
 export function getNfcStatus(): Promise<NfcStatus> {
-  return module()?.getStatus().catch(() => nfcUnavailable) ?? Promise.resolve(nfcUnavailable);
+  const native = module();
+  if (!native) return Promise.resolve(nfcUnavailable);
+  return native
+    .getStatus()
+    // Normalized here so a native build that predates a field cannot leave it
+    // undefined and have a screen read that as "ready".
+    .then(status => ({
+      supported: status.supported === true,
+      enabled: status.enabled === true,
+      canBroadcast: status.canBroadcast === true,
+      needsUserAction: status.needsUserAction === true,
+    }))
+    .catch(() => nfcUnavailable);
 }
 
 export function startNfcBroadcast(payload: string): Promise<void> {

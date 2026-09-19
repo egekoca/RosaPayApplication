@@ -20,7 +20,22 @@
 	-->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>webcredentials:lumenade-pay.vercel.app</string>
+		<string>webcredentials:rosa-pay-app.vercel.app</string>
+	</array>
+	<!--
+	  Lets the app open an NFCTagReaderSession, which is how an iPhone reads the
+	  request an Android merchant publishes over NFC. TAG is the raw-tag format;
+	  the AID the session is allowed to see is listed in Info.plist under
+	  com.apple.developer.nfc.readersession.iso7816.select-identifiers.
+
+	  This is the standard "Near Field Communication Tag Reading" capability and
+	  needs no approval from Apple. The other direction does: iOS does not let a
+	  third-party app emulate a card, so an iPhone cannot be the merchant over
+	  NFC and RosaPayNfc.swift refuses startBroadcast rather than pretending.
+	-->
+	<key>com.apple.developer.nfc.readersession.formats</key>
+	<array>
+		<string>TAG</string>
 	</array>
 </dict>
 </plist>

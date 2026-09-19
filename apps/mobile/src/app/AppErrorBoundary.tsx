@@ -23,7 +23,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       return (
         <View style={styles.container}>
-          <Text style={styles.title}>{translate('Lumenade Pay needs a fresh start', useAppStore.getState().language)}</Text>
+          <Text style={styles.title}>{translate('Rosa Pay needs a fresh start', useAppStore.getState().language)}</Text>
           <Text style={styles.body}>{translate('Your wallet and payment authorization were not changed.', useAppStore.getState().language)}</Text>
           <Button onPress={() => this.setState({hasError: false})}>{translate('Try again', useAppStore.getState().language)}</Button>
         </View>

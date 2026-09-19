@@ -52,7 +52,7 @@ describe('a recovery-phrase merchant reaching the API', () => {
     const client = api();
     await expect(ensureDeviceSession(client as never)).resolves.toMatchObject({publicSigner: devicePublicKey});
 
-    expect(mockSigner.createIdentity).toHaveBeenCalledWith('Lumenade Pay');
+    expect(mockSigner.createIdentity).toHaveBeenCalledWith('Rosa Pay');
     expect(client.createDeviceChallenge).toHaveBeenCalledWith(devicePublicKey);
     expect(useAppStore.getState().apiSession).toMatchObject({token: 't'.repeat(64)});
   });

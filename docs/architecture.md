@@ -1,8 +1,8 @@
-# Lumenade Pay Architecture
+# Rosa Pay Architecture
 
 ## Status
 
-This document describes the implemented foundation and the boundaries that must remain stable as Lumenade Pay moves from a mocked QR payment to Testnet settlement. The product name is **Lumenade Pay** and the application/package slug is **RosaPay**.
+This document describes the implemented foundation and the boundaries that must remain stable as Rosa Pay moves from a mocked QR payment to Testnet settlement. The product name is **Rosa Pay** and the application/package slug is **RosaPay**.
 
 ## Runtime shape
 
@@ -284,10 +284,24 @@ is no round trip.
 ## How a request reaches a customer
 
 A payment request is one signed RTP/1 payload, and the transport is only how it
-travels. QR is the universal path: every phone with a camera can read it, and it
-is the whole story on iOS, which gives no app the ability to emulate a card. On
-Android the same payload is also offered over NFC, so a customer can tap instead
-of aiming.
+travels. QR is the universal path: every phone with a camera can read it, in all
+four directions between the two platforms.
+
+NFC covers three of those four. An Android merchant publishes the request through
+`RosaPayApduService`, and both an Android customer (reader mode) and an iPhone
+customer (`RosaPayNfc.swift`, CoreNFC) can read it — the same ISO 7816-4 exchange,
+SELECT the AID for a chunk count then READ BINARY each chunk. The fourth direction
+is closed: iOS gives no third-party app the ability to emulate a card, so an
+iPhone can never be the merchant over NFC and shows the QR code instead. Apple's
+HCE exception since iOS 17.4 needs a commercial agreement and the NFC & SE
+Platform entitlement, is limited to the EEA, and is scoped to payment, transit
+and key categories — so it is not a path this app can take.
+
+The two platforms also differ in how a read starts. Android's reader mode polls
+with no UI, so the scan screen arms it on open. CoreNFC puts a system sheet on
+screen that would cover the camera, so on iOS the reader is opened by a deliberate
+press and closes itself after one read; `needsUserAction` in the NFC status is
+what tells the screen which of the two it is dealing with.
 
 Neither transport is trusted. Whatever arrives — scanned, tapped, or read from
 this device's own request — goes through the same check before a customer sees an
@@ -444,7 +458,7 @@ backlog rather than half-built here.
 
 ## Platform sequencing
 
-QR is the required common payment path and is the current vertical slice. Android NFC is an optimization after real QR settlement. iOS uses the same QR path as a safe fallback because background NFC behavior and entitlement requirements differ by device and OS version. NFC must not introduce a second payment protocol.
+QR is the required common payment path and works in every direction. NFC is an optimization layered on top of it, and it reaches every direction except one: an iPhone cannot be the merchant over NFC, because iOS does not grant third-party card emulation. An iPhone customer can tap an Android merchant, so the combination that matters at a counter — merchant terminal on Android, customer bringing whatever phone they own — is covered. NFC must not introduce a second payment protocol, and it does not: both platforms carry the same signed RTP/1 payload through the same verification.
 
 ## Version baseline
 

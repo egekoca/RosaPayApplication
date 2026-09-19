@@ -1,4 +1,4 @@
-# Lumenade Pay Delivery Backlog
+# Rosa Pay Delivery Backlog
 
 This backlog is derived from `docs/PRD.md` and reflects the repository state on 2026-08-25.
 
@@ -43,7 +43,7 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 
 ## P1 - Application and API Foundation
 
-- [x] Replace the legacy blue-gray/rose palette with the black, lemon-yellow and white Lumenade system; add an animated lemon/XLM mark for hydration, unlock, camera startup and final-status settlement waiting.
+- [x] Replace the legacy blue-gray/rose palette with the black, amber and white Rosa system; add an animated rose mark for hydration, unlock, camera startup and final-status settlement waiting.
 - [x] Add the React Native shell, navigation, design system, English copy and error boundary; motion primitives are React Native ports of React Bits components, screen transitions run on the native stack, and the home balance is the wallet's real on-chain balance rather than a fixture.
 - [x] Add Zustand capability/mode state, TanStack Query and structured redacted logging boundaries, with the session persisted in encrypted device storage.
 - [x] Add a runtime-validated mobile API client with stable error handling.
@@ -85,12 +85,12 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [ ] Route a funding swap through more than one hop. The contract and the client both accept a longer path, but nothing selects one: Soroswap's aggregator API is the right way to pick it, and a single XLM/USDC pool is enough for the pair this deployment settles.
 
 - [x] Make the app usable by more than one person at once. Rate limits were counted by network address, so a room behind one router looked like a single caller: the relayer allowed thirty payments a minute *for everyone*, and the fourth phone to install could not create a wallet for an hour. They are counted per device now, with a looser address-wide ceiling behind them, and `apps/api/test/rateLimit.test.ts` fails without the change. The API address comes from the deployment manifest rather than a loopback default, so a TestFlight build reaches something. The lira bridge is funded from the wallet rather than Friendbot, which throttles by address.
-- [ ] Publish the API and put its HTTPS address in `config/testnet-deployment.json` as `apiBaseUrl`. `Dockerfile` and `render.yaml` are ready; until it is filled in, every build still points at a development machine and only works on an emulator.
+- [x] Publish the API and put its HTTPS address in `config/testnet-deployment.json` as `apiBaseUrl`. Render serves the API over HTTPS and the health check verifies the Supabase connection before reporting ready.
 
 ## P2 - Reliability and Evidence
 
 - [x] Bring the website up to what the product does. It now carries the custody story the app is actually built on — a key the phone cannot give away, a passkey that carries the wallet to a new phone, and a contract that lets that passkey rescue but never spend — with the rotation transaction linked on-chain beside it. The anchor tiles name SEP-6 and SEP-10, which is what the lira rail really speaks, rather than SEP-24 and SEP-45, which it does not.
-- [x] Publish a responsive product website at `https://lumenade-pay.vercel.app` with mobile-source links and independently inspectable Testnet contract, transaction and manifest evidence.
+- [x] Publish a responsive product website at `https://rosa-pay-app.vercel.app` with mobile-source links and independently inspectable Testnet contract, transaction and manifest evidence.
 - [~] Implement the worker confirmation port and safe interval lifecycle: the runtime reconciles submitted settlements through the RPC receipt guard and closes out requests whose expiry ledger has passed, on a non-overlapping interval with graceful shutdown; durable indexing, retry and notification hooks remain.
 - [x] Add offline-safe retry using API idempotency keys; a dropped connection, a timeout, a 5xx or a 429 is tried again with backoff, every retried call is idempotent on the server, and the two that spend funds — wallet provisioning and on-chain merchant registration — are deliberately left alone.
 - [~] Read `PaymentSettled` events through the generated contract spec and reconcile them against submitted API state only after a matching RPC receipt; cursor persistence and runtime wiring are in place behind `WORKER_EVENT_START_LEDGER`, while durable event indexing remains.
@@ -106,11 +106,12 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [x] Add Testnet XLM **Add money** and **Withdraw** wallet entry points using the smart wallet's C-account, an in-app system browser, encrypted pending-session recovery and resumable SEP-24 polling.
 - [~] Prove testanchor live: `npm run testnet:anchor` opened a genuine SEP-10 session, started native-XLM SEP-24 deposit `00b77ef6-0a20-4d45-8f8b-faa8866f519e`, and read `incomplete`; a physical-device SEP-45/browser completion remains.
 - [ ] Authorize and submit the smart-wallet payment requested by a SEP-24 withdrawal at `pending_user_transfer_start`; initiation/status are implemented but the asset transfer must not be implied.
-- [!] Connect MoneyGram Ramps sandbox after provider allowlisting and a published Lumenade Pay domain are available.
+- [!] Connect MoneyGram Ramps sandbox after provider allowlisting and a published Rosa Pay domain are available.
 - [!] Verify a Testnet USDC issuer/SAC and decimal policy before enabling USDC (PRD 22.2).
 - [ ] Add USDC trustline onboarding only after the asset decision is recorded.
 - [x] Implement Android NFC HCE as an optional transport over the same RTP/1 flow; a merchant publishes the request it is already showing as a QR, a customer reads it in reader mode, and a paid or expired request stops being offered.
-- [x] Keep QR visible as the iOS and unsupported-device fallback; NFC is additive on both screens and iOS reports it unavailable rather than degrading.
+- [x] Keep QR visible as the universal path on both platforms; NFC is additive and a device that cannot use it reports so rather than degrading.
+- [x] Read a tap on iOS with CoreNFC, so an iPhone customer can pay an Android merchant by tapping. Same AID and same ISO 7816-4 chunked exchange as the Android reader. The reverse stays impossible: iOS grants no third-party card emulation, so `startBroadcast` refuses on iPhone instead of pretending.
 - [ ] Record 100+ successful Testnet settlements and publish anonymized demo metrics.
 - [x] Draw the architecture. Four Mermaid diagrams in [architecture-diagrams.md](architecture-diagrams.md) — the three-signature separation, where the keys live and why there are three, the lira rails through the bridge, and what runs where — each checked through a real Mermaid parser rather than eyeballed. The submission also asks which skill files were used; that record is [skills-used.md](skills-used.md), including the four things skills could not answer.
 - [ ] Write the three-minute demo script and the failure-path demo.
@@ -205,7 +206,7 @@ because the card already says which network it is on.
 
 ## Getting in
 
-Lumenade Pay is non-custodial, so there is no server account for an email and
+Rosa Pay is non-custodial, so there is no server account for an email and
 password to unlock. The device key is the account. Onboarding says that plainly
 instead of offering wallet vocabulary a customer has no reason to know:
 
@@ -233,7 +234,7 @@ Both stores need the app to declare what it takes and to work without the
 laptop. What is in place:
 
 - Android declares `CAMERA`, `USE_BIOMETRIC` and `NFC`, and removes the storage
-  permissions the camera library adds for a photo feature Lumenade Pay does not use —
+  permissions the camera library adds for a photo feature Rosa Pay does not use —
   a payment app asking to read the gallery is a review risk it does not need.
 - Camera and NFC are declared `required="false"`, so a phone without either can
   still install and still receive payments.

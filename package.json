@@ -1,8 +1,8 @@
 {
-  "name": "lumenadepay",
+  "name": "rosapay",
   "version": "0.1.0",
   "private": true,
-  "description": "Lumenade Pay monorepo",
+  "description": "Rosa Pay monorepo",
   "packageManager": "npm@11.6.2",
   "engines": {
     "node": ">=22.11.0"
@@ -36,7 +36,7 @@
     "testnet:two-device": "tsx --env-file-if-exists=.env scripts/testnet-two-device.mts",
     "testnet:offline": "tsx --env-file-if-exists=.env scripts/testnet-offline-customer.mts",
     "testnet:anchor": "tsx --env-file-if-exists=.env scripts/testnet-anchor.mts",
-    "web": "npm run dev --workspace @lumenadepay/web",
+    "web": "npm run dev --workspace @rosapay/web",
     "testnet:register-asset": "tsx --env-file-if-exists=.env scripts/testnet-register-asset.mts",
     "testnet:phrase-wallet": "tsx --env-file-if-exists=.env scripts/testnet-phrase-wallet.mts",
     "testnet:swap": "tsx --env-file-if-exists=.env scripts/testnet-swap-settlement.mts",

@@ -4,11 +4,11 @@ import type {SessionToken} from './webAuth';
 
 /**
  * SEP-24, the hosted deposit and withdrawal flow. The anchor returns a URL that
- * Lumenade Pay opens; the anchor collects KYC, the amount and the payment details on
+ * Rosa Pay opens; the anchor collects KYC, the amount and the payment details on
  * its own pages.
  *
  * That is the point of choosing SEP-24 over SEP-6: identity documents and bank
- * details are the anchor's regulated business, and Lumenade Pay is better off never
+ * details are the anchor's regulated business, and Rosa Pay is better off never
  * holding them.
  */
 export type InteractiveKind = 'deposit' | 'withdraw';
@@ -80,7 +80,7 @@ export class InteractiveError extends Error {
 /**
  * Whether a URL is safe to open for this anchor.
  *
- * The interactive URL is chosen by the anchor, and Lumenade Pay opens it in a
+ * The interactive URL is chosen by the anchor, and Rosa Pay opens it in a
  * browser holding a session the customer trusts. A URL pointing anywhere else is
  * a way to put a convincing page in front of someone mid-payment, so it is
  * refused rather than opened.
@@ -175,7 +175,7 @@ export async function startInteractive(input: InteractiveInput): Promise<Interac
     }
     throw new InteractiveError(
       'UNTRUSTED_URL',
-      `The anchor asked Lumenade Pay to open ${refusedOrigin}, so it was not opened`,
+      `The anchor asked Rosa Pay to open ${refusedOrigin}, so it was not opened`,
     );
   }
 
@@ -211,7 +211,7 @@ export async function readTransaction(query: TransactionQuery): Promise<AnchorTr
     if (!parsed.success) {
       throw new InteractiveError(
         'UNKNOWN_TRANSACTION',
-        `${anchor.homeDomain} returned a transaction Lumenade Pay cannot read`,
+        `${anchor.homeDomain} returned a transaction Rosa Pay cannot read`,
       );
     }
     return parsed.data;

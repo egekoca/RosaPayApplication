@@ -10,7 +10,7 @@ describe('readPaymentQr', () => {
     expect(result).toEqual({ok: true, payload: mockSignedIntent});
   });
 
-  it('reports anything that is not a Lumenade Pay request', () => {
+  it('reports anything that is not a Rosa Pay request', () => {
     const result = readPaymentQr('https://example.com/menu', context);
     expect(result).toEqual({ok: false, message: 'Unsupported payment QR'});
   });

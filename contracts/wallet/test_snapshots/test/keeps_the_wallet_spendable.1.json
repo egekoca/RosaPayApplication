@@ -17,7 +17,7 @@
               "function_name": "add_signer",
               "args": [
                 {
-                  "bytes": "0432ffca2c515f015b219c2fa7904f50dca7a547099ab1886e01e6406a7dc487cb0b6c9c0ab12c499fb2b3c558d85189851359d8f7b324856554d4ba039ae035ec"
+                  "bytes": "04c271b987dcaa40b9189895360138047fe1627b792ab7a618e45e7f53857f92bb95f66cf0d62ab1f180cf79f7c0ecccffc9708a2b665c34d911de4c81f53326c0"
                 },
                 {
                   "vec": [
@@ -44,7 +44,7 @@
               "function_name": "remove_signer",
               "args": [
                 {
-                  "bytes": "048d9ad3e5a4413751375b736531c536d20afdfabd3dbc0f414341fa59df9e1f99b525b53e4bf6de6234022358e726f74d564f8c1ccc3f5e4e1afb535bd4e96f0a"
+                  "bytes": "0462992f52352101aa57878f21e4c90012fccab5fa7b88307f4396039c1cef51c7bbe0ea2224aa36931cd527d58b0ebf93dd50a142a5a988f2f8160ba9366d23af"
                 }
               ]
             }
@@ -78,7 +78,7 @@
                     "symbol": "Signer"
                   },
                   {
-                    "bytes": "0432ffca2c515f015b219c2fa7904f50dca7a547099ab1886e01e6406a7dc487cb0b6c9c0ab12c499fb2b3c558d85189851359d8f7b324856554d4ba039ae035ec"
+                    "bytes": "04c271b987dcaa40b9189895360138047fe1627b792ab7a618e45e7f53857f92bb95f66cf0d62ab1f180cf79f7c0ecccffc9708a2b665c34d911de4c81f53326c0"
                   }
                 ]
               },

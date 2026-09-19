@@ -51,10 +51,10 @@ const TR: Record<string, string> = {
   'Find my wallet': 'Cüzdanımı bul',
   'Move it to this phone': 'Bu telefona taşı',
   'Something went wrong. Try again.': 'Bir şeyler ters gitti. Tekrar dene.',
-  'This phone has no passkey for a Lumenade Pay wallet. Sign in on a phone that does, or create a new wallet.':
-    'Bu telefonda bir Lumenade Pay cüzdanına ait passkey yok. Passkey’in olduğu bir telefondan gir ya da yeni bir cüzdan oluştur.',
-  'That passkey does not belong to a Lumenade Pay wallet.':
-    'Bu passkey bir Lumenade Pay cüzdanına ait değil.',
+  'This phone has no passkey for a Rosa Pay wallet. Sign in on a phone that does, or create a new wallet.':
+    'Bu telefonda bir Rosa Pay cüzdanına ait passkey yok. Passkey’in olduğu bir telefondan gir ya da yeni bir cüzdan oluştur.',
+  'That passkey does not belong to a Rosa Pay wallet.':
+    'Bu passkey bir Rosa Pay cüzdanına ait değil.',
   'You dismissed the prompt, so nothing was changed.':
     'İstemi kapattın, bu yüzden hiçbir şey değişmedi.',
   'The wallet could not be moved to this phone. Nothing was changed; try again.':
@@ -183,6 +183,7 @@ const TR: Record<string, string> = {
   "Scan this device's request": 'Bu cihazın isteğini okut',
   "You can also hold this phone against the merchant's":
     'Telefonu satıcınınkine de yaklaştırabilirsiniz',
+  'Pay by tapping instead': 'Bunun yerine yaklaştırarak öde',
   'YOU ARE PAYING': 'ÖDEYECEĞİNİZ',
   'SECURE CHECKOUT': 'GÜVENLİ ÖDEME',
   Recipient: 'Alıcı',
@@ -281,7 +282,7 @@ const TR: Record<string, string> = {
   'SETUP REQUIRED': 'KURULUM GEREKLİ',
   READING: 'OKUNUYOR',
   RECONNECTING: 'YENİDEN BAĞLANIYOR',
-  'Lumenade Pay needs a fresh start': 'Lumenade Pay’in yeniden başlaması gerekiyor',
+  'Rosa Pay needs a fresh start': 'Rosa Pay’in yeniden başlaması gerekiyor',
   'Your wallet and payment authorization were not changed.':
     'Cüzdanınız ve ödeme yetkiniz değişmedi.',
   'Try again': 'Tekrar dene',
@@ -311,7 +312,7 @@ const TR: Record<string, string> = {
   // Scan and payment confirmation
   'Align the merchant QR inside the frame': 'Satıcının QR kodunu çerçevenin içine hizalayın',
   'Starting the camera': 'Kamera başlatılıyor',
-  'Lumenade Pay needs the camera to read a merchant QR': 'Lumenade Pay, satıcı QR kodunu okumak için kameraya ihtiyaç duyar',
+  'Rosa Pay needs the camera to read a merchant QR': 'Rosa Pay, satıcı QR kodunu okumak için kameraya ihtiyaç duyar',
   'No camera on this device — use the request below': 'Bu cihazda kamera yok — aşağıdaki isteği kullanın',
   'No camera on this device. Make a request in Get paid to try a payment here.':
     'Bu cihazda kamera yok. Burada ödeme denemek için Ödeme al bölümünden bir istek oluşturun.',
@@ -388,7 +389,7 @@ const TR: Record<string, string> = {
   'Good afternoon': 'Tünaydın',
   'Good evening': 'İyi akşamlar',
   'your fingerprint': 'parmak iziniz',
-  'LUMENADE PAY': 'LUMENADE PAY',
+  'ROSA PAY': 'ROSA PAY',
   'Scan QR': 'QR okut',
   Receipt: 'Makbuz',
   'Enter a price in': 'Şu para biriminde fiyat girin',
@@ -409,9 +410,9 @@ const TR: Record<string, string> = {
   EXPIRED: 'SÜRESİ DOLDU',
   Word: 'Kelime',
   'That is not the phrase on the last screen. Go back and check it again.': 'Bu, son ekrandaki cümle değil. Geri dönüp tekrar kontrol edin.',
-  'Anyone with these words can spend your money. Nobody at Lumenade Pay can see them, and nobody can give them back to you if they are lost.': 'Bu kelimelere sahip herkes paranızı harcayabilir. Lumenade Pay’de kimse bunları göremez ve kaybolursa size geri veremez.',
+  'Anyone with these words can spend your money. Nobody at Rosa Pay can see them, and nobody can give them back to you if they are lost.': 'Bu kelimelere sahip herkes paranızı harcayabilir. Rosa Pay’de kimse bunları göremez ve kaybolursa size geri veremez.',
   'The next screen asks for your recovery phrase. It opens the same account you already use in another wallet, and the address is shown for you to check before anything is saved.': 'Sonraki ekran kurtarma cümlenizi ister. Başka bir cüzdanda kullandığınız hesabı açar; hiçbir şey kaydedilmeden önce adresi kontrol edebilirsiniz.',
-  'The next screen shows them once. They open this same account in Lumenade Pay, Lobstr or Freighter, they are what lets you add money in lira, and they are the only way back if you lose this phone. Nobody can reissue them.': 'Sonraki ekran bunları bir kez gösterir. Lumenade Pay, Lobstr veya Freighter’da aynı hesabı açarlar; lira yüklemenizi sağlarlar ve bu telefonu kaybederseniz geri dönmenin tek yoludur. Kimse onları yeniden veremez.',
+  'The next screen shows them once. They open this same account in Rosa Pay, Lobstr or Freighter, they are what lets you add money in lira, and they are the only way back if you lose this phone. Nobody can reissue them.': 'Sonraki ekran bunları bir kez gösterir. Rosa Pay, Lobstr veya Freighter’da aynı hesabı açarlar; lira yüklemenizi sağlarlar ve bu telefonu kaybederseniz geri dönmenin tek yoludur. Kimse onları yeniden veremez.',
   'Check this against the address in the wallet you are moving from. If it does not match, the phrase belongs to a different account and nothing has been saved yet.': 'Bunu para taşıdığınız cüzdandaki adresle karşılaştırın. Eşleşmiyorsa cümle başka bir hesaba aittir ve henüz hiçbir şey kaydedilmemiştir.',
   'Usually twelve words, in order': 'Genellikle sıralı on iki kelime',
   'of 12 words': ' / 12 kelime',
@@ -455,7 +456,7 @@ const TR: Record<string, string> = {
   AUTHORIZED: 'ONAYLANDI',
   FAILED: 'BAŞARISIZ',
   REJECTED: 'REDDEDİLDİ',
-  'The Lumenade Pay relayer is unreachable, so no fee payer could sign. Nothing was sent.': 'Lumenade Pay aktarıcısına ulaşılamadı; hiçbir şey gönderilmedi.',
+  'The Rosa Pay relayer is unreachable, so no fee payer could sign. Nothing was sent.': 'Rosa Pay aktarıcısına ulaşılamadı; hiçbir şey gönderilmedi.',
   'This request was created on another device, so its merchant signature cannot be produced here.': 'Bu istek başka bir cihazda oluşturuldu; satıcı imzası burada üretilemez.',
   'This device wallet could not be funded on Testnet. Try again in a moment.': 'Bu cihaz cüzdanı Testnet’te fonlanamadı. Biraz sonra tekrar deneyin.',
   'The payment could not be settled. No funds were moved.': 'Ödeme ödeşmedi. Hiçbir para taşınmadı.',

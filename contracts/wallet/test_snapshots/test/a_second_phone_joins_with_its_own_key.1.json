@@ -16,7 +16,7 @@
               "function_name": "add_signer",
               "args": [
                 {
-                  "bytes": "042c13314d9bed18262550b7f98a0036e17193aa62aedcc6bf4d2b2d43eb642d65a942427ff0eba8ddf503e7b97c13fcc47f4a63c74bf64eb3d496ea0aca53508f"
+                  "bytes": "04580a71a808dd40d65dbf3bbd9033a7b9eb2761cb773e94800654aa1757c22ca8b4c41800d697d2be30668c13cc0ae9d0e6a730fcd9d4c21d847b64626384916c"
                 },
                 {
                   "vec": [
@@ -59,38 +59,7 @@
                     "symbol": "Signer"
                   },
                   {
-                    "bytes": "042c13314d9bed18262550b7f98a0036e17193aa62aedcc6bf4d2b2d43eb642d65a942427ff0eba8ddf503e7b97c13fcc47f4a63c74bf64eb3d496ea0aca53508f"
-                  }
-                ]
-              },
-              "durability": "persistent",
-              "val": {
-                "vec": [
-                  {
-                    "symbol": "Device"
-                  }
-                ]
-              }
-            }
-          },
-          "ext": "v0"
-        },
-        "live_until": 518400
-      },
-      {
-        "entry": {
-          "last_modified_ledger_seq": 0,
-          "data": {
-            "contract_data": {
-              "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "key": {
-                "vec": [
-                  {
-                    "symbol": "Signer"
-                  },
-                  {
-                    "bytes": "044f45460f70958ddb2d9ddfffcdf4e2808b17bfbe6b9a48a47cc85858a2e075f3b915d977f1df384711a3d0545f4de954e8dfd4afcd2abb0489f94ca7f8b3ccf2"
+                    "bytes": "0449b34d8c72326d928d393b7b80008136b07dfafcf9b04a34df658f2738d3ea90c9bf69af4c6d4322e7516544a961bac19ddd7c231b39b8b55dccf2a060f332ee"
                   }
                 ]
               },
@@ -107,6 +76,37 @@
           "ext": "v0"
         },
         "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "Signer"
+                  },
+                  {
+                    "bytes": "04580a71a808dd40d65dbf3bbd9033a7b9eb2761cb773e94800654aa1757c22ca8b4c41800d697d2be30668c13cc0ae9d0e6a730fcd9d4c21d847b64626384916c"
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "vec": [
+                  {
+                    "symbol": "Device"
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 518400
       },
       {
         "entry": {

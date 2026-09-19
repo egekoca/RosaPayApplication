@@ -7,7 +7,7 @@ import {Button, colors, radius, spacing, typography} from '@rosapay/ui';
 import {encodePaymentQr} from '@rosapay/protocol';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
-import {LumenadeMark} from '../../shared/LumenadeMark';
+import {RosaMark} from '../../shared/RosaMark';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useAppStore, type PaymentTransport} from '../../state/appStore';
 import {requestCameraPermission} from './cameraPermission';
@@ -110,7 +110,7 @@ export function ScanScreen({navigation}: Props) {
           />
         ) : null}
         <View style={styles.scanFrame} pointerEvents="none">
-          {camera === 'checking' ? <LumenadeMark motion="spin" showOrbit size={64} /> : null}
+          {camera === 'checking' ? <RosaMark motion="spin" showOrbit size={64} /> : null}
           {camera !== 'checking' && camera !== 'granted' ? <CameraOff color={colors.amber} size={52} /> : null}
           {camera === 'granted' ? <ScanLine color={colors.amber} size={52} /> : null}
         </View>
@@ -119,11 +119,22 @@ export function ScanScreen({navigation}: Props) {
         </Text>
       </View>
 
-      {nfc.supported && nfc.enabled ? (
+      {nfc.supported && nfc.enabled && !nfc.needsUserAction ? (
         <View style={styles.nfcRow}>
           <Nfc color={colors.amber} size={18} />
           <Text style={styles.nfcText}>{t("You can also hold this phone against the merchant's")}</Text>
         </View>
+      ) : null}
+
+      {/*
+        iOS cannot listen for a tap in the background: the reader is a system
+        sheet, so it opens on a deliberate press and covers the camera only
+        while it is up.
+      */}
+      {nfc.startTap ? (
+        <Button tone="secondary" onPress={nfc.startTap} testID="scan-start-tap">
+          {t('Pay by tapping instead')}
+        </Button>
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -150,7 +161,7 @@ function cameraMessage(state: CameraState, hasOwnRequest: boolean): string {
     case 'checking':
       return 'Starting the camera';
     case 'denied':
-      return 'Lumenade Pay needs the camera to read a merchant QR';
+      return 'Rosa Pay needs the camera to read a merchant QR';
     case 'unavailable':
       // Only point at the button when there is one. This used to promise a
       // request below whether or not one existed.

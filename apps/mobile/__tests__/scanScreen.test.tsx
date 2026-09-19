@@ -32,6 +32,18 @@ jest.mock('../src/shared/useStellarHealth', () => ({
   useStellarHealth: () => ({data: {latestLedger: 1_500_000}}),
 }));
 
+// The native module is what differs between the platforms, so it is the seam:
+// each test states what a real device would report and the screen follows.
+jest.mock('../src/native/nativeNfc', () => ({
+  nfcUnavailable: {supported: false, enabled: false, canBroadcast: false, needsUserAction: false},
+  getNfcStatus: jest
+    .fn()
+    .mockResolvedValue({supported: false, enabled: false, canBroadcast: false, needsUserAction: false}),
+  startNfcReader: jest.fn().mockReturnValue(jest.fn()),
+  startNfcBroadcast: jest.fn().mockResolvedValue(undefined),
+  stopNfcBroadcast: jest.fn().mockResolvedValue(undefined),
+}));
+
 type Navigation = {navigate: jest.Mock; addListener: jest.Mock};
 
 const activeRenderers = new Set<ReactTestRenderer.ReactTestRenderer>();
@@ -110,6 +122,91 @@ afterEach(() => {
   });
   activeRenderers.clear();
   useAppStore.setState({pendingRequest: null});
+});
+
+/**
+ * iOS reads a tap but cannot listen for one in the background: the reader is a
+ * system sheet that would cover the camera. So on iPhone the tap is a button,
+ * and on Android it stays armed with no button at all.
+ */
+describe('the tap path across the two platforms', () => {
+  const nfcStatus = jest.requireMock('../src/native/nativeNfc') as {
+    getNfcStatus: jest.Mock;
+    startNfcReader: jest.Mock;
+  };
+
+  // Each case states its own device, so calls must not carry over from the last.
+  beforeEach(() => {
+    jest.clearAllMocks();
+    nfcStatus.startNfcReader.mockReturnValue(jest.fn());
+  });
+
+  it('asks an iPhone customer to open the reader, then reads the merchant tap', async () => {
+    const stop = jest.fn();
+    nfcStatus.getNfcStatus.mockResolvedValue({
+      supported: true,
+      enabled: true,
+      canBroadcast: false,
+      needsUserAction: true,
+    });
+    nfcStatus.startNfcReader.mockImplementation(() => stop);
+
+    const nav = navigation();
+    const renderer = await renderScanner(nav);
+
+    // Nothing is listening until the customer says so.
+    expect(nfcStatus.startNfcReader).not.toHaveBeenCalled();
+
+    const tap = renderer.root.findByProps({testID: 'scan-start-tap'});
+    await ReactTestRenderer.act(async () => {
+      tap.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(nfcStatus.startNfcReader).toHaveBeenCalledTimes(1);
+
+    // The payload an Android merchant publishes is the same signed request the
+    // QR carries, and it goes through the same verification.
+    const handlers = nfcStatus.startNfcReader.mock.calls[0]![0];
+    await ReactTestRenderer.act(async () => {
+      handlers.onRequest(encodePaymentQr(mockSignedIntent));
+      await Promise.resolve();
+    });
+
+    expect(nav.navigate).toHaveBeenCalledWith('Confirm', {
+      payload: mockSignedIntent,
+      transport: 'nfc',
+    });
+  });
+
+  it('arms itself on Android and shows no button', async () => {
+    nfcStatus.getNfcStatus.mockResolvedValue({
+      supported: true,
+      enabled: true,
+      canBroadcast: true,
+      needsUserAction: false,
+    });
+    nfcStatus.startNfcReader.mockImplementation(() => jest.fn());
+
+    const renderer = await renderScanner(navigation());
+
+    expect(nfcStatus.startNfcReader).toHaveBeenCalled();
+    expect(renderer.root.findAllByProps({testID: 'scan-start-tap'})).toHaveLength(0);
+  });
+
+  it('offers no tap at all on a phone without NFC', async () => {
+    nfcStatus.getNfcStatus.mockResolvedValue({
+      supported: false,
+      enabled: false,
+      canBroadcast: false,
+      needsUserAction: false,
+    });
+
+    const renderer = await renderScanner(navigation());
+
+    expect(nfcStatus.startNfcReader).not.toHaveBeenCalled();
+    expect(renderer.root.findAllByProps({testID: 'scan-start-tap'})).toHaveLength(0);
+  });
 });
 
 describe('what the scanner offers when there is nothing to scan', () => {

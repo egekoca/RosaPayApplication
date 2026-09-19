@@ -60,7 +60,7 @@ async function unlockWithSecureElement(): Promise<UnlockResult> {
   try {
     const signed = await signer.signDigest({
       digest: Buffer.from(challenge).toString('base64'),
-      reason: 'Unlock Lumenade Pay',
+      reason: 'Unlock Rosa Pay',
     });
     const signature = derToCompactSignature(Uint8Array.from(Buffer.from(signed.signature, 'base64')));
     const point = uncompressedPointFromSpki(Uint8Array.from(Buffer.from(identity.publicKey, 'base64')));
@@ -90,7 +90,7 @@ async function unlockWithVaultKey(address: string): Promise<UnlockResult> {
   }
 
   try {
-    const keypair = keypairFromSecret(await loadSigningKey('Unlock Lumenade Pay'));
+    const keypair = keypairFromSecret(await loadSigningKey('Unlock Rosa Pay'));
     if (keypair.publicKey() !== address) {
       return {
         ok: false,
@@ -120,7 +120,7 @@ function describe(error: unknown): string {
       case 'KEY_INVALIDATED':
         return 'Changing this phone’s screen lock destroyed the payment key';
       case 'UNAVAILABLE':
-        return 'This device cannot unlock Lumenade Pay yet';
+        return 'This device cannot unlock Rosa Pay yet';
       default:
         return error.message;
     }

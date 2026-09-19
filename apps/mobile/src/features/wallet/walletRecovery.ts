@@ -101,7 +101,7 @@ export async function findRecoverableWallet(
   if (!found) {
     throw new WalletRecoveryError(
       'NOT_FOUND',
-      'That passkey does not belong to a Lumenade Pay wallet.',
+      'That passkey does not belong to a Rosa Pay wallet.',
     );
   }
   return {...found, credentialId: asserted.credentialId};
@@ -129,7 +129,7 @@ export async function recoverWallet(input: {
   const signer = createNativeRosaPaySigner();
   const identity =
     (await signer.getIdentity().catch(() => null)) ??
-    (await signer.createIdentity('Lumenade Pay').catch(() => null));
+    (await signer.createIdentity('Rosa Pay').catch(() => null));
   if (!identity?.publicKey) {
     throw new WalletRecoveryError(
       'ROTATION_FAILED',

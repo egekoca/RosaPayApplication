@@ -57,7 +57,7 @@ const payload = {
     intentId: '01K36YB37NXM4X4TECF0VKP1M9',
     network: 'testnet',
     merchantProfileId: '01K36YATYFVQBPR08G2YT29C3S',
-    merchantName: 'Lumenade Coffee',
+    merchantName: 'Rosa Coffee',
     merchantSigningKey: 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57',
     recipient: contractId,
     asset: {type: 'native', code: 'XLM', decimals: 7},
@@ -117,7 +117,7 @@ describe('which account on this phone pays', () => {
 
     await settlePaymentIntent(payload);
 
-    expect(mockCreateCustomerSigner).toHaveBeenCalledWith('Approve 55.7413601 XLM to Lumenade Coffee');
+    expect(mockCreateCustomerSigner).toHaveBeenCalledWith('Approve 55.7413601 XLM to Rosa Coffee');
   });
 
   it('prefers the smart wallet when a phone somehow holds both', async () => {

@@ -74,5 +74,5 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, () => {
-  console.log(`Lumenade Pay website: http://localhost:${port}`);
+  console.log(`Rosa Pay website: http://localhost:${port}`);
 });

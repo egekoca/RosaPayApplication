@@ -114,7 +114,7 @@ function assert(
     JSON.stringify({
       type: ceremony,
       challenge,
-      origin: 'https://lumenade-pay.vercel.app',
+      origin: 'https://rosa-pay-app.vercel.app',
       crossOrigin: false,
     }),
   );

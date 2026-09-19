@@ -106,7 +106,7 @@ export function RecoveryPhraseScreen({route, navigation}: Props) {
             <View style={styles.warningRow}>
               <ShieldAlert color={colors.danger} size={20} />
               <Text style={styles.warningText}>
-                {t('Anyone with these words can spend your money. Nobody at Lumenade Pay can see them, and nobody can give them back to you if they are lost.')}
+                {t('Anyone with these words can spend your money. Nobody at Rosa Pay can see them, and nobody can give them back to you if they are lost.')}
               </Text>
             </View>
           </SurfaceCard>

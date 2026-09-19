@@ -1,11 +1,11 @@
-# Lumenade Pay - Product Requirements Document
+# Rosa Pay - Product Requirements Document
 
 **Document status:** Implementation-ready draft  
-**Product name:** Lumenade Pay
+**Product name:** Rosa Pay
 **Product type:** React Native mobile payment application for iOS and Android  
 **Network:** Stellar Testnet first, Mainnet-ready architecture  
 **Primary audience:** Customers and small merchants accepting fast Stellar payments  
-**Public website:** https://lumenade-pay.vercel.app
+**Public website:** https://rosa-pay-app.vercel.app
 **Document language:** English  
 **Last updated:** 2026-08-25
 
@@ -13,9 +13,9 @@ Implementation status and remaining work are tracked in [`TODO.md`](TODO.md). Pu
 
 ## 1. Executive Summary
 
-Lumenade Pay is a non-custodial mobile payment application that lets a customer approve an exact payment to a verified merchant from a single React Native app. The customer uses a passkey and biometric confirmation. The merchant creates a signed payment intent containing the recipient, asset, amount, nonce, and expiry. Lumenade Pay transports that intent over QR on both platforms, with Android NFC as an optional fast path. A relayer simulates and submits the transaction on Stellar so the customer does not need to manage network fees during the demo.
+Rosa Pay is a non-custodial mobile payment application that lets a customer approve an exact payment to a verified merchant from a single React Native app. The customer uses a passkey and biometric confirmation. The merchant creates a signed payment intent containing the recipient, asset, amount, nonce, and expiry. Rosa Pay transports that intent over QR on both platforms, with Android NFC as an optional fast path. A relayer simulates and submits the transaction on Stellar so the customer does not need to manage network fees during the demo.
 
-Lumenade Pay is not a custodial wallet, an exchange, a new token, or a generic QR payment clone. Its differentiator is an open, verifiable payment-intent flow: the user approves exactly what the merchant requested, and the contract rejects altered, expired, replayed, or recipient-swapped requests.
+Rosa Pay is not a custodial wallet, an exchange, a new token, or a generic QR payment clone. Its differentiator is an open, verifiable payment-intent flow: the user approves exactly what the merchant requested, and the contract rejects altered, expired, replayed, or recipient-swapped requests.
 
 ## 2. Problem Statement
 
@@ -26,7 +26,7 @@ Stellar payments are fast and inexpensive, but a typical user still has to under
 3. A relayer can improve usability, but a compromised relayer must not be able to change the payment or spend customer funds.
 4. A hackathon demo can appear functional while lacking replay protection, merchant identity, negative tests, and observable on-chain proof.
 
-Lumenade Pay addresses these problems with a signed payment-intent protocol, a policy-aware customer wallet, a merchant profile, and a transparent settlement record.
+Rosa Pay addresses these problems with a signed payment-intent protocol, a policy-aware customer wallet, a merchant profile, and a transparent settlement record.
 
 ## 3. Product Vision
 
@@ -39,12 +39,12 @@ Make a Stellar payment feel like tapping a card while preserving the strongest p
 - Enable a customer to complete a testnet payment in under 30 seconds after scanning or tapping.
 - Make the exact merchant, recipient, asset, amount, and expiry visible before biometric approval.
 - Let one user account operate as a customer by default and activate a merchant profile without a second login.
-- Provide a merchant payment request that can be verified independently of Lumenade Pay's backend.
+- Provide a merchant payment request that can be verified independently of Rosa Pay's backend.
 - Produce a real Stellar testnet transaction and a receipt with a transaction hash.
 - Support iOS and Android from one React Native codebase.
 - Publish a responsive website that presents the mobile product and links every Testnet claim to reproducible evidence.
-- Keep all UI text in English and use the Lumenade Pay black, lemon-yellow and white brand system. Green and red are reserved for semantic success and failure states.
-- Express the Lumen + lemonade name through the lemon/XLM mark, using restrained rotation and orbit motion during loading, settlement and selected transitions without implying success before final confirmation.
+- Keep all UI text in English and use the Rosa Pay black, amber and white brand system. Green and red are reserved for semantic success and failure states.
+- Express the Rosa name through the rose mark, using restrained rotation and orbit motion during loading, settlement and selected transitions without implying success before final confirmation.
 
 ### 4.2 Technical goals
 
@@ -61,9 +61,9 @@ Make a Stellar payment feel like tapping a card while preserving the strongest p
 - Custody of customer funds or pooled merchant funds.
 - Operating a production fiat on-ramp, collecting KYC, or regulated money
   transmission. A Testnet-only SEP-24/SEP-45 reference-client integration may
-  prove interoperability, but Lumenade Pay never becomes the anchor and must not
+  prove interoperability, but Rosa Pay never becomes the anchor and must not
   present sandbox activity as real money movement.
-- Issuing a new Lumenade Pay token.
+- Issuing a new Rosa Pay token.
 - Cross-chain bridges, NFTs, loyalty points, AI features, or multi-chain support.
   On-Stellar liquidity is not in this exclusion: a customer holding the wrong
   Stellar asset is a payment problem, not a multi-chain one, and it is solved by
@@ -71,7 +71,7 @@ Make a Stellar payment feel like tapping a card while preserving the strongest p
   transaction. See [`swap-funding.md`](swap-funding.md).
 - Full restaurant POS hardware integration.
 - Making iOS NFC card emulation a required dependency. iOS NFC availability depends on Apple entitlements and device support; QR must always work.
-- Supporting every Stellar wallet in the first release. The primary path is Lumenade Pay passkey smart wallet; external wallets are a later adapter.
+- Supporting every Stellar wallet in the first release. The primary path is Rosa Pay passkey smart wallet; external wallets are a later adapter.
 
 ## 6. Target Users
 
@@ -130,7 +130,7 @@ All visible product copy is English. The following labels are the canonical star
 
 ### 9.1 Entry and wallet setup
 
-- `Welcome to Lumenade Pay`
+- `Welcome to Rosa Pay`
 - `Create a new wallet`
 - `I already have a wallet`
 - `Your wallet is protected by your device`
@@ -140,7 +140,7 @@ All visible product copy is English. The following labels are the canonical star
 Requirements:
 
 - No password is required.
-- Explain that Lumenade Pay is non-custodial in one concise consent screen.
+- Explain that Rosa Pay is non-custodial in one concise consent screen.
 - Show the network (`Stellar Testnet` in development) before any transaction.
 - If wallet creation fails, show a recoverable error and do not create a partial local session.
 
@@ -262,7 +262,7 @@ The customer authorization binds the customer wallet and signer to the intent ha
 
 ### 11.1 Contract responsibility
 
-The Lumenade Pay settlement contract is intentionally narrow. It validates and settles a payment; it is not a general wallet, exchange, or token issuer.
+The Rosa Pay settlement contract is intentionally narrow. It validates and settles a payment; it is not a general wallet, exchange, or token issuer.
 
 The contract must enforce:
 
@@ -294,7 +294,7 @@ The `settle_payment` call must be atomic: either the full payment is transferred
 
 - First demo asset: XLM.
 - Second asset: a verified Stellar USDC asset on the target testnet, represented through its correct classic asset/SAC identity.
-- Do not create a Lumenade Pay token.
+- Do not create a Rosa Pay token.
 - Never identify a credit asset by code alone; always validate the issuer.
 - Add trustline onboarding only when USDC support is implemented.
 
@@ -342,14 +342,20 @@ Android NFC Host Card Emulation/APDU can carry a short intent reference or chall
 
 ### 13.3 iOS NFC
 
-iOS NFC behavior depends on Apple APIs, entitlements, region, and device support. iOS NFC is a later adapter and cannot be a release blocker. The UI should show `Scan QR` whenever NFC is unavailable.
+iOS reads a tap and cannot publish one, and that split is Apple's, not a sequencing choice.
+
+**Reading (implemented).** `RosaPayNfc.swift` opens an `NFCTagReaderSession` and speaks the same ISO 7816-4 exchange the Android reader speaks against the same AID, so an iPhone customer can pay an Android merchant by tapping. This needs the standard Near Field Communication Tag Reading capability (`com.apple.developer.nfc.readersession.formats` = `TAG`) plus the AID in `com.apple.developer.nfc.readersession.iso7816.select-identifiers`; neither requires approval from Apple. A CoreNFC session is a system sheet rather than background polling, so the reader opens on a deliberate press — the status field `needsUserAction` carries that distinction to the UI.
+
+**Publishing (not possible).** iOS does not grant third-party apps host card emulation. The exception added in iOS 17.4 requires a commercial agreement with Apple and the NFC & SE Platform entitlement, is limited to the EEA, and is scoped to payment, transit, key and badge categories. An iPhone merchant therefore shows the QR code, and `startBroadcast` rejects instead of silently doing nothing.
+
+The UI shows `Scan QR` whenever NFC is unavailable, and QR remains the path that works in every direction.
 
 ## 14. Backend and Data Model
 
 ### 14.1 Recommended repository structure
 
 ```text
-LumenadePay/
+RosaPay/
 |- apps/
 |  |- mobile/                  # React Native iOS + Android
 |  |- api/                     # TypeScript API and relayer orchestration
@@ -539,7 +545,7 @@ The demo must expose enough evidence for a judge to verify the system:
 
 ### Phase 1 - Mobile foundation
 
-- Initialize the React Native TypeScript application with the `LumenadePay` component name.
+- Initialize the React Native TypeScript application with the `RosaPay` component name.
 - Add navigation, theme tokens, English copy, logo asset, and error boundary.
 - Add environment-based network configuration.
 - Add session, capability, and mode-switch state.
@@ -623,7 +629,7 @@ These decisions must be recorded in `docs/architecture.md` before their implemen
 The next implementation session should execute this order:
 
 1. Verify local toolchain: Node 22+, Xcode, Android SDK, CocoaPods, Rust, Stellar CLI, and Testnet access.
-2. Scaffold the React Native TypeScript app with the `LumenadePay` component name.
+2. Scaffold the React Native TypeScript app with the `RosaPay` component name.
 3. Create the monorepo directories and root scripts from Section 14.1.
 4. Add the dark amber/rose design tokens and English navigation shell.
 5. Add `packages/protocol` with RTP/1 types, Zod schemas, canonical hash, and test vectors.

@@ -22,7 +22,7 @@ final class RosaPayPasskey: NSObject {
   /// entry in the app's Associated Domains entitlement and be served by that
   /// domain's `apple-app-site-association` file, or the system refuses before
   /// the user sees anything.
-  private static let defaultRelyingParty = "lumenade-pay.vercel.app"
+  private static let defaultRelyingParty = "rosa-pay-app.vercel.app"
 
   private var activeDelegate: PasskeyDelegate?
 
@@ -56,7 +56,7 @@ final class RosaPayPasskey: NSObject {
       reject("INVALID_REQUEST", "A base64url user id is required", nil)
       return
     }
-    let name = (request["name"] as? String) ?? "Lumenade Pay"
+    let name = (request["name"] as? String) ?? "Rosa Pay"
     let relyingParty = (request["relyingParty"] as? String) ?? Self.defaultRelyingParty
 
     let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(
@@ -114,7 +114,7 @@ final class RosaPayPasskey: NSObject {
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
-    DispatchQueue.main.async {
+    DispatchQueue.main.async(execute: {
       let controller = ASAuthorizationController(authorizationRequests: requests)
       // The delegate is held here because `ASAuthorizationController` does not
       // retain it, and a released delegate means a prompt that never answers.
@@ -131,7 +131,7 @@ final class RosaPayPasskey: NSObject {
       controller.delegate = delegate
       controller.presentationContextProvider = delegate
       controller.performRequests()
-    }
+    })
   }
 
   /// Accepts base64url, which is what WebAuthn uses everywhere, and plain
@@ -145,7 +145,7 @@ final class RosaPayPasskey: NSObject {
   }
 }
 
-private struct PasskeyFailure {
+private struct PasskeyFailure: Error {
   let code: String
   let message: String
   let underlying: Error?

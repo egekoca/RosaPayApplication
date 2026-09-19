@@ -47,7 +47,7 @@ class RosaPayPasskeyModule(private val reactContext: ReactApplicationContext) :
      * `/.well-known/assetlinks.json`, naming this package and its signing
      * certificate, or the system refuses before the user sees anything.
      */
-    const val DEFAULT_RELYING_PARTY = "lumenade-pay.vercel.app"
+    const val DEFAULT_RELYING_PARTY = "rosa-pay-app.vercel.app"
     const val ES256 = -7L
     const val PUBLIC_KEY_CREDENTIAL = "public-key"
   }
@@ -80,13 +80,13 @@ class RosaPayPasskeyModule(private val reactContext: ReactApplicationContext) :
       return
     }
     val relyingParty = request.getString("relyingParty") ?: DEFAULT_RELYING_PARTY
-    val name = request.getString("name") ?: "Lumenade Pay"
+    val name = request.getString("name") ?: "Rosa Pay"
 
     val creationOptions = JSONObject().apply {
       put("challenge", challenge)
       put("rp", JSONObject().apply {
         put("id", relyingParty)
-        put("name", "Lumenade Pay")
+        put("name", "Rosa Pay")
       })
       put("user", JSONObject().apply {
         put("id", userId)

@@ -4,8 +4,13 @@ const requiredFiles = [
   'index.html',
   'styles.css',
   'script.js',
-  'assets/lumenadepay-logo.png',
-  'assets/app-welcome.png',
+  'assets/rosapay-logo.png',
+  // The two in-app shots the page actually renders. app-welcome.png used to be
+  // here but nothing referenced it, and it kept a retired logo and wordmark
+  // alive in the repo; App Store screenshots will be taken fresh when the
+  // listing needs them.
+  'assets/merchant-request.png',
+  'assets/customer-confirm.png',
   'vercel.json',
 ];
 
@@ -16,7 +21,7 @@ const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 // and the on-chain evidence behind "not a mockup". Marketing lines come and go
 // and should not be able to fail a build.
 const requiredCopy = [
-  'Lumenade Pay',
+  'Rosa Pay',
   'Scan. Approve.',
   'App Store',
   'Google Play',
@@ -39,4 +44,4 @@ for (const value of requiredCopy) {
   }
 }
 
-console.log('Lumenade Pay landing page checks passed');
+console.log('Rosa Pay landing page checks passed');

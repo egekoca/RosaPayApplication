@@ -61,7 +61,7 @@ describe('unlocking the app', () => {
     await expect(unlockWithDevice()).resolves.toEqual({ok: true});
     // The challenge is fresh, so a signature captured earlier proves nothing.
     expect(mockSignDigest).toHaveBeenCalledWith(
-      expect.objectContaining({reason: 'Unlock Lumenade Pay', digest: expect.any(String)}),
+      expect.objectContaining({reason: 'Unlock Rosa Pay', digest: expect.any(String)}),
     );
     expect(mockHasSigningKey).not.toHaveBeenCalled();
   });

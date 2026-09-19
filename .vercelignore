@@ -1,0 +1,14 @@
+# The landing page is a static folder and the Vercel project's Root Directory is
+# `apps/web`, so nothing else in this monorepo needs uploading. Without this a
+# CLI deploy archives the build output too — contracts/target, the Android build
+# and node_modules came to 1.9 GB and the upload failed outright.
+#
+# A whitelist rather than a list of offenders: a new build directory somewhere
+# should not silently start being uploaded again.
+/*
+!apps
+apps/*
+!apps/web
+
+# Nothing below apps/web is generated today, but this keeps it that way.
+apps/web/node_modules

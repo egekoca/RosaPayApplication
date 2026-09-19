@@ -108,7 +108,7 @@ placeholder values below are things only the project owner can supply.
 
 The Team ID is in the Apple Developer account, or in Xcode under Signing &
 Capabilities once a team is selected. The app's Associated Domains entitlement
-already names `webcredentials:lumenade-pay.vercel.app`.
+already names `webcredentials:rosa-pay-app.vercel.app`.
 
 **Android** — `apps/web/.well-known/assetlinks.json`:
 

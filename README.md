@@ -1,8 +1,8 @@
-# Lumenade Pay
+# Rosa Pay
 
-Lumenade Pay is a non-custodial Stellar payment app for iOS and Android, built with React Native and TypeScript.
+Rosa Pay is a non-custodial Stellar payment app for iOS and Android, built with React Native and TypeScript.
 
-Website: [lumenade-pay.vercel.app](https://lumenade-pay.vercel.app)
+Website: [rosa-pay-app.vercel.app](https://rosa-pay-app.vercel.app)
 
 The product source of truth is [docs/PRD.md](docs/PRD.md), with implementation status tracked in [docs/TODO.md](docs/TODO.md). The implemented boundaries are documented in [architecture.md](docs/architecture.md), [rtp-1.md](docs/rtp-1.md), [security-model.md](docs/security-model.md), [anchor-integration.md](docs/anchor-integration.md), [swap-funding.md](docs/swap-funding.md), and [passkeys.md](docs/passkeys.md). The architecture is drawn in [architecture-diagrams.md](docs/architecture-diagrams.md), and the skill files this was built with are recorded in [skills-used.md](docs/skills-used.md).
 
@@ -11,7 +11,7 @@ The product source of truth is [docs/PRD.md](docs/PRD.md), with implementation s
 The foundation and first vertical slice are implemented:
 
 - Bare React Native 0.85 app for iOS and Android, with one account and Customer/Merchant capability switching.
-- Black, lemon-yellow and white brand system with an animated lemon/XLM mark across onboarding, camera startup and settlement loading states.
+- Black, amber and white brand system with an animated rose mark across onboarding, camera startup and settlement loading states.
 - RTP/1 schema, QR codec, canonical hashing, merchant signature verification and policy tests.
 - Stellar RPC adapter with live Testnet health checking.
 - Typed RTP/1-to-settlement envelope conversion and a Stellar CLI-generated contract client binding.
@@ -24,8 +24,8 @@ The settlement contract is deployed on Stellar Testnet as `CAV65DKNKPQZMY2MBXEDD
 
 ## Product Terms
 
-- Product display name: `Lumenade Pay`
-- React Native component name: `LumenadePay`
+- Product display name: `Rosa Pay`
+- React Native component name: `RosaPay`
 - Customer and merchant capabilities live in one mobile application.
 - Stellar Testnet is the first target network.
 
@@ -242,7 +242,7 @@ npm run testnet:smoke
 ## Deploying
 
 The static product website is deployed at
-[lumenade-pay.vercel.app](https://lumenade-pay.vercel.app) from `apps/web`. The
+[rosa-pay-app.vercel.app](https://rosa-pay-app.vercel.app) from `apps/web`. The
 mobile source and reproducible Testnet evidence are linked from that page; it
 does not imply an App Store or Play Store release.
 
@@ -285,4 +285,4 @@ generated-client simulation, hardware authorization, relayer submission and
 final-status polling. The recovery-phrase classic-account adapter is explicitly
 experimental and is never selected by the production payment path. The next
 public milestone is physical-device validation and a remotely hosted API/worker;
-QR remains mandatory on both platforms and Android NFC is an optional fast path.
+QR remains mandatory on both platforms. NFC is an optional fast path with an Android merchant, readable by an Android or an iPhone customer; an iPhone cannot publish over NFC because iOS withholds card emulation from third-party apps.

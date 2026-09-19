@@ -47,6 +47,9 @@ class RosaPayNfcModule(private val reactContext: ReactApplicationContext) :
         putBoolean("supported", adapter != null)
         putBoolean("enabled", adapter?.isEnabled == true)
         putBoolean("canBroadcast", hostCardEmulationAvailable())
+        // Android's reader mode polls without any UI, so the scan screen can arm
+        // it on open. iOS cannot — see RosaPayNfc.swift.
+        putBoolean("needsUserAction", false)
       },
     )
   }
@@ -129,7 +132,7 @@ class RosaPayNfcModule(private val reactContext: ReactApplicationContext) :
 
       val selected = isoDep.transceive(selectApdu())
       if (!endsWithOk(selected) || selected.size < 3) {
-        emit(ERROR_EVENT, "That device is not sharing a Lumenade Pay request")
+        emit(ERROR_EVENT, "That device is not sharing a Rosa Pay request")
         return
       }
 

@@ -36,7 +36,7 @@ export async function ensureSmartWallet(
 
   let identity = await signer.getIdentity().catch(() => null);
   if (!identity?.publicKey) {
-    identity = await signer.createIdentity('Lumenade Pay').catch(() => null);
+    identity = await signer.createIdentity('Rosa Pay').catch(() => null);
   }
   if (!identity?.publicKey) {
     throw new SmartWalletError(
@@ -121,7 +121,7 @@ async function createRecoveryPasskey(
     const userId = Uint8Array.from(
       Buffer.from(devicePublicKey, 'base64').subarray(1, 17),
     );
-    return await createPasskey({userId, name: 'Lumenade Pay wallet'});
+    return await createPasskey({userId, name: 'Rosa Pay wallet'});
   } catch (error) {
     logger.info('recovery_passkey_unavailable', {
       reason: error instanceof PasskeyError ? error.code : 'failed',

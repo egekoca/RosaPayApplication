@@ -13,14 +13,14 @@ import {colors, elevation, LoadingBar, radius, spacing, typography} from '@rosap
 
 type MarkMotion = 'none' | 'enter' | 'float' | 'spin';
 
-type LumenadeMarkProps = {
+type RosaMarkProps = {
   motion?: MarkMotion;
   showOrbit?: boolean;
   size?: number;
   style?: StyleProp<ViewStyle>;
 };
 
-export function LumenadeMark({motion = 'none', showOrbit = false, size = 48, style}: LumenadeMarkProps) {
+export function RosaMark({motion = 'none', showOrbit = false, size = 48, style}: RosaMarkProps) {
   const rotation = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(motion === 'enter' ? 0 : 1)).current;
   const animatedMotion = process.env.NODE_ENV === 'test' ? 'none' : motion;
@@ -88,7 +88,7 @@ export function LumenadeMark({motion = 'none', showOrbit = false, size = 48, sty
 
   return (
     <View
-      accessibilityLabel="Lumenade Pay"
+      accessibilityLabel="Rosa Pay"
       style={[styles.markShell, {height: orbitSize, width: orbitSize}, style]}>
       {showOrbit ? (
         <>
@@ -97,7 +97,7 @@ export function LumenadeMark({motion = 'none', showOrbit = false, size = 48, sty
         </>
       ) : null}
       <Animated.Image
-        source={require('../assets/lumenadepay-logo.png')}
+        source={require('../assets/rosapay-logo.png')}
         style={[
           styles.mark,
           {
@@ -113,30 +113,30 @@ export function LumenadeMark({motion = 'none', showOrbit = false, size = 48, sty
   );
 }
 
-export function LumenadeWordmark({compact = false}: {compact?: boolean}) {
+export function RosaWordmark({compact = false}: {compact?: boolean}) {
   return (
     <Text style={[styles.wordmark, compact && styles.wordmarkCompact]}>
-      Lumenade <Text style={styles.wordmarkAccent}>Pay</Text>
+      Rosa <Text style={styles.wordmarkAccent}>Pay</Text>
     </Text>
   );
 }
 
-export function LumenadeLoader({label = 'Loading Lumenade Pay'}: {label?: string}) {
+export function RosaLoader({label = 'Loading Rosa Pay'}: {label?: string}) {
   return (
     <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.loader}>
-      <LumenadeMark motion="spin" showOrbit size={78} />
+      <RosaMark motion="spin" showOrbit size={78} />
       <Text style={styles.loaderLabel}>{label}</Text>
-      <Text style={styles.loaderCaption}>LUMEN × LEMONADE</Text>
+      <Text style={styles.loaderCaption}>LUMEN × ROSE</Text>
     </View>
   );
 }
 
-export function LumenadeLoadingOverlay({detail, title, visible}: {detail?: string; title: string; visible: boolean}) {
+export function RosaLoadingOverlay({detail, title, visible}: {detail?: string; title: string; visible: boolean}) {
   return (
     <Modal animationType="fade" onRequestClose={() => undefined} statusBarTranslucent transparent visible={visible}>
       <View style={styles.overlay}>
         <View style={styles.overlayCard}>
-          <LumenadeMark motion="spin" showOrbit size={70} />
+          <RosaMark motion="spin" showOrbit size={70} />
           <Text style={styles.overlayTitle}>{title}</Text>
           {detail ? <Text style={styles.overlayDetail}>{detail}</Text> : null}
           <LoadingBar style={styles.progressTrack} />

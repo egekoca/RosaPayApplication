@@ -14,7 +14,7 @@ export function describeSettlementError(error: unknown, assetCode = 'XLM'): stri
   if (error instanceof TestnetSettlementError) {
     switch (error.code) {
       case 'RELAYER_UNAVAILABLE':
-        return 'The Lumenade Pay relayer is unreachable, so no fee payer could sign. Nothing was sent.';
+        return 'The Rosa Pay relayer is unreachable, so no fee payer could sign. Nothing was sent.';
       case 'MERCHANT_KEY_UNAVAILABLE':
         return 'This request was created on another device, so its merchant signature cannot be produced here.';
       case 'CUSTOMER_ACCOUNT_UNAVAILABLE':

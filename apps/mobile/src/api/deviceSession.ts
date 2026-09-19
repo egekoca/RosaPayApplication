@@ -19,7 +19,7 @@ export async function ensureDeviceSession(
     // The native layer knows why it cannot mint one - no screen lock, no
     // module - and says so in words worth showing, so let that reason travel
     // rather than replacing it with a guess.
-    identity = await signer.createIdentity('Lumenade Pay');
+    identity = await signer.createIdentity('Rosa Pay');
   }
   if (!identity?.publicKey) {
     throw new Error('Set a screen lock on this phone so it can hold a payment key, then try again');
@@ -34,7 +34,7 @@ export async function ensureDeviceSession(
     pendingSession = (async () => {
       try {
         const challenge = await client.createDeviceChallenge(identity.publicKey);
-        const signed = await signer.signDigest({digest: challenge.challenge, reason: 'Sign in to Lumenade Pay'});
+        const signed = await signer.signDigest({digest: challenge.challenge, reason: 'Sign in to Rosa Pay'});
         const session = await client.createDeviceSession({
           challengeId: challenge.challengeId,
           publicSigner: identity.publicKey,

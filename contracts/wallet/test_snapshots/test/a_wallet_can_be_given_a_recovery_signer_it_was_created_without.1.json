@@ -35,7 +35,7 @@
                         "symbol": "public_key"
                       },
                       "val": {
-                        "bytes": "04e62076fdae27c9741ba8221eef47a7f51af93540ea7466e1fd6121de49281d1504eb736f8aaee6a3d0204f3dde648def5dc49a295fc1d371e099b3047671738c"
+                        "bytes": "0485aa6bae08afb85b9b89024314e3f509de42e58684786635f2c8e49a9cd44c41440c49cb76fcbbba21f50057aef35478046ced011eb9cd62c048185025f64ef6"
                       }
                     }
                   ]
@@ -73,7 +73,7 @@
                     "symbol": "Signer"
                   },
                   {
-                    "bytes": "0430398b3949b133a58e1a84888a2c6437e2fd4476208d8d80811f02979e8997a9991df649f44913e0fb7254f4d8ff4a7859611ac66b0d348d20c4062c0986ad69"
+                    "bytes": "04b353ea064169afe6338ef90cd6ea68c68a7ce175903509b89ccf6384f7bc790c1e7a03e895c14b664bf897ef29857612cc65aad887dd7b723860ac4ce3028c6a"
                   }
                 ]
               },
@@ -133,7 +133,7 @@
                               "symbol": "public_key"
                             },
                             "val": {
-                              "bytes": "04e62076fdae27c9741ba8221eef47a7f51af93540ea7466e1fd6121de49281d1504eb736f8aaee6a3d0204f3dde648def5dc49a295fc1d371e099b3047671738c"
+                              "bytes": "0485aa6bae08afb85b9b89024314e3f509de42e58684786635f2c8e49a9cd44c41440c49cb76fcbbba21f50057aef35478046ced011eb9cd62c048185025f64ef6"
                             }
                           }
                         ]

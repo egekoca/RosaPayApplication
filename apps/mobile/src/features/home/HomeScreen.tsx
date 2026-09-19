@@ -6,7 +6,7 @@ import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill
 import type {RootStackParams} from '../../app/navigation';
 import {businessEmailSchema} from '../merchant/merchantProfile';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
-import {LumenadeMark} from '../../shared/LumenadeMark';
+import {RosaMark} from '../../shared/RosaMark';
 import {useMerchantPayments} from '../merchant/merchantRequestStatus';
 import {Screen} from '../../shared/Screen';
 import {useWalletBalance} from '../../shared/useWalletBalance';
@@ -36,8 +36,8 @@ export function HomeScreen({navigation}: Props) {
     <Screen>
       <View style={styles.header}>
         <View style={styles.identity}>
-          <LumenadeMark motion="float" size={38} />
-          <View><Text style={styles.eyebrow}>{t('LUMENADE PAY')}</Text><Text style={styles.greeting} numberOfLines={1}>{`${t(greetingPart!)}${greetingName.length ? `, ${greetingName.join(', ')}` : ''}`}</Text></View>
+          <RosaMark motion="float" size={38} />
+          <View><Text style={styles.eyebrow}>{t('ROSA PAY')}</Text><Text style={styles.greeting} numberOfLines={1}>{`${t(greetingPart!)}${greetingName.length ? `, ${greetingName.join(', ')}` : ''}`}</Text></View>
         </View>
 
       </View>
@@ -75,7 +75,7 @@ function WalletOverview() {
           state={
             !account ? 'no-wallet' : balance.isPending ? 'loading' : balance.isError ? 'error' : 'ready'
           }
-          onCopy={() => address && void shareValue('My Lumenade Pay wallet', address)}
+          onCopy={() => address && void shareValue('My Rosa Pay wallet', address)}
         />
       </AnimatedContent>
       <CurrencyPicker

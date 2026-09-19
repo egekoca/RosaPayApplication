@@ -1,4 +1,4 @@
-# Lumenade Pay Security Model
+# Rosa Pay Security Model
 
 ## Trust boundaries
 
@@ -28,7 +28,7 @@ Private keys and seed phrases must never be logged, placed in JavaScript state, 
 - The API supports idempotency and typed errors; duplicate requests return the original result.
 - Logs are redacted and contain intent IDs/status, never signatures, keys, seed material or full QR payloads.
 - The secure signer is a native port. Production implementations must use Keychain/Secure Enclave or Android Keystore and user presence.
-- QR is the common path; NFC cannot bypass the RTP/1 validation or signer confirmation flow.
+- QR is the universal path; NFC cannot bypass the RTP/1 validation or signer confirmation flow. A tap read on either platform goes through `readPaymentQr` exactly as a scan does: decode, validate against the live ledger, verify the merchant signature. A hostile tap can at worst present a request the customer declines.
 
 ## Negative-test matrix
 

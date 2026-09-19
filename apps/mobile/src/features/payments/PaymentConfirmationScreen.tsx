@@ -8,7 +8,7 @@ import {verifyMerchantSignature} from '@rosapay/stellar/merchant-signature';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {exactAmount} from '../../shared/displayAmount';
-import {LumenadeLoadingOverlay} from '../../shared/LumenadeMark';
+import {RosaLoadingOverlay} from '../../shared/RosaMark';
 import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
 import type {SettlementPipelineProgress} from '@rosapay/stellar';
@@ -154,7 +154,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
       {mutation.error ? <Text style={styles.error}>{t(describeSettlementError(mutation.error, intent.asset.code))}</Text> : null}
       <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={() => mutation.mutate()} testID="approve-payment">{mutation.isPending ? t(stageLabel(stage)) : t('Approve payment')}</Button>
     </Screen>
-    <LumenadeLoadingOverlay
+    <RosaLoadingOverlay
       detail={t(settlementDetail(stage))}
       title={t(stageLabel(stage))}
       visible={mutation.isPending}

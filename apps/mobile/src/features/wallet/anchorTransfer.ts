@@ -63,7 +63,7 @@ export async function startWalletAnchorTransfer(input: {
         signer: hardwareSigner,
         networkPassphrase,
         validUntilLedger,
-        reason: `Connect Lumenade Pay to ${anchor.homeDomain}`,
+        reason: `Connect Rosa Pay to ${anchor.homeDomain}`,
       })(entry, undefined, validUntilLedger, networkPassphrase);
     },
   }, {rpcUrl: config.rpcUrl, fetcher});
@@ -95,7 +95,7 @@ export async function startClassicWalletAnchorTransfer(input: {
   // The key comes out once, behind the device prompt, and only to sign the
   // anchor's challenge. It is not held past this call.
   const keypair = keypairFromSecret(
-    await loadSigningKey(`Connect Lumenade Pay to ${anchor.homeDomain}`),
+    await loadSigningKey(`Connect Rosa Pay to ${anchor.homeDomain}`),
   );
   if (keypair.publicKey() !== input.wallet.address) {
     throw new AnchorTransferError('The key on this phone does not match the wallet it shows');

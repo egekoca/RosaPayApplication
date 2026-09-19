@@ -224,7 +224,7 @@ export function LiraDepositScreen({navigation}: Props) {
         const deposit = await startLiraDeposit({
           address: account.address,
           amountTry: amount.trim(),
-          reason: `Add ${amount.trim()} TRY to Lumenade Pay`,
+          reason: `Add ${amount.trim()} TRY to Rosa Pay`,
         });
         setStarted(deposit);
         setStatus('pending_user_transfer_start');

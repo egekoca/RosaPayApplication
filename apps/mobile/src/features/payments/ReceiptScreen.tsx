@@ -35,7 +35,7 @@ export function ReceiptScreen({route, navigation}: Props) {
         accessibilityRole="button"
         onPress={() =>
           void shareValue(
-            'Lumenade Pay receipt',
+            'Rosa Pay receipt',
             `${displayAmount(receipt.amount)} ${receipt.assetCode} to ${receipt.merchantName}\nhttps://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`,
           )
         }

@@ -6,7 +6,7 @@
 
 ## Context
 
-Lumenade Pay must keep signing material out of JavaScript while allowing a customer
+Rosa Pay must keep signing material out of JavaScript while allowing a customer
 to approve an exact RTP/1 payment. The settlement contract requires a separate
 customer authorization from the merchant RTP/1 signature. The mobile app is a
 bare React Native application, so browser-only WebAuthn storage is not an
@@ -17,7 +17,7 @@ The Stellar dApp guidance identifies two maintained passkey account models:
 - Smart Account Kit: OpenZeppelin context rules plus an auth digest.
 - Passkey Kit: a flat multi-signer `Signatures` map.
 
-Lumenade Pay needs policy hooks for merchant verification, payment expiry, maximum
+Rosa Pay needs policy hooks for merchant verification, payment expiry, maximum
 single payment, daily spending limits, and future signer rotation. A flat
 signer map does not provide that policy boundary by itself.
 
@@ -53,7 +53,7 @@ confirmation and user-presence step before the lower-level signing operation.
 
 Positive:
 
-- Policy and account semantics fit Lumenade Pay’s merchant and spending controls.
+- Policy and account semantics fit Rosa Pay’s merchant and spending controls.
 - iOS Keychain/Secure Enclave and Android Keystore remain replaceable native
   implementations behind one stable TypeScript port.
 - Generated Stellar contract clients can use the same `signAuthEntry` shape as
@@ -74,7 +74,7 @@ Costs and constraints:
 - Browser Smart Account Kit storage: incompatible with the React Native native
   storage boundary and not sufficient proof of iOS/Android passkey support.
 - Passkey Kit as the first account model: useful for flat signer sets, but does
-  not directly express Lumenade Pay’s required spending and merchant policies.
+  not directly express Rosa Pay’s required spending and merchant policies.
 - Keeping a JavaScript private key: violates the non-custodial security model.
 - Treating the RTP/1 merchant signature as customer authorization: the two
   signatures cover different trust boundaries and must remain separate.

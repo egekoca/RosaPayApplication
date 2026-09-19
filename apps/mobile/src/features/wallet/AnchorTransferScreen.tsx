@@ -121,7 +121,7 @@ export function AnchorTransferScreen({route}: Props) {
           <View style={styles.copy}>
             <Text style={styles.cardTitle}>Hosted by {TESTNET_ANCHOR_HOME_DOMAIN}</Text>
             <Text style={styles.body}>
-              Lumenade Pay verifies the anchor challenge before your device approves it. Identity and bank details stay on
+              Rosa Pay verifies the anchor challenge before your device approves it. Identity and bank details stay on
               the anchor's page.
             </Text>
           </View>
@@ -144,7 +144,7 @@ export function AnchorTransferScreen({route}: Props) {
           <Text style={styles.body}>
             {isDeposit
               ? 'SEP-10 authenticates your own Stellar account, so the anchor pays it directly with no holding account in between.'
-              : 'The anchor collects the withdrawal details. If it requests an on-chain transfer, Lumenade Pay keeps the transfer action-required until you approve that payment.'}
+              : 'The anchor collects the withdrawal details. If it requests an on-chain transfer, Rosa Pay keeps the transfer action-required until you approve that payment.'}
           </Text>
         </SurfaceCard>
       )}

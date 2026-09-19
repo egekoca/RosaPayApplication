@@ -8,7 +8,7 @@
  * codes and the generated client ends up with no callable methods at all.
  */
 /*
- * React Native ships no `crypto.getRandomValues`, and everything Lumenade Pay
+ * React Native ships no `crypto.getRandomValues`, and everything Rosa Pay
  * signs — a payment nonce, an unlock challenge — needs real entropy. This
  * installs the platform CSPRNG: `SecureRandom` on Android, `SecRandomCopyBytes`
  * on iOS. Importing it is the whole API; it defines the global.
