@@ -9,7 +9,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import {colors, elevation, radius, spacing, typography} from '@rosapay/ui';
+import {colors, elevation, LoadingBar, radius, spacing, typography} from '@rosapay/ui';
 
 type MarkMotion = 'none' | 'enter' | 'float' | 'spin';
 
@@ -139,7 +139,7 @@ export function LumenadeLoadingOverlay({detail, title, visible}: {detail?: strin
           <LumenadeMark motion="spin" showOrbit size={70} />
           <Text style={styles.overlayTitle}>{title}</Text>
           {detail ? <Text style={styles.overlayDetail}>{detail}</Text> : null}
-          <View style={styles.progressTrack}><View style={styles.progressGlow} /></View>
+          <LoadingBar style={styles.progressTrack} />
         </View>
       </View>
     </Modal>
@@ -148,10 +148,10 @@ export function LumenadeLoadingOverlay({detail, title, visible}: {detail?: strin
 
 const styles = StyleSheet.create({
   markShell: {alignItems: 'center', justifyContent: 'center'},
-  orbit: {borderColor: 'rgba(255,176,0,0.34)', borderWidth: 1, position: 'absolute'},
+  orbit: {borderColor: 'rgba(224,180,93,0.34)', borderWidth: 1, position: 'absolute'},
   orbitDot: {backgroundColor: colors.lemon, borderRadius: radius.round, height: 7, position: 'absolute', width: 7},
-  mark: {...elevation.card, shadowColor: colors.lemon, shadowOpacity: 0.24},
-  wordmark: {...typography.title, color: colors.white, fontSize: 21, letterSpacing: -0.45},
+  mark: {...elevation.card, shadowOpacity: 0.32},
+  wordmark: {...typography.title, color: colors.white, fontSize: 21},
   wordmarkCompact: {fontSize: 18},
   wordmarkAccent: {color: colors.lemon},
   loader: {alignItems: 'center', gap: spacing.md},
@@ -173,6 +173,5 @@ const styles = StyleSheet.create({
   },
   overlayTitle: {...typography.title, color: colors.white, fontSize: 20, marginTop: spacing.sm, textAlign: 'center'},
   overlayDetail: {...typography.body, color: colors.inkMuted, fontSize: 13, lineHeight: 19, textAlign: 'center'},
-  progressTrack: {backgroundColor: colors.lemonSoft, borderRadius: radius.round, height: 3, marginTop: spacing.md, overflow: 'hidden', width: '76%'},
-  progressGlow: {backgroundColor: colors.lemon, borderRadius: radius.round, height: 3, width: '62%'},
+  progressTrack: {marginTop: spacing.md, width: '76%'},
 });

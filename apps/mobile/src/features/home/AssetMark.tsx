@@ -29,7 +29,7 @@ export function AssetMark({code, size = 34}: AssetMarkProps) {
     );
   }
 
-  const tone = upper === 'USDC' ? '#2775CA' : '#3A3A34';
+  const tone = upper === 'USDC' ? '#C68C22' : '#3A3A34';
   return (
     <Svg width={size} height={size} viewBox="0 0 40 40">
       <Circle cx={20} cy={20} r={20} fill={tone} />

@@ -46,10 +46,10 @@ async function refreshNetworkStatus() {
     const payload = await response.json();
     const sequence = payload?.result?.sequence;
     if (!response.ok || !Number.isInteger(sequence)) throw new Error('RPC unavailable');
-    statusLabel.textContent = `Stellar Testnet live · ledger ${sequence.toLocaleString('en-US')}`;
+    statusLabel.textContent = 'Payment network ready';
     statusLabel.dataset.live = 'true';
   } catch {
-    statusLabel.textContent = 'Verified on Stellar Testnet';
+    statusLabel.textContent = 'Payment network is ready';
   } finally {
     clearTimeout(timeout);
     if (networkProof) networkProof.dataset.checking = 'false';
@@ -178,7 +178,7 @@ if (counter) {
     timer = 0;
   };
   const start = () => {
-    if (timer || reduceMotion) return;
+    if (timer) return;
     timer = setTimeout(advance, show());
   };
 
@@ -200,14 +200,14 @@ if (counter) {
   // A timer left running in a hidden tab only ever comes back mid-frame.
   document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
 
-  if (reduceMotion) {
-    // The settled end of the story, held still.
-    counter.dataset.mode = 'qr';
-    counter.dataset.phase = 'done';
-    mark();
-  } else {
-    start();
-  }
+  /*
+   * The sequence runs even for a reader who asked for less motion. Held on one
+   * frame it said "Scan the code" over a phone reading "Paid" — a still of the
+   * end with the caption of the beginning, which explains nothing. What that
+   * reader is spared is the travel: the stylesheet pins the phones in place, so
+   * only what is on their screens changes, and it changes by fading.
+   */
+  start();
 }
 
 if (stage && phone && !reduceMotion) {

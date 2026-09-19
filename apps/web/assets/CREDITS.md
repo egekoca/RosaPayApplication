@@ -18,4 +18,17 @@ transparency by flood-filling from the edges, and the image was resized to
 760x760. The blank screen it was shot with is where the app is composited, which
 is what a blank-screen mockup is for.
 
+## Asset marks (`#i-xlm` in `index.html`, `AssetMark.tsx` in the app)
+
+The Stellar mark and Circle's USDC mark, traced from the logo files the project
+was given and inlined as SVG paths so they take the ink colour of whatever
+screen they sit on.
+
+- The Stellar mark is a trademark of the Stellar Development Foundation.
+- The USDC mark is a trademark of Circle Internet Financial.
+
+Both are used to identify the asset being paid, which is what they are for. They
+are traced rather than redrawn because a payment screen naming an asset has to
+show that asset's real mark — an approximation reads as a different token.
+
 Everything else under `assets/` is our own.

@@ -34,6 +34,8 @@ jest.mock('../src/shared/useStellarHealth', () => ({
 
 type Navigation = {navigate: jest.Mock; addListener: jest.Mock};
 
+const activeRenderers = new Set<ReactTestRenderer.ReactTestRenderer>();
+
 function navigation(): Navigation {
   return {navigate: jest.fn(), addListener: jest.fn().mockReturnValue(jest.fn())};
 }
@@ -46,6 +48,7 @@ async function renderScanner(nav: Navigation) {
   });
   // Let the camera-permission promise settle before the test drives the camera.
   await ReactTestRenderer.act(async () => {});
+  activeRenderers.add(renderer);
   return renderer;
 }
 
@@ -103,6 +106,10 @@ describe('the scanner', () => {
 
 describe('what the scanner offers when there is nothing to scan', () => {
   afterEach(() => {
+    activeRenderers.forEach(renderer => {
+      ReactTestRenderer.act(() => renderer.unmount());
+    });
+    activeRenderers.clear();
     useAppStore.setState({pendingRequest: null});
   });
 

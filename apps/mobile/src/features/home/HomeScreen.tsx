@@ -1,28 +1,25 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ChevronRight, Copy, QrCode, ReceiptText, ScanLine, ShieldCheck, SlidersHorizontal, Store} from 'lucide-react-native';
-import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
-import type {ReactNode} from 'react';
-import {AnimatedContent, Button, colors, CountUp, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
+import {ChevronRight, QrCode, ReceiptText, ScanLine, ShieldCheck, SlidersHorizontal, Store} from 'lucide-react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
 import {LumenadeMark} from '../../shared/LumenadeMark';
 import {useMerchantPayments} from '../merchant/merchantRequestStatus';
 import {Screen} from '../../shared/Screen';
-import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useWalletBalance} from '../../shared/useWalletBalance';
 import {useBalanceValue} from '../../shared/useBalanceValue';
 import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
 import {greetingFor} from './greeting';
+import {MerchantBalanceCard} from './MerchantBalanceCard';
 import {PaymentCard} from './PaymentCard';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Main'>;
 
 export function HomeScreen({navigation}: Props) {
-  const {width} = useWindowDimensions();
   const {mode, merchantProfile, account} = useAppStore();
   const merchantEnabled = merchantProfile !== null;
-  const stellarHealth = useStellarHealth();
   return (
     <Screen>
       <View style={styles.header}>
@@ -33,11 +30,13 @@ export function HomeScreen({navigation}: Props) {
         <Pressable accessibilityLabel="Developer settings" onPress={() => navigation.navigate('DeveloperSettings')} style={styles.iconButton} testID="open-developer-settings"><SlidersHorizontal color={colors.inkMuted} size={19} /></Pressable>
       </View>
       {merchantEnabled ? <ModeSwitcher /> : null}
-      {mode === 'customer' ? (
-        <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} />
-      ) : (
-        <MerchantHome navigation={navigation} recipient={merchantProfile?.recipient} />
-      )}
+      <AnimatedContent key={mode} delay={60} distance={14} scaleFrom={0.99} style={styles.modeStage}>
+        {mode === 'customer' ? (
+          <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} />
+        ) : (
+          <MerchantHome navigation={navigation} />
+        )}
+      </AnimatedContent>
     </Screen>
   );
 }
@@ -82,7 +81,7 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
             </View>
             <View style={styles.scanCopy}>
               <Text style={styles.scanTitle}>Scan to pay</Text>
-              <Text style={styles.scanHint}>Point at the code, or hold the phones together</Text>
+              <Text style={styles.scanHint}>Scan a code or hold phones together</Text>
             </View>
             <ChevronRight color={colors.inkMuted} size={19} />
           </Pressable>
@@ -93,8 +92,8 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
         <Text style={styles.listTitle}>Payments</Text>
         {receipts.length === 0 ? (
           <View style={styles.emptyRow}>
-            <Text style={styles.emptyTitle}>Nothing yet</Text>
-            <Text style={styles.emptyHint}>What you pay for shows up here, with a link to the transaction.</Text>
+            <Text style={styles.emptyTitle}>No payments yet</Text>
+            <Text style={styles.emptyHint}>Your payment history will appear here.</Text>
           </View>
         ) : (
           <View style={styles.list}>
@@ -135,44 +134,137 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
   );
 }
 
-function MerchantHome({navigation, recipient}: {navigation: Props['navigation']; recipient?: string}) {
+function MerchantHome({navigation}: {navigation: Props['navigation']}) {
   const receipts = useAppStore(state => state.receipts);
   const merchantProfile = useAppStore(state => state.merchantProfile);
+  const merchantRegisteredOnChain = useAppStore(state => state.merchantRegisteredOnChain);
+  const pendingRequest = useAppStore(state => state.pendingRequest);
   const payments = useMerchantPayments(merchantProfile?.merchantProfileId);
 
   // On Testnet the API knows every request this merchant made, from any device;
   // a device on its own only has what it recorded itself.
   const apiPayments = payments.data?.payments ?? [];
   const useApi = payments.isSuccess;
-  const localReceipts = receipts.filter(receipt => receipt.recipient === recipient);
+  const localReceipts = receipts.filter(receipt => receipt.recipient === merchantProfile?.recipient);
   const received = useApi ? apiPayments : localReceipts;
-  const settled = useApi
-    ? apiPayments.filter(payment => payment.status === 'confirmed')
-    : localReceipts;
+  const settled = received.filter(payment => payment.status === 'confirmed');
   const total = settled.reduce((sum, payment) => sum + Number(payment.amount), 0);
+  const statusTone = payments.isError ? 'neutral' : payments.isPending ? 'pending' : 'success';
   return (
     <>
-      <AnimatedContent><SurfaceCard accent="amber" style={styles.merchantHero}>
-        <View style={styles.cardHeader}><Text style={styles.cardLabel}>{useApi ? 'RECEIVED' : 'RECORDED ON THIS DEVICE'}</Text><StatusPill tone={received.length > 0 ? 'success' : 'neutral'}>{received.length > 0 ? 'LIVE' : 'NO PAYMENTS'}</StatusPill></View>
-        <View style={styles.balanceLine}><CountUp value={total} decimals={2} style={styles.merchantTotal} /><Text style={styles.balanceAsset}>XLM</Text></View>
-        <Text style={styles.balanceValue}>
-          {payments.isError
-            ? 'The API could not be reached, so this only counts this device.'
-            : `${received.length} request${received.length === 1 ? '' : 's'} · ${settled.length} settled`}
-        </Text>
-        <View style={styles.merchantMetricRow}><View><Text style={styles.metricValue}>{settled.length}</Text><Text style={styles.metricLabel}>Settled</Text></View><View><Text style={styles.metricValue}>{received.length - settled.length}</Text><Text style={styles.metricLabel}>Open</Text></View><View><Text style={styles.metricValue}>{received.length === 0 ? '—' : `${Math.round((settled.length / received.length) * 100)}%`}</Text><Text style={styles.metricLabel}>Completed</Text></View></View>
-      </SurfaceCard></AnimatedContent>
-      <Button icon={<QrCode color={colors.black} size={20} />} onPress={() => navigation.navigate('MerchantRequest')}>Create payment request</Button>
-      <SectionTitle title="Merchant status" />
-      <SurfaceCard padded={false} style={styles.statusCard}>
-        <View style={styles.statusRow}><View style={styles.capabilityIcon}><ShieldCheck color={colors.success} size={19} /></View><View style={styles.activityCopy}><Text style={styles.activityTitle}>Receiving address verified</Text><Text style={styles.address}>{recipient ? `${recipient.slice(0, 8)}...${recipient.slice(-6)}` : 'No address on file'}</Text></View><StatusPill tone="success">READY</StatusPill></View>
-      </SurfaceCard>
+      <AnimatedContent>
+        <View style={styles.modeIntro}>
+          <View style={styles.modeIntroRow}>
+            <View style={styles.modeIntroCopy}>
+              <Text numberOfLines={1} style={styles.modeTitle}>
+                {merchantProfile?.displayName ?? 'Merchant workspace'}
+              </Text>
+            </View>
+            <StatusPill tone={statusTone}>{payments.isError ? 'LOCAL' : payments.isPending ? 'SYNCING' : 'LIVE'}</StatusPill>
+          </View>
+        </View>
+      </AnimatedContent>
+
+      <AnimatedContent delay={70} scaleFrom={0.985}>
+        <MerchantBalanceCard
+          displayName={merchantProfile?.displayName ?? 'Lumenade Pay'}
+          error={payments.isError}
+          loading={payments.isPending}
+          requestCount={received.length}
+          settledCount={settled.length}
+          total={total}
+        />
+      </AnimatedContent>
+
+      <AnimatedContent delay={140}>
+        <Button icon={<QrCode color={colors.black} size={20} />} onPress={() => navigation.navigate('MerchantRequest')}>
+          {pendingRequest ? 'Open active request' : 'Create payment request'}
+        </Button>
+      </AnimatedContent>
+
+      <AnimatedContent delay={190}>
+        <View style={styles.merchantMeta}>
+          <View style={styles.metaBlock}>
+            <Text style={styles.metaValue}>{settled.length}</Text>
+            <Text style={styles.metaLabel}>SETTLED</Text>
+          </View>
+          <View style={styles.metaDivider} />
+          <View style={styles.metaBlock}>
+            <Text style={styles.metaValue}>{received.length - settled.length}</Text>
+            <Text style={styles.metaLabel}>OPEN</Text>
+          </View>
+          <View style={styles.metaDivider} />
+          <View style={styles.metaBlock}>
+            <Text style={styles.metaValue}>{pendingRequest ? '1' : '0'}</Text>
+            <Text style={styles.metaLabel}>ACTIVE QR</Text>
+          </View>
+        </View>
+      </AnimatedContent>
+
+      <AnimatedContent delay={230}>
+        <>
+          <SectionTitle title="Business status" />
+          <SurfaceCard padded={false} style={styles.statusCard}>
+            <View style={styles.statusRow}>
+              <View style={styles.capabilityIcon}>
+                <ShieldCheck color={merchantRegisteredOnChain ? colors.success : colors.goldBright} size={19} />
+              </View>
+              <View style={styles.activityCopy}>
+                <Text style={styles.activityTitle}>
+                  {merchantRegisteredOnChain ? 'Receiving address verified' : 'Verification in progress'}
+                </Text>
+                <Text style={styles.address}>
+                  {merchantProfile?.recipient
+                    ? `${merchantProfile.recipient.slice(0, 8)}...${merchantProfile.recipient.slice(-6)}`
+                    : 'No address on file'}
+                </Text>
+              </View>
+              <StatusPill tone={merchantRegisteredOnChain ? 'success' : 'pending'}>
+                {merchantRegisteredOnChain ? 'READY' : 'ACTION'}
+              </StatusPill>
+            </View>
+          </SurfaceCard>
+        </>
+      </AnimatedContent>
+
+      <AnimatedContent delay={280}>
+        <>
+          <SectionTitle title="Recent payments" />
+          {received.length === 0 ? (
+            <View style={styles.merchantEmptyRow}>
+              <View style={styles.emptyIcon}>
+                <ReceiptText color={colors.goldBright} size={18} />
+              </View>
+              <View style={styles.emptyCopy}>
+                <Text style={styles.emptyTitle}>No payments yet</Text>
+                <Text style={styles.emptyHint}>Create a request and keep this screen open at the counter.</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.list}>
+              {received.slice(0, 4).map(payment => (
+                <View key={payment.intentId} style={styles.listRow}>
+                  <View style={styles.listIcon}>
+                    <ReceiptText color={colors.success} size={17} />
+                  </View>
+                  <View style={styles.listCopy}>
+                    <Text numberOfLines={1} style={styles.listName}>
+                      {'reference' in payment ? payment.reference : 'Payment received'}
+                    </Text>
+                    <Text style={styles.listWhen}>{new Date(payment.createdAt).toLocaleDateString()}</Text>
+                  </View>
+                  <View style={styles.listAmountBlock}>
+                    <Text style={styles.listAmount}>+{payment.amount}</Text>
+                    <Text style={styles.listAsset}>{payment.assetCode}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </>
+      </AnimatedContent>
     </>
   );
-}
-
-function QuickAction({icon, title, hint, onPress, disabled = false, stacked = false}: {icon: ReactNode; title: string; hint: string; onPress?: () => void; disabled?: boolean; stacked?: boolean}) {
-  return <PressScale disabled={disabled} onPress={onPress} style={[styles.quickAction, stacked && styles.quickActionStacked, disabled && styles.disabledAction]}><View style={styles.quickIcon}>{icon}</View><View style={styles.quickCopy}><Text style={styles.quickTitle}>{title}</Text><Text style={styles.quickHint}>{hint}</Text></View></PressScale>;
 }
 
 function SectionTitle({title, action, onAction}: {title: string; action?: string; onAction?: () => void}) {
@@ -189,6 +281,22 @@ function SectionTitle({title, action, onAction}: {title: string; action?: string
 }
 
 const styles = StyleSheet.create({
+  modeStage: {gap: spacing.lg},
+  header: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
+  identity: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
+  iconButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.line,
+    borderRadius: radius.round,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  eyebrow: {...typography.overline, color: colors.goldBright, fontSize: 9, letterSpacing: 1.5},
+  greeting: {...typography.title, color: colors.ink, fontSize: 20},
+
   scanAction: {
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -202,11 +310,11 @@ const styles = StyleSheet.create({
   },
   scanIcon: {
     alignItems: 'center',
-    backgroundColor: colors.amber,
+    backgroundColor: colors.gold,
     borderRadius: radius.md,
-    height: 50,
+    height: 52,
     justifyContent: 'center',
-    width: 50,
+    width: 52,
   },
   scanCopy: {flex: 1, gap: 3},
   scanTitle: {...typography.title, color: colors.ink, fontSize: 18},
@@ -241,6 +349,25 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     padding: spacing.xl,
   },
+  merchantEmptyRow: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    gap: spacing.md,
+    padding: spacing.xl,
+  },
+  emptyIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.goldSoft,
+    borderColor: colors.goldDeep,
+    borderRadius: radius.round,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  emptyCopy: {flex: 1, gap: spacing.xs},
   emptyTitle: {...typography.label, color: colors.ink, fontSize: 15},
   emptyHint: {color: colors.inkMuted, fontSize: 13, lineHeight: 19},
 
@@ -255,56 +382,33 @@ const styles = StyleSheet.create({
   },
   merchantText: {...typography.label, color: colors.ink, flex: 1, fontSize: 14},
 
-
-  header: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
-  identity: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
-  iconButton: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, height: 38, justifyContent: 'center', width: 38},
-  eyebrow: {...typography.label, color: colors.amber, fontSize: 10, letterSpacing: 1.2},
-  greeting: {...typography.title, color: colors.ink, fontSize: 20},
-  networkRow: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
-  network: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: 6},
-  dot: {backgroundColor: colors.success, borderRadius: radius.round, height: 7, width: 7},
-  dotError: {backgroundColor: colors.danger},
-  networkText: {...typography.label, color: colors.inkMuted, fontSize: 11},
-  balanceCard: {gap: spacing.xs},
-  cardHeader: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
-  cardLabel: {...typography.label, color: colors.amber, fontSize: 11, letterSpacing: 1},
-  balanceNetwork: {alignItems: 'center', flexDirection: 'row', gap: spacing.xs},
-  balanceNetworkText: {...typography.label, color: colors.inkMuted, fontSize: 11},
-  balance: {color: colors.ink, fontSize: 34, fontWeight: '700', lineHeight: 42, marginTop: spacing.sm},
-  balanceLine: {alignItems: 'baseline', flexDirection: 'row', gap: spacing.sm},
-  balanceAsset: {color: colors.amber, fontSize: 16, fontWeight: '700'},
-  balanceValue: {color: colors.inkMuted, fontSize: 13, lineHeight: 18},
-  addressRow: {alignItems: 'center', borderTopColor: colors.line, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.md, paddingTop: spacing.md},
-  address: {...typography.mono, color: colors.inkMuted, fontSize: 12},
-  quickGrid: {flexDirection: 'row', gap: spacing.md},
-  quickGridStacked: {flexDirection: 'column'},
-  quickAction: {backgroundColor: colors.surface, borderColor: colors.line, borderRadius: radius.md, borderWidth: 1, flex: 1, gap: spacing.xs, minHeight: 122, padding: spacing.lg},
-  quickActionStacked: {alignItems: 'center', flex: 0, flexDirection: 'row', minHeight: 72, width: '100%'},
-  disabledAction: {opacity: 0.48},
-  quickIcon: {alignItems: 'center', backgroundColor: colors.amberSoft, borderRadius: radius.md, height: 40, justifyContent: 'center', marginBottom: spacing.xs, width: 40},
-  quickTitle: {...typography.label, color: colors.ink, fontSize: 14},
-  quickHint: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
-  quickCopy: {flex: 1, gap: spacing.xs},
+  modeIntro: {},
+  modeIntroRow: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
+  modeIntroCopy: {flex: 1, gap: 2},
+  modeTitle: {...typography.title, color: colors.ink, fontSize: 26},
+  merchantMeta: {
+    alignItems: 'center',
+    borderBottomColor: colors.lineSoft,
+    borderBottomWidth: 1,
+    borderTopColor: colors.lineSoft,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: spacing.md,
+  },
+  metaBlock: {alignItems: 'center', flex: 1, gap: 2},
+  metaValue: {...typography.title, color: colors.ink, fontSize: 18},
+  metaLabel: {...typography.overline, color: colors.inkFaint, fontSize: 8, letterSpacing: 1},
+  metaDivider: {backgroundColor: colors.line, height: 28, width: 1},
   sectionTitle: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm},
   sectionLabel: {...typography.label, color: colors.ink, fontSize: 14},
-  sectionAction: {...typography.label, color: colors.amber, fontSize: 12},
-  activityCard: {overflow: 'hidden'},
-  activityRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, padding: spacing.lg},
-  activityIcon: {alignItems: 'center', backgroundColor: colors.successSoft, borderRadius: radius.round, height: 34, justifyContent: 'center', width: 34},
+  sectionAction: {...typography.label, color: colors.goldBright, fontSize: 12},
   activityCopy: {flex: 1, gap: 2},
   activityTitle: {...typography.label, color: colors.ink, fontSize: 13},
-  activityHint: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
-  capabilityCard: {alignItems: 'center', flexDirection: 'row', gap: spacing.md},
-  capabilityIcon: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radius.round, height: 36, justifyContent: 'center', width: 36},
-  capabilityCopy: {flex: 1, gap: 2},
-  capabilityTitle: {...typography.label, color: colors.ink},
-  capabilityBody: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
-  merchantHero: {gap: spacing.xs},
-  merchantTotal: {color: colors.ink, fontSize: 36, fontWeight: '700', lineHeight: 44, marginTop: spacing.sm},
-  merchantMetricRow: {borderTopColor: colors.line, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.md, paddingTop: spacing.md},
-  metricValue: {color: colors.ink, fontSize: 17, fontWeight: '700'},
-  metricLabel: {color: colors.inkMuted, fontSize: 11, marginTop: 2},
+  capabilityIcon: {alignItems: 'center', backgroundColor: colors.goldSoft, borderColor: colors.goldDeep, borderRadius: radius.round, borderWidth: 1, height: 36, justifyContent: 'center', width: 36},
+  address: {...typography.mono, color: colors.inkMuted, fontSize: 11},
   statusCard: {overflow: 'hidden'},
   statusRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, padding: spacing.lg},
+  listAmountBlock: {alignItems: 'flex-end', gap: 2},
+  listAsset: {...typography.mono, color: colors.goldBright, fontSize: 10, letterSpacing: 0.8},
 });

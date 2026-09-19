@@ -11,13 +11,12 @@ export function ActivityScreen() {
   const receipts = useAppStore(state => state.receipts);
   const {width} = useWindowDimensions();
   const [filter, setFilter] = useState<ActivityFilter>('all');
-  const visible = receipts.filter(receipt =>
+  const visible =
     filter === 'all'
-      ? true
+      ? receipts
       : filter === 'settled'
-        ? true
-        : false,
-  );
+        ? receipts.filter(receipt => receipt.status === 'confirmed')
+        : [];
   // The summary follows the filter, so the number always matches the list.
   const totalPaid = visible
     .reduce((sum, receipt) => sum + Number(receipt.amount), 0)

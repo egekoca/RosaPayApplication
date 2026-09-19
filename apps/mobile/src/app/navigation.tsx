@@ -3,9 +3,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {colors} from '@rosapay/ui';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 
-import {ActivityScreen} from '../features/activity/ActivityScreen';
 import {HomeScreen} from '../features/home/HomeScreen';
-import {WalletScreen} from '../features/wallet/WalletScreen';
 import {AnchorTransferScreen} from '../features/wallet/AnchorTransferScreen';
 import {WelcomeScreen} from '../features/onboarding/WelcomeScreen';
 import {CreateAccountScreen} from '../features/onboarding/CreateAccountScreen';
@@ -51,9 +49,10 @@ export function RootNavigator() {
         headerShadowVisible: false,
         headerStyle: {backgroundColor: colors.canvas},
         headerTintColor: colors.ink,
-        // Native-driven transitions so they behave identically on iOS and Android.
+        // Native-driven transitions keep the route motion consistent with the
+        // lighter content entrance handled by Screen.
         animation: 'slide_from_right',
-        animationDuration: 260,
+        animationDuration: 320,
         animationTypeForReplace: 'push',
       }}>
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{headerShown: false, animation: 'fade'}} />
@@ -63,8 +62,16 @@ export function RootNavigator() {
       <Stack.Screen name="Confirm" component={PaymentConfirmationScreen} options={{title: 'Review payment', animation: 'slide_from_bottom'}} />
       <Stack.Screen name="Receipt" component={ReceiptScreen} options={{title: 'Receipt', headerBackVisible: false, animation: 'fade'}} />
       <Stack.Screen name="DeveloperSettings" component={DeveloperSettingsScreen} options={{title: 'Developer settings'}} />
-      <Stack.Screen name="MerchantOnboarding" component={MerchantOnboardingScreen} options={{title: 'Business profile'}} />
-      <Stack.Screen name="MerchantRequest" component={MerchantRequestScreen} options={{title: 'Payment request'}} />
+      <Stack.Screen
+        name="MerchantOnboarding"
+        component={MerchantOnboardingScreen}
+        options={{title: 'Business profile', animation: 'slide_from_bottom'}}
+      />
+      <Stack.Screen
+        name="MerchantRequest"
+        component={MerchantRequestScreen}
+        options={{title: 'Payment request', animation: 'slide_from_right'}}
+      />
       <Stack.Screen name="AnchorTransfer" component={AnchorTransferScreen} options={{title: 'Anchor transfer'}} />
     </Stack.Navigator>
   );

@@ -4,9 +4,17 @@
   "private": true,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "exports": {".": "./src/index.ts"},
-  "scripts": {"typecheck": "tsc --noEmit"},
-  "peerDependencies": {"react": ">=19", "react-native": ">=0.85"},
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-native": ">=0.85",
+    "react-native-svg": ">=15"
+  },
   "devDependencies": {
     "@types/react": "^19.2.0",
     "react": "19.2.3",

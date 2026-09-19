@@ -4,7 +4,6 @@ import {derToCompactSignature, uncompressedPointFromSpki, SecureSignerError} fro
 import {createNativeRosaPaySigner} from '../../native/nativeSigner';
 import {logger} from '../../shared/logger';
 import {ensureSmartWallet} from '../payments/smartWalletSettlement';
-import {useAppStore} from '../../state/appStore';
 
 export type HardwareSignerReport = {
   state: 'ready' | 'created' | 'unavailable';

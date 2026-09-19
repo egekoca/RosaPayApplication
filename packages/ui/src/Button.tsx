@@ -1,5 +1,6 @@
 import type {ReactNode} from 'react';
 import {ActivityIndicator, Pressable, StyleSheet, Text, View} from 'react-native';
+import {GoldFill} from './GoldFill';
 import {colors, elevation, radius, spacing, typography} from './theme';
 
 type ButtonProps = {
@@ -33,6 +34,7 @@ export function Button({
         pressed && styles.pressed,
         (disabled || loading) && styles.disabled,
       ]}>
+      {tone === 'primary' ? <GoldFill /> : null}
       {loading ? <ActivityIndicator color={tone === 'primary' ? colors.black : colors.ink} /> : icon}
       <View style={styles.labelWrap}>
         <Text style={[styles.label, tone === 'primary' && styles.primaryLabel]}>{children}</Text>
@@ -45,13 +47,21 @@ const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
     borderRadius: radius.lg,
+    // The gold fill is an absolute child, so it has to be clipped to the corners.
+    overflow: 'hidden',
     flexDirection: 'row',
     gap: spacing.sm,
     justifyContent: 'center',
     minHeight: 56,
     paddingHorizontal: spacing.xl,
   },
-  primary: {backgroundColor: colors.amber, ...elevation.card, shadowColor: colors.amber, shadowOpacity: 0.22},
+  /*
+   * A shadow, not a halo. The button used to cast its own colour outward at
+   * 0.22, which puts a glow around it — the thing that separates a mockup from
+   * a product. Gold on black is already the brightest object on the screen and
+   * does not need help being found.
+   */
+  primary: {backgroundColor: colors.gold, ...elevation.card, shadowOpacity: 0.3},
   secondary: {backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderWidth: 1},
   ghost: {backgroundColor: 'transparent'},
   // A press should feel like the control moved, not like it faded out.

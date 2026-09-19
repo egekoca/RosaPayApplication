@@ -71,7 +71,7 @@ function Point({icon, text}: {icon: ReactNode; text: string}) {
 const styles = StyleSheet.create({
   screen: {justifyContent: 'center', gap: spacing.xl, paddingTop: spacing.xxl},
   brand: {alignItems: 'center', gap: spacing.sm},
-  originBadge: {alignItems: 'center', backgroundColor: colors.lemonSoft, borderColor: 'rgba(255,176,0,0.24)', borderRadius: radius.round, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: 6},
+  originBadge: {alignItems: 'center', backgroundColor: colors.lemonSoft, borderColor: 'rgba(224,180,93,0.24)', borderRadius: radius.round, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: 6},
   originText: {...typography.overline, color: colors.lemon, fontSize: 9, letterSpacing: 1.4},
   originSymbol: {color: colors.white, fontSize: 10},
   hero: {alignItems: 'center', gap: spacing.lg},

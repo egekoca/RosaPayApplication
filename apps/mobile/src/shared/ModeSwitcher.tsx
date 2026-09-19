@@ -18,10 +18,18 @@ export function ModeSwitcher() {
           <Pressable
             accessibilityRole="tab"
             accessibilityState={{selected}}
+            accessibilityLabel={option === 'customer' ? 'Wallet mode' : 'Merchant mode'}
             key={option}
             onPress={() => setMode(option)}
-            style={[styles.option, selected && styles.selected]}>
-            {option === 'customer' ? <WalletCards color={selected ? colors.amber : colors.inkMuted} size={14} /> : <Store color={selected ? colors.amber : colors.inkMuted} size={14} />}
+            style={[styles.option, selected && styles.selected]}
+            testID={`mode-${option}`}>
+            <View style={[styles.icon, selected && styles.selectedIcon]}>
+              {option === 'customer' ? (
+                <WalletCards color={selected ? colors.goldBright : colors.inkMuted} size={17} />
+              ) : (
+                <Store color={selected ? colors.goldBright : colors.inkMuted} size={17} />
+              )}
+            </View>
             <Text style={[styles.label, selected && styles.selectedLabel]}>{option === 'customer' ? 'Wallet' : 'Merchant'}</Text>
           </Pressable>
         );
@@ -31,9 +39,31 @@ export function ModeSwitcher() {
 }
 
 const styles = StyleSheet.create({
-  container: {alignSelf: 'flex-start', backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, flexDirection: 'row', padding: 3},
-  option: {alignItems: 'center', borderRadius: radius.round, flexDirection: 'row', gap: spacing.xs, justifyContent: 'center', minHeight: 30, paddingHorizontal: spacing.md},
-  selected: {backgroundColor: colors.amberSoft},
-  label: {...typography.label, color: colors.inkMuted, fontSize: 11},
-  selectedLabel: {color: colors.amber},
+  container: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    padding: 4,
+  },
+  option: {
+    alignItems: 'center',
+    borderColor: 'transparent',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'center',
+    minHeight: 46,
+    paddingHorizontal: spacing.md,
+  },
+  selected: {backgroundColor: colors.goldSoft, borderColor: colors.goldDeep},
+  icon: {alignItems: 'center', justifyContent: 'center'},
+  selectedIcon: {transform: [{scale: 1.05}]},
+  label: {...typography.label, color: colors.inkMuted, fontSize: 13},
+  selectedLabel: {color: colors.goldBright},
 });

@@ -2,23 +2,18 @@
   color-scheme: light;
 
   /*
-   * Editorial, not crypto. Every payments site in this space is a dark page with
-   * a glowing accent, which is exactly why this one is printed: warm paper,
-   * black ink, one colour, hairline rules and a strict grid. The product is the
-   * only dark object on the page, so the phone reads as the subject rather than
-   * as another panel.
+   * The brand palette is deliberately narrow: black, white, quiet grays and
+   * one material gold. That restraint keeps the payment object in focus.
    */
-  --paper: #f2efe4;
-  --paper-raised: #f8f6ef;
-  --ink: #14130f;
-  --ink-muted: #56534a;
-  --ink-faint: #8b877a;
-  --lemon: #ffb000;
-  --lemon-ink: #7a5200;
-  --rule: rgba(20, 19, 15, 0.16);
-  --rule-strong: rgba(20, 19, 15, 0.4);
-  --green: #1f6d3c;
-  --red: #a32b1e;
+  --paper: #f3f3f1;
+  --paper-raised: #ffffff;
+  --ink: #11110f;
+  --ink-muted: #5d5b55;
+  --ink-faint: #898781;
+  --lemon: #e0b45d;
+  --lemon-ink: #7b5a1a;
+  --rule: rgba(17, 17, 15, 0.14);
+  --rule-strong: rgba(17, 17, 15, 0.34);
 
   /* Kept so existing rules keep resolving while the page is restyled. */
   --black: var(--ink);
@@ -26,7 +21,7 @@
   --faint: var(--ink-faint);
   --line: var(--rule);
   --surface: transparent;
-  --lemon-light: #ffd45a;
+  --lemon-light: #f5d182;
 
   --shell: min(1180px, calc(100vw - 56px));
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -149,14 +144,14 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .store-button > span { display: grid; gap: 1px; }
 .store-button small { font-size: 8.5px; letter-spacing: 0.12em; opacity: 0.72; text-transform: uppercase; }
 .store-button strong { font-size: 14.5px; font-weight: 640; letter-spacing: -0.02em; }
-.play-icon .play-a { fill: #20c46a; }
+.play-icon .play-a { fill: #e0b45d; }
 .play-icon .play-b { fill: #ffca28; }
 .play-icon .play-c { fill: #31a8ff; }
 .play-icon .play-d { fill: #ff4b55; }
 
 .live-proof { align-items: center; color: var(--ink-faint); display: flex; font-size: 11px; gap: 9px; letter-spacing: 0.06em; margin-top: 30px; text-transform: uppercase; }
 .live-proof i { height: 6px; width: 6px; }
-.live-proof [data-live="true"] { color: var(--green); font-weight: 650; }
+.live-proof [data-live="true"] { color: var(--lemon-ink); font-weight: 650; }
 
 /* ---------- 3d phone ---------- */
 .stage {
@@ -168,6 +163,13 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   perspective-origin: 50% 42%;
   position: relative;
 }
+/*
+ * Decoration, and decoration is not allowed to take room from the phones. Left
+ * in flow these two are flex items beside the counter: they get squashed into
+ * ellipses, and on a narrow window they push the pair of phones off centre and
+ * their dots out over the headline.
+ */
+.orbit { inset: 0; margin: auto; pointer-events: none; position: absolute; }
 .orbit i { background: var(--lemon); border-radius: 50%; box-shadow: 0 0 22px rgba(255, 176, 0, 0.8); height: 7px; position: absolute; width: 7px; }
 .orbit-one { animation: orbit-spin 17s linear infinite; height: 512px; width: 512px; }
 .orbit-one i { right: 54px; top: 50px; }
@@ -185,7 +187,21 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
  * The screen box is measured from the image, not guessed, so it stays welded to
  * the bezel at every size.
  */
-.held { display: block; margin: 0; position: relative; width: clamp(290px, 30vw, 424px); }
+/*
+ * Everything drawn on the screen is sized in `--u`, one pixel at the phone's
+ * full width. The phone can then shrink to whatever a narrow window allows and
+ * the app inside shrinks with it, instead of a 13px heading breaking apart in a
+ * 60px box. Two of these have to stand side by side, so the width is what half
+ * the shell can spare.
+ */
+.held {
+  --phone: clamp(290px, 30vw, 424px);
+  --u: calc(var(--phone) / 424);
+  display: block;
+  margin: 0;
+  position: relative;
+  width: var(--phone);
+}
 /*
  * The wrist runs off the bottom of the photograph. Left hard it reads as a cut;
  * faded, it reads as the frame ending.
@@ -198,19 +214,25 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 }
 .held--mirror .held-hand { transform: scaleX(-1); }
 
+/*
+ * Read off the photograph pixel by pixel: in the 760px plate the lit glass runs
+ * x 245-528, y 63-661, with a 23px corner. Anything short of that leaves the
+ * bare plate showing as a pale seam along the top rim, which is exactly what a
+ * screen that is not on looks like.
+ */
 .held-screen {
   background: #0b0b09;
-  border-radius: 3px 3px 9px 9px;
+  border-radius: 8.1% / 3.85%;
   display: block;
-  height: 76.2%;
-  left: 33%;
+  height: 78.68%;
+  left: 32.24%;
   overflow: hidden;
   position: absolute;
-  top: 10.2%;
-  width: 35.6%;
+  top: 8.29%;
+  width: 37.24%;
 }
 /* Mirroring the photograph moves the screen with it; the app inside must not flip. */
-.held--mirror .held-screen { left: 31.4%; }
+.held--mirror .held-screen { left: 30.52%; }
 .held-shot { display: block; height: 100%; object-fit: cover; object-position: top center; width: 100%; }
 
 /*
@@ -372,51 +394,57 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .counter[data-phase="entry"] .link { opacity: 0; }
 
 /* The screen the merchant types the price on. */
-.face--entry { background: #0d0c0a; gap: 9px; justify-content: flex-start; padding: 13% 9%; text-align: left; align-items: stretch; }
-.entry-top { display: grid; gap: 2px; margin-bottom: 4px; }
-.entry-top b { color: var(--lemon); font-size: 8px; font-weight: 750; letter-spacing: 0.18em; text-transform: uppercase; }
-.entry-top span { color: #fff; font-size: 13px; font-weight: 680; letter-spacing: -0.02em; }
-.entry-pills { display: flex; gap: 5px; }
+.face--entry { background: #0d0c0a; gap: calc(10 * var(--u)); justify-content: flex-start; padding: 14% 9% 12%; text-align: left; align-items: stretch; }
+.entry-top { display: grid; gap: calc(2 * var(--u)); margin-bottom: calc(4 * var(--u)); }
+.entry-top b { color: var(--lemon); font-size: calc(8 * var(--u)); font-weight: 750; letter-spacing: 0.18em; text-transform: uppercase; }
+.entry-top span { color: #fff; font-size: calc(13 * var(--u)); font-weight: 680; letter-spacing: -0.02em; }
+/*
+ * Three currencies on one line, and the third was running off the screen. The
+ * row is tighter now and allowed to wrap, so a longer code drops to a second
+ * line instead of being clipped by the bezel.
+ */
+.entry-pills { display: flex; flex-wrap: wrap; gap: calc(4 * var(--u)); }
 .entry-pills i {
   align-items: center;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
   color: rgba(255, 255, 255, 0.55);
   display: flex;
-  font-size: 7.5px;
+  font-size: calc(7.5 * var(--u));
   font-style: normal;
   font-weight: 700;
-  gap: 3px;
+  gap: calc(2 * var(--u));
   letter-spacing: 0.06em;
-  padding: 3px 7px;
+  padding: calc(3 * var(--u)) calc(5 * var(--u));
 }
 .entry-pills i.is-on { background: var(--lemon); border-color: var(--lemon); color: #14130f; }
-.flag { display: inline-block; height: 7px; width: 10.5px; vertical-align: -1px; }
-.done-note .flag { height: 8px; width: 12px; margin-right: 3px; }
+.flag { display: inline-block; height: calc(7 * var(--u)); width: calc(10.5 * var(--u)); vertical-align: calc(-1 * var(--u)); }
+.done-note .flag { height: calc(8 * var(--u)); width: calc(12 * var(--u)); margin-right: calc(3 * var(--u)); }
 
-.entry-field { border-bottom: 1px solid rgba(255, 255, 255, 0.16); display: grid; gap: 3px; padding-bottom: 6px; }
-.entry-label { color: rgba(255, 255, 255, 0.45); font-size: 7px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
-.entry-amount { align-items: center; color: #fff; display: flex; font-size: 22px; font-weight: 700; letter-spacing: -0.03em; }
+.entry-field { border-bottom: 1px solid rgba(255, 255, 255, 0.16); display: grid; gap: calc(3 * var(--u)); padding-bottom: calc(6 * var(--u)); }
+.entry-label { color: rgba(255, 255, 255, 0.45); font-size: calc(7 * var(--u)); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.entry-amount { align-items: center; color: #fff; display: flex; font-size: calc(22 * var(--u)); font-weight: 700; letter-spacing: -0.03em; }
 /* A caret, because a number typing itself is the point of this frame. */
-.caret { animation: caret 1s steps(1) infinite; background: var(--lemon); display: inline-block; height: 20px; margin-left: 3px; width: 2px; }
+.caret { animation: caret 1s steps(1) infinite; background: var(--lemon); display: inline-block; height: calc(20 * var(--u)); margin-left: calc(3 * var(--u)); width: calc(2 * var(--u)); }
 @keyframes caret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-.entry-rate { color: rgba(255, 255, 255, 0.5); font-size: 7.5px; letter-spacing: 0.02em; margin-top: 2px; }
+.entry-rate { color: rgba(255, 255, 255, 0.5); font-size: calc(7.5 * var(--u)); letter-spacing: 0.02em; margin-top: calc(2 * var(--u)); }
 
 /*
  * The code the merchant then shows. Drawn rather than screenshotted: the
  * capture we had was of a different payment, and a phone quoting one amount
  * beside a phone quoting another is the one thing this sequence must not do.
  */
-.face--code { background: #0b0b09; gap: 8px; justify-content: flex-start; padding: 12% 9%; align-items: stretch; text-align: left; }
-.code-top { display: grid; gap: 2px; }
-.code-top b { color: var(--lemon); font-size: 8px; font-weight: 750; letter-spacing: 0.18em; text-transform: uppercase; }
-.code-top span { color: #fff; font-size: 13px; font-weight: 680; letter-spacing: -0.02em; }
-.code-sum { display: grid; gap: 1px; }
-.code-fiat { align-items: center; color: #fff; display: flex; font-size: 17px; font-weight: 700; gap: 5px; letter-spacing: -0.03em; }
-.code-asset { color: var(--lemon); font-size: 9px; font-weight: 700; letter-spacing: 0.01em; }
-.code-asset i { font-size: 7.5px; font-style: normal; letter-spacing: 0.12em; }
-.code-art { background: #fff; border-radius: 4px; color: #0b0b09; fill: currentColor; padding: 5px; width: 100%; }
-.code-foot { color: rgba(255, 255, 255, 0.42); font-size: 7px; letter-spacing: 0.06em; }
+.face--code { background: #0b0b09; gap: calc(10 * var(--u)); justify-content: flex-start; padding: 14% 10% 12%; align-items: stretch; text-align: left; }
+.code-top { display: grid; gap: calc(2 * var(--u)); }
+.code-top b { color: var(--lemon); font-size: calc(8 * var(--u)); font-weight: 750; letter-spacing: 0.18em; text-transform: uppercase; }
+.code-top span { color: #fff; font-size: calc(13 * var(--u)); font-weight: 680; letter-spacing: -0.02em; }
+.code-sum { display: grid; gap: calc(7 * var(--u)); }
+.code-fiat { align-items: center; color: #fff; display: flex; font-size: calc(17 * var(--u)); font-weight: 700; gap: calc(5 * var(--u)); letter-spacing: -0.03em; }
+.code-asset { color: var(--lemon); display: grid; gap: calc(6 * var(--u)); }
+.code-amount { align-items: baseline; color: var(--lemon); display: inline-flex; font-size: calc(9 * var(--u)); font-weight: 700; gap: calc(4 * var(--u)); letter-spacing: 0.03em; white-space: nowrap; }
+.code-amount i { font-size: calc(7.5 * var(--u)); font-style: normal; letter-spacing: 0.12em; }
+.code-art { background: #fff; border-radius: calc(4 * var(--u)); color: #0b0b09; fill: currentColor; padding: calc(5 * var(--u)); width: 100%; }
+.code-foot { color: rgba(255, 255, 255, 0.42); font-size: calc(7 * var(--u)); letter-spacing: 0.06em; }
 
 /*
  * The control. It runs itself, and anyone who wants to stop on one of the two
@@ -441,7 +469,7 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 
 .face--scan { background: #100f0c; justify-content: flex-end; }
 .scan-frame {
-  border-radius: 14px;
+  border-radius: calc(14 * var(--u));
   height: 46%;
   left: 14%;
   position: absolute;
@@ -449,19 +477,19 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   width: 72%;
 }
 .scan-frame i {
-  border: 2.5px solid var(--lemon);
-  height: 20px;
+  border: calc(2.5 * var(--u)) solid var(--lemon);
+  height: calc(20 * var(--u));
   position: absolute;
-  width: 20px;
+  width: calc(20 * var(--u));
 }
-.scan-frame i:nth-child(1) { border-bottom: 0; border-right: 0; border-top-left-radius: 8px; left: 0; top: 0; }
-.scan-frame i:nth-child(2) { border-bottom: 0; border-left: 0; border-top-right-radius: 8px; right: 0; top: 0; }
-.scan-frame i:nth-child(3) { border-left: 0; border-top: 0; border-bottom-right-radius: 8px; bottom: 0; right: 0; }
-.scan-frame i:nth-child(4) { border-right: 0; border-top: 0; border-bottom-left-radius: 8px; bottom: 0; left: 0; }
+.scan-frame i:nth-child(1) { border-bottom: 0; border-right: 0; border-top-left-radius: calc(8 * var(--u)); left: 0; top: 0; }
+.scan-frame i:nth-child(2) { border-bottom: 0; border-left: 0; border-top-right-radius: calc(8 * var(--u)); right: 0; top: 0; }
+.scan-frame i:nth-child(3) { border-left: 0; border-top: 0; border-bottom-right-radius: calc(8 * var(--u)); bottom: 0; right: 0; }
+.scan-frame i:nth-child(4) { border-right: 0; border-top: 0; border-bottom-left-radius: calc(8 * var(--u)); bottom: 0; left: 0; }
 .scan-sweep {
   background: linear-gradient(90deg, transparent, var(--lemon), transparent);
   box-shadow: 0 0 18px rgba(255, 176, 0, 0.6);
-  height: 2px;
+  height: calc(2 * var(--u));
   left: 14%;
   position: absolute;
   width: 72%;
@@ -471,39 +499,71 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   0%, 100% { top: 20%; opacity: 0.2; }
   50% { top: 62%; opacity: 1; }
 }
-.scan-copy { color: rgba(255, 255, 255, 0.82); font-size: 8.5px; font-weight: 600; line-height: 1.35; margin: 0 0 12%; }
+.scan-copy { color: rgba(255, 255, 255, 0.82); font-size: calc(8.5 * var(--u)); font-weight: 600; line-height: 1.35; margin: 0 0 12%; }
 
-.face--tap { background: #0d0c0a; gap: 10px; }
+.face--tap { background: #0d0c0a; gap: calc(10 * var(--u)); }
 .tap-mark {
   align-items: center;
-  border: 2px solid rgba(255, 176, 0, 0.5);
+  border: calc(2 * var(--u)) solid rgba(255, 176, 0, 0.5);
   border-radius: 50%;
   color: var(--lemon);
   display: flex;
-  font-size: 21px;
-  height: 48px;
+  font-size: calc(21 * var(--u));
+  height: calc(48 * var(--u));
   justify-content: center;
-  width: 48px;
+  width: calc(48 * var(--u));
 }
-.tap-title { color: #fff; font-size: 14px; font-weight: 680; letter-spacing: -0.02em; margin: 6px 0 0; }
-.tap-note { color: rgba(255, 255, 255, 0.5); font-size: 8.5px; line-height: 1.35; margin: 0; }
+.tap-title { color: #fff; font-size: calc(14 * var(--u)); font-weight: 680; letter-spacing: -0.02em; margin: calc(6 * var(--u)) 0 0; }
+.tap-note { color: rgba(255, 255, 255, 0.5); font-size: calc(8.5 * var(--u)); line-height: 1.35; margin: 0; }
 
-.face--done { background: #0b0b09; gap: 8px; }
+.face--done { align-items: stretch; background: #0b0b09; gap: calc(10 * var(--u)); justify-content: flex-start; padding: 14% 10% 12%; }
 .done-tick {
   align-items: center;
   background: var(--lemon);
   border-radius: 50%;
   color: #14130f;
   display: flex;
-  font-size: 19px;
-  height: 38px;
+  font-size: calc(19 * var(--u));
+  height: calc(38 * var(--u));
   justify-content: center;
-  width: 38px;
+  width: calc(38 * var(--u));
 }
-.done-title { color: #fff; font-size: 16px; font-weight: 700; letter-spacing: -0.02em; margin: 4px 0 0; }
-.done-amount { color: var(--lemon); font-size: 21px; font-weight: 700; letter-spacing: -0.03em; margin: 0; white-space: nowrap; }
-.done-amount span { font-size: 11px; letter-spacing: 0.08em; }
-.done-note { color: rgba(255, 255, 255, 0.5); font-size: 8.5px; letter-spacing: 0.08em; margin: 2px 0 0; text-transform: uppercase; white-space: nowrap; }
+.done-title { color: #fff; font-size: calc(16 * var(--u)); font-weight: 700; letter-spacing: -0.02em; margin: calc(4 * var(--u)) 0 0; }
+.done-amount { align-items: baseline; color: var(--lemon); display: inline-flex; font-size: calc(21 * var(--u)); font-weight: 700; gap: calc(4 * var(--u)); letter-spacing: -0.03em; margin: 0; white-space: nowrap; }
+.done-amount span { font-size: calc(11 * var(--u)); letter-spacing: 0.08em; }
+.done-note { color: rgba(255, 255, 255, 0.5); font-size: calc(8.5 * var(--u)); letter-spacing: 0.04em; line-height: 1.25; margin: calc(2 * var(--u)) 0 0; }
+
+.asset-unit {
+  align-items: center;
+  display: inline-flex;
+  gap: calc(8 * var(--u));
+}
+/* Stellar's mark is a filled shape, not a stroked one; it takes the ink colour. */
+.asset-logo {
+  color: var(--lemon);
+  fill: currentColor;
+  flex: 0 0 auto;
+  height: calc(18 * var(--u));
+  stroke: none;
+  width: calc(18 * var(--u));
+}
+.asset-copy {
+  display: grid;
+  gap: 1px;
+}
+.asset-copy strong {
+  color: var(--lemon);
+  font-size: calc(10 * var(--u));
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.asset-copy small {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: calc(7.5 * var(--u));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 
 .counter-modes { height: 22px; position: relative; text-align: center; width: 100%; }
 .counter-mode {
@@ -529,11 +589,28 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 @media (prefers-reduced-motion: reduce) {
   .hold--merchant .held, .hold--customer .held { animation: none; }
   .link i { animation: none; }
+  /*
+   * Nothing travels. The aim tilt and the carry across for a tap are the parts
+   * of this a reader who asked for less motion asked to be spared — and with
+   * every transition cut to nothing they would not glide, they would jump.
+   */
+  .counter .hold-move { transform: none !important; }
+  /* A fade is not motion, and without it the screens would cut rather than change. */
+  .face { transition-duration: 420ms !important; }
 }
 
 @media (max-width: 860px) {
   .counter { gap: 8px; }
   .hold-label { margin-top: 14px; }
+}
+
+/*
+ * Stacked, the stage has the whole shell to itself — and two phones have to
+ * share it. Half the shell, less the gap between them, is exactly what each one
+ * gets, so neither is ever cut off by the hero's clipped edge.
+ */
+@media (max-width: 780px) {
+  .held { --phone: min(304px, calc(50vw - 21px)); }
 }
 
 /*
@@ -612,7 +689,7 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .chip > b { background: rgba(255, 176, 0, 0.12); border-radius: 999px; color: var(--lemon); font-size: 7px; letter-spacing: 0.06em; margin-left: 4px; padding: 6px 8px; text-transform: uppercase; }
 .chip-icon .i { font-size: 17px; }
 .chip-icon { align-items: center; background: rgba(255, 176, 0, 0.12); border-radius: 10px; color: var(--lemon); display: flex; height: 32px; justify-content: center; width: 32px; }
-.chip-icon.success { background: rgba(132, 230, 160, 0.1); color: var(--green); }
+.chip-icon.success { background: rgba(224, 180, 93, 0.12); color: var(--lemon-ink); }
 .chip-request { animation: chip-float 6s ease-in-out infinite; left: 10px; top: 126px; }
 .chip-settled { animation: chip-float 6s 1.4s ease-in-out infinite; bottom: 122px; right: 6px; }
 
@@ -937,7 +1014,7 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
  * signed request, an approval, a settlement — because a reader believes a
  * picture of the artefact sooner than a sentence about it.
  */
-.flow-rail { display: grid; gap: 28px; grid-template-columns: repeat(3, 1fr); position: relative; }
+.flow-rail { display: grid; gap: 28px; grid-template-columns: repeat(3, minmax(0, 1fr)); position: relative; }
 /* The rail threads between the labels and the panels, where it can be seen. */
 .flow-rail::before {
   background: var(--rule-strong);
@@ -1017,7 +1094,7 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .flow-approve p { color: var(--muted); font-size: 12px; }
 .flow-approve strong { display: block; font-size: 30px; font-weight: 640; letter-spacing: -0.045em; margin-top: 6px; }
 .flow-approve strong em { color: var(--lemon); font-size: 15px; font-style: normal; margin-left: 4px; }
-.flow-verified { align-items: center; color: var(--good, #59c67f); display: flex; font-size: 11px; gap: 6px; margin-top: 12px; padding-right: 56px; }
+.flow-verified { align-items: center; color: var(--lemon-ink); display: flex; font-size: 11px; gap: 6px; margin-top: 12px; padding-right: 56px; }
 .flow-touch {
   align-items: center;
   background: var(--lemon);
@@ -1035,7 +1112,7 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 }
 
 .flow-settled { align-items: flex-start; display: flex; flex-direction: column; gap: 10px; justify-content: center; width: 100%; }
-.flow-tick { color: var(--good, #59c67f); font-size: 30px; }
+.flow-tick { color: var(--lemon-ink); font-size: 30px; }
 .flow-settled p { font-size: 17px; font-weight: 620; letter-spacing: -0.03em; }
 .flow-fee { color: var(--faint); font-size: 11px; }
 .flow-evidence { align-items: center; color: var(--lemon); display: inline-flex; font-size: 12px; font-weight: 620; gap: 6px; margin-top: 6px; }
@@ -1054,16 +1131,16 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .proof-copy > a:hover { border-bottom-color: var(--ink); }
 .ledger-card { background: var(--ink); border: 1px solid var(--ink); border-radius: 22px; color: var(--paper); padding: 26px; transform: rotate(2deg); transition: transform 500ms var(--ease); }
 
-.ledger-top { align-items: center; color: rgba(242, 239, 228, 0.62); display: flex; font-size: 8px; font-weight: 700; justify-content: space-between; letter-spacing: 0.14em; }
+.ledger-top { align-items: center; color: rgba(255, 255, 255, 0.62); display: flex; font-size: 8px; font-weight: 700; justify-content: space-between; letter-spacing: 0.14em; }
 .ledger-top span { align-items: center; display: flex; gap: 8px; }
-.ledger-top i { animation: none; background: #78dc96; box-shadow: none; }
-.ledger-top b { background: #78dc96; border-radius: 6px; color: var(--ink); font-size: 8px; padding: 5px 8px; }
+.ledger-top i { animation: none; background: var(--lemon); box-shadow: none; }
+.ledger-top b { background: var(--lemon); border-radius: 6px; color: var(--ink); font-size: 8px; padding: 5px 8px; }
 .ledger-card > strong { display: block; font-size: 42px; font-weight: 620; letter-spacing: -0.06em; margin: 34px 0 26px; }
 .ledger-card > strong em { color: var(--lemon); font-size: 12px; font-style: normal; }
-.ledger-card dl { border-block: 1px solid rgba(242, 239, 228, 0.2); margin-bottom: 20px; }
+.ledger-card dl { border-block: 1px solid rgba(255, 255, 255, 0.2); margin-bottom: 20px; }
 .ledger-card dl div { display: flex; font-size: 11px; justify-content: space-between; padding: 13px 0; }
-.ledger-card dl div + div { border-top: 1px solid rgba(242, 239, 228, 0.2); }
-.ledger-card dt { color: rgba(242, 239, 228, 0.55); }
+.ledger-card dl div + div { border-top: 1px solid rgba(255, 255, 255, 0.2); }
+.ledger-card dt { color: rgba(255, 255, 255, 0.55); }
 .ledger-card dd { margin: 0; }
 .ledger-card > a { color: var(--lemon); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
 
@@ -1138,7 +1215,8 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   .eyebrow, .store-row, .live-proof { justify-content: center; }
   .lede { font-size: 15px; margin-inline: auto; }
   .hero-title { font-size: clamp(54px, 16vw, 82px); }
-  .stage { height: 520px; width: 100%; }
+  /* Smaller phones need less room; a fixed height would leave a hole under them. */
+  .stage { height: auto; padding-block: 28px; width: 100%; }
   .phone-rail-one { height: 47px; top: 103px; }
   .phone-rail-two { height: 72px; top: 166px; }
   .island { height: 18px; top: 16px; width: 68px; }
@@ -1153,6 +1231,9 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   .pay-grid { grid-template-columns: 1fr; }
   .feature-strip { grid-template-columns: 1fr 1fr; }
   .steps { gap: 32px; grid-template-columns: 1fr; }
+  /* Three panels of artefacts do not divide into a phone; they stack. */
+  .flow-rail { grid-template-columns: minmax(0, 1fr); }
+  .flow-rail::before { display: none; }
   .step-line { height: 40px; margin: auto; width: 1px; }
   .proof-card { grid-template-columns: 1fr; padding: 38px 24px; text-align: center; }
   .proof-copy > a { margin-inline: auto; max-width: 340px; }
@@ -1165,7 +1246,7 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   .store-row { flex-direction: column; width: min(100%, 240px); }
   .store-button { justify-content: center; width: 100%; }
   .hero-copy .store-row { margin-inline: auto; }
-  .stage { height: 470px; }
+  .stage { padding-block: 20px; }
   .phone-rail-one { height: 42px; top: 93px; }
   .phone-rail-two { height: 65px; top: 150px; }
   .island { height: 16px; top: 14px; width: 62px; }

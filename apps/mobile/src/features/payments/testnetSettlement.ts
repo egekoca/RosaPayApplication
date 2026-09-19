@@ -1,5 +1,4 @@
 import {createWalletAuthorizeEntry, type HardwareDigestSigner} from '@rosapay/stellar';
-import {Buffer} from 'buffer';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 import {
   buildSettlementEnvelope,

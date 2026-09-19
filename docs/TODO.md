@@ -93,6 +93,12 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
   through the platform sheet, activity filters by all/on-chain/demo, and "View
   all" opens the activity tab. React Native has no clipboard in core, so sharing
   stands in for copying and long-press selection remains available.
+- Wallet and merchant mode now share one workspace, the same premium gold card
+  treatment and an animated mode change. Merchant setup returns to that
+  workspace after registration, where the next action is to create or reopen a
+  payment request.
+- The mobile UI uses platform-native premium font families, a shared gold
+  material surface, screen entrance transitions and animated loading feedback.
 - The wallet screen shows the device's real smart wallet, its balance and whether
   a hardware key exists, instead of a fixed address and an unconditional claim
   that a passkey signer is present.

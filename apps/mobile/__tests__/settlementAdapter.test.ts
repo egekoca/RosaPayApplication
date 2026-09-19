@@ -1,5 +1,3 @@
-import {Keypair} from '@stellar/stellar-sdk';
-import {Buffer} from 'buffer';
 import {createIntentIdentifiers, createPaymentIntent} from '@rosapay/protocol';
 import {signMerchantIntent} from '@rosapay/stellar/merchant-signature';
 import {createMerchantProfile} from '../src/features/merchant/merchantProfile';

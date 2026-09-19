@@ -3,7 +3,7 @@ import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Nfc, Store} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
-import {Button, colors, radius, spacing, StatusPill, SurfaceCard, TextField, typography} from '@rosapay/ui';
+import {AnimatedContent, Button, colors, LoadingDots, radius, spacing, StatusPill, Stepper, SurfaceCard, TextField, typography} from '@rosapay/ui';
 import {encodePaymentQr, type SignedPaymentIntentV1} from '@rosapay/protocol';
 import type {CurrencyPrice} from '@rosapay/anchor';
 import type {RootStackParams} from '../../app/navigation';
@@ -134,122 +134,134 @@ export function MerchantRequestScreen({navigation}: Props) {
 
   return (
     <Screen>
-      <View style={styles.heading}>
-        <View style={styles.merchantIcon}><Store color={colors.amber} size={22} /></View>
-        <Text style={styles.eyebrow}>{merchantProfile.displayName.toUpperCase()}</Text>
-        <Text style={styles.title}>Payment request</Text>
-        <Text style={styles.subtitle}>
-          {pendingRequest ? 'Show this code to your customer' : 'Enter what the customer owes'}
-        </Text>
-      </View>
+      <AnimatedContent>
+        <View style={styles.heading}>
+          <View style={styles.merchantIcon}><Store color={colors.goldBright} size={22} /></View>
+          <Text style={styles.eyebrow}>{merchantProfile.displayName.toUpperCase()}</Text>
+          <Text style={styles.title}>Payment request</Text>
+          <Text style={styles.subtitle}>
+            {pendingRequest ? 'Show this code to your customer' : 'Enter what the customer owes'}
+          </Text>
+        </View>
+      </AnimatedContent>
 
       {!merchantRegisteredOnChain ? (
-        <SurfaceCard style={styles.warning}>
-          <Text style={styles.warningTitle}>Not registered on Testnet</Text>
-          <Text style={styles.warningBody}>
-            The settlement contract only accepts requests from a registered merchant key.
-          </Text>
-          <Button loading={registering} tone="ghost" onPress={() => void registerOnChain()} testID="register-merchant">
-            {registering ? 'Registering' : 'Register this business'}
-          </Button>
-        </SurfaceCard>
+        <AnimatedContent delay={70}>
+          <SurfaceCard accent="amber" style={styles.warning}>
+            <Text style={styles.warningTitle}>Not registered on Testnet</Text>
+            <Text style={styles.warningBody}>
+              The settlement contract only accepts requests from a registered merchant key.
+            </Text>
+            <Button loading={registering} tone="ghost" onPress={() => void registerOnChain()} testID="register-merchant">
+              {registering ? 'Registering' : 'Register this business'}
+            </Button>
+          </SurfaceCard>
+        </AnimatedContent>
       ) : null}
 
       {pendingRequest ? (
-        <RequestCard
-          request={pendingRequest}
-          latestLedger={stellarHealth.data?.latestLedger}
-          onReset={() => setPendingRequest(null)}
-          onPreview={() => navigation.navigate('Confirm', {payload: pendingRequest})}
-          settlementStatus={settlement.data?.status}
-          status={<RequestStatus intentId={pendingRequest.intent.intentId} />}
-        />
+        <AnimatedContent delay={110} scaleFrom={0.985}>
+          <RequestCard
+            request={pendingRequest}
+            latestLedger={stellarHealth.data?.latestLedger}
+            onReset={() => setPendingRequest(null)}
+            onPreview={() => navigation.navigate('Confirm', {payload: pendingRequest})}
+            settlementStatus={settlement.data?.status}
+            status={<RequestStatus intentId={pendingRequest.intent.intentId} />}
+          />
+        </AnimatedContent>
       ) : (
         <>
-          <SurfaceCard style={styles.form}>
-            <Text style={styles.fieldLabel}>PAID IN</Text>
-            <View style={styles.currencyRow}>
-              {payableAssets.map(option => (
-                <CurrencyPill
-                  key={option.code}
-                  label={option.code}
-                  selected={payable.code === option.code}
-                  onPress={() => {
-                    setPayable(option);
-                    // The old rate was quoted against the old asset.
-                    setCurrency(undefined);
-                  }}
-                />
-              ))}
-            </View>
-            <Text style={styles.assetNote}>
-              {canReceive.data === false
-                ? `${merchantProfile.recipient.slice(0, 4)}…${merchantProfile.recipient.slice(-4)} has no ${payable.code} trustline, so a payment in it would not arrive. Add one, or receive into this phone instead.`
-                : payable.note}
-            </Text>
-
-            {currencies.data && currencies.data.length > 0 ? (
-              <Text style={styles.fieldLabel}>PRICED IN</Text>
-            ) : null}
-            {currencies.data && currencies.data.length > 0 ? (
+          <AnimatedContent delay={110} scaleFrom={0.985}>
+            <SurfaceCard accent="amber" style={styles.form}>
+              <Text style={styles.fieldLabel}>PAID IN</Text>
               <View style={styles.currencyRow}>
-                <CurrencyPill
-                  label={payable.code}
-                  selected={currency === undefined}
-                  onPress={() => setCurrency(undefined)}
-                />
-                {currencies.data.slice(0, 3).map(price => (
+                {payableAssets.map(option => (
                   <CurrencyPill
-                    key={price.asset}
-                    label={price.currency}
-                    selected={currency?.asset === price.asset}
-                    onPress={() => setCurrency(price)}
+                    key={option.code}
+                    label={option.code}
+                    selected={payable.code === option.code}
+                    onPress={() => {
+                      setPayable(option);
+                      // The old rate was quoted against the old asset.
+                      setCurrency(undefined);
+                    }}
                   />
                 ))}
               </View>
-            ) : null}
-            <TextField
-              keyboardType="decimal-pad"
-              label={`AMOUNT (${currency?.currency ?? payable.code})`}
-              maxLength={20}
-              onChangeText={setAmount}
-              placeholder={currency ? '500' : '24.5'}
-              testID="request-amount"
-              value={amount}
-            />
-            {currency ? (
-              <Text style={styles.conversion} testID="request-conversion">
-                {priced
-                  ? `Customer sends ${priced.assetAmount} ${payable.code} · ${currency.perUnit} ${currency.currency} per ${payable.code}`
-                  : `Rate ${currency.perUnit} ${currency.currency} per ${payable.code}, from the anchor`}
+              <Text style={styles.assetNote}>
+                {canReceive.data === false
+                  ? `${merchantProfile.recipient.slice(0, 4)}…${merchantProfile.recipient.slice(-4)} has no ${payable.code} trustline, so a payment in it would not arrive. Add one, or receive into this phone instead.`
+                  : payable.note}
               </Text>
-            ) : null}
-            <TextField
-              label="REFERENCE"
-              maxLength={120}
-              onChangeText={setReference}
-              placeholder="Table 08"
-              testID="request-reference"
-              value={reference}
-            />
-          </SurfaceCard>
-          <View style={styles.ledgerRow}>
-            <View style={[styles.dot, stellarHealth.isError && styles.dotError]} />
-            <Text style={styles.ledgerText}>
-              {stellarHealth.isPending
-                ? 'Reading the Testnet ledger'
-                : stellarHealth.isError
-                  ? 'Testnet unavailable, so an expiry cannot be set'
-                  : `Expires about 10 minutes after ledger ${stellarHealth.data?.latestLedger}`}
-            </Text>
-          </View>
+
+              {currencies.data && currencies.data.length > 0 ? (
+                <Text style={styles.fieldLabel}>PRICED IN</Text>
+              ) : null}
+              {currencies.data && currencies.data.length > 0 ? (
+                <View style={styles.currencyRow}>
+                  <CurrencyPill
+                    label={payable.code}
+                    selected={currency === undefined}
+                    onPress={() => setCurrency(undefined)}
+                  />
+                  {currencies.data.slice(0, 3).map(price => (
+                    <CurrencyPill
+                      key={price.asset}
+                      label={price.currency}
+                      selected={currency?.asset === price.asset}
+                      onPress={() => setCurrency(price)}
+                    />
+                  ))}
+                </View>
+              ) : null}
+              <TextField
+                keyboardType="decimal-pad"
+                label={`AMOUNT (${currency?.currency ?? payable.code})`}
+                maxLength={20}
+                onChangeText={setAmount}
+                placeholder={currency ? '500' : '24.5'}
+                testID="request-amount"
+                value={amount}
+              />
+              {currency ? (
+                <Text style={styles.conversion} testID="request-conversion">
+                  {priced
+                    ? `Customer sends ${priced.assetAmount} ${payable.code} · ${currency.perUnit} ${currency.currency} per ${payable.code}`
+                    : `Rate ${currency.perUnit} ${currency.currency} per ${payable.code}, from the anchor`}
+                </Text>
+              ) : null}
+              <TextField
+                label="REFERENCE"
+                maxLength={120}
+                onChangeText={setReference}
+                placeholder="Table 08"
+                testID="request-reference"
+                value={reference}
+              />
+            </SurfaceCard>
+          </AnimatedContent>
+          <AnimatedContent delay={180}>
+            <View style={styles.ledgerRow}>
+              <View style={[styles.dot, stellarHealth.isError && styles.dotError]} />
+              <Text style={styles.ledgerText}>
+                {stellarHealth.isPending
+                  ? 'Reading the Testnet ledger'
+                  : stellarHealth.isError
+                    ? 'Testnet unavailable, so an expiry cannot be set'
+                    : `Expires about 10 minutes after ledger ${stellarHealth.data?.latestLedger}`}
+              </Text>
+            </View>
+          </AnimatedContent>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Button
-            disabled={canReceive.data === false}
-            onPress={createRequest}
-            testID="create-request">
-            Create payment request
-          </Button>
+          <AnimatedContent delay={230}>
+            <Button
+              disabled={canReceive.data === false}
+              onPress={createRequest}
+              testID="create-request">
+              Create payment request
+            </Button>
+          </AnimatedContent>
         </>
       )}
     </Screen>
@@ -294,6 +306,12 @@ function RequestStatus({intentId}: {intentId: string}) {
                   ? 'The API could not be reached, so the status is unknown here.'
                   : 'Waiting for a customer to pay this request.'}
       </Text>
+      {status.isPending ? (
+        <View style={styles.statusLoading}>
+          <Text style={styles.statusLoadingText}>Refreshing status...</Text>
+          <LoadingDots color={colors.goldBright} size={4} />
+        </View>
+      ) : null}
     </SurfaceCard>
   );
 }
@@ -334,6 +352,11 @@ function RequestCard({
             {settled ? settlementStatus!.replace(/_/g, ' ').toUpperCase() : expired ? 'EXPIRED' : 'PENDING'}
           </StatusPill>
         </View>
+        <Stepper
+          activeIndex={settlementStatus === 'confirmed' ? 2 : 1}
+          failed={settlementStatus === 'failed' || settlementStatus === 'rejected'}
+          steps={requestSteps}
+        />
         <View style={styles.qr}>
           <QRCode value={encoded} size={214} color={colors.black} backgroundColor="#FFFFFF" />
         </View>
@@ -363,43 +386,51 @@ function RequestCard({
   );
 }
 
+const requestSteps = [
+  {key: 'price', label: 'Price'},
+  {key: 'show', label: 'Show QR'},
+  {key: 'paid', label: 'Paid'},
+] as const;
+
 const styles = StyleSheet.create({
   centered: {justifyContent: 'center'},
   heading: {alignItems: 'center', gap: spacing.xs},
-  merchantIcon: {alignItems: 'center', backgroundColor: colors.amberSoft, borderRadius: radius.round, height: 44, justifyContent: 'center', marginBottom: spacing.sm, width: 44},
-  eyebrow: {...typography.label, color: colors.amber, fontSize: 10, letterSpacing: 1.2, textAlign: 'center'},
+  merchantIcon: {alignItems: 'center', backgroundColor: colors.goldSoft, borderColor: colors.goldDeep, borderRadius: radius.round, borderWidth: 1, height: 44, justifyContent: 'center', marginBottom: spacing.sm, width: 44},
+  eyebrow: {...typography.overline, color: colors.goldBright, fontSize: 9, letterSpacing: 1.5, textAlign: 'center'},
   title: {...typography.title, color: colors.ink, fontSize: 26},
   subtitle: {color: colors.inkMuted, fontSize: 13, lineHeight: 19, textAlign: 'center'},
   form: {gap: spacing.lg},
-  requestCard: {gap: spacing.md, marginTop: spacing.sm},
+  requestCard: {gap: spacing.lg, marginTop: spacing.sm},
   requestHeader: {alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between'},
   amount: {color: colors.ink, fontSize: 28, fontWeight: '700'},
   currencyRow: {flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.xs},
   fieldLabel: {...typography.label, color: colors.inkMuted, marginBottom: spacing.xs},
   assetNote: {color: colors.inkMuted, fontSize: 12, lineHeight: 16, marginBottom: spacing.md},
   pill: {borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.xs},
-  pillSelected: {backgroundColor: colors.amber, borderColor: colors.amber},
+  pillSelected: {backgroundColor: colors.gold, borderColor: colors.gold},
   pillText: {color: colors.inkMuted, fontSize: 13, fontWeight: '600'},
   pillTextSelected: {color: colors.ink},
   conversion: {color: colors.inkMuted, fontSize: 13, lineHeight: 18, marginTop: spacing.xs},
-  asset: {color: colors.amber, fontSize: 15},
+  asset: {color: colors.goldBright, fontSize: 15},
   reference: {color: colors.inkMuted, fontSize: 12, marginTop: spacing.xs},
   nfcRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
   nfcText: {fontSize: 13, color: colors.inkMuted},
   qr: {alignItems: 'center', alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.sm, padding: spacing.lg},
   expiry: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
   ledgerRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
-  dot: {backgroundColor: colors.amber, borderRadius: radius.round, height: 8, width: 8},
+  dot: {backgroundColor: colors.gold, borderRadius: radius.round, height: 8, width: 8},
   dotError: {backgroundColor: colors.danger},
   dotDone: {backgroundColor: colors.success},
   expiryText: {...typography.label, color: colors.inkMuted},
   ledgerText: {color: colors.inkMuted, flex: 1, fontSize: 12, lineHeight: 17},
   error: {...typography.label, color: colors.danger},
   warning: {gap: spacing.sm},
-  warningTitle: {...typography.label, color: colors.amber},
+  warningTitle: {...typography.label, color: colors.goldBright},
   warningBody: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
   statusCard: {gap: spacing.sm},
   statusRow: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
   statusLabel: {...typography.label, color: colors.inkMuted, fontSize: 11, letterSpacing: 0.9},
   statusBody: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
+  statusLoading: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
+  statusLoadingText: {...typography.mono, color: colors.goldBright, fontSize: 10},
 });
