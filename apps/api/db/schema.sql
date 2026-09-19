@@ -8,11 +8,12 @@ CREATE TABLE users (
 
 CREATE TABLE wallets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id),
-  contract_address TEXT NOT NULL,
+  user_id UUID REFERENCES users(id),
+  contract_address TEXT NOT NULL UNIQUE,
   network TEXT NOT NULL,
-  public_signer TEXT NOT NULL,
-  status TEXT NOT NULL
+  -- The device key is the wallet's only signer, so it identifies the wallet.
+  public_signer TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL CHECK (status IN ('active', 'revoked'))
 );
 
 CREATE TABLE merchant_profiles (
@@ -75,3 +76,15 @@ CREATE TABLE worker_event_cursors (
 );
 
 -- Private keys, passkey secrets, biometric data, and raw auth payloads are forbidden here.
+
+CREATE TABLE audit_events (
+  id BIGSERIAL PRIMARY KEY,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  event TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  actor TEXT,
+  detail JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX audit_events_subject_idx ON audit_events(subject, occurred_at DESC);
+CREATE INDEX audit_events_event_idx ON audit_events(event, occurred_at DESC);

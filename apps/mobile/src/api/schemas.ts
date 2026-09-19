@@ -57,3 +57,22 @@ export const provisionedWalletSchema = z.object({
 });
 
 export type ProvisionedWalletResponse = z.infer<typeof provisionedWalletSchema>;
+
+export const merchantPaymentSchema = z.object({
+  intentId: z.string().min(1),
+  amount: z.string().min(1),
+  assetCode: z.string().min(1),
+  reference: z.string().min(1),
+  createdAt: z.string().min(1),
+  status: z.enum(['created', 'awaiting_approval', 'authorized', 'submitted', 'confirmed', 'rejected', 'expired', 'failed']),
+  transactionHash: z.string().optional(),
+  ledger: z.number().int().positive().optional(),
+  confirmedAt: z.string().optional(),
+});
+
+export const merchantPaymentsSchema = z.object({
+  merchantProfileId: z.string().min(1),
+  payments: z.array(merchantPaymentSchema),
+});
+
+export type MerchantPaymentResponse = z.infer<typeof merchantPaymentSchema>;

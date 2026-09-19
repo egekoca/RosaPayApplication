@@ -4,6 +4,7 @@ import type {PaymentStatus} from '@rosapay/domain';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 import type {MerchantProfile} from '../features/merchant/merchantProfile';
 import {decodeSecrets, encodeSecrets, secureSessionStorage} from './persistence';
+import {defaultApiBaseUrl} from '../shared/apiConfig';
 
 export type SettlementMode = 'mock' | 'testnet';
 
@@ -46,6 +47,8 @@ type AppState = {
   hydrated: boolean;
   mode: AppMode;
   settlementMode: SettlementMode;
+  /** Where the Rosa Pay API lives; a phone needs the development machine's address. */
+  apiBaseUrl: string;
   merchantProfile: MerchantProfile | null;
   merchantRegisteredOnChain: boolean;
   customerWallet: DevelopmentCustomerWallet | null;
@@ -54,6 +57,7 @@ type AppState = {
   receipts: LocalReceipt[];
   setMode(mode: AppMode): void;
   setSettlementMode(mode: SettlementMode): void;
+  setApiBaseUrl(url: string): void;
   saveMerchantProfile(profile: MerchantProfile): void;
   setMerchantRegisteredOnChain(registered: boolean): void;
   setCustomerWallet(wallet: DevelopmentCustomerWallet | null): void;
@@ -111,6 +115,7 @@ export const useAppStore = create<AppState>()(
       hydrated: false,
       mode: 'customer',
       settlementMode: initialSettlementMode,
+      apiBaseUrl: defaultApiBaseUrl,
       merchantProfile: null,
       merchantRegisteredOnChain: false,
       customerWallet: null,
@@ -119,6 +124,7 @@ export const useAppStore = create<AppState>()(
       receipts: [],
       setMode: mode => set(state => (mode === 'merchant' && !state.merchantProfile ? state : {...state, mode})),
       setSettlementMode: settlementMode => set({settlementMode}),
+      setApiBaseUrl: apiBaseUrl => set({apiBaseUrl}),
       saveMerchantProfile: profile =>
         set({merchantProfile: profile, mode: 'merchant', merchantRegisteredOnChain: false}),
       setMerchantRegisteredOnChain: merchantRegisteredOnChain => set({merchantRegisteredOnChain}),
@@ -147,6 +153,7 @@ export const useAppStore = create<AppState>()(
       partialize: state => ({
         mode: state.mode,
         settlementMode: state.settlementMode,
+        apiBaseUrl: state.apiBaseUrl,
         merchantProfile: state.merchantProfile,
         merchantRegisteredOnChain: state.merchantRegisteredOnChain,
         customerWallet: state.customerWallet,

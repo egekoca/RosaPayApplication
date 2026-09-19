@@ -10,7 +10,7 @@ import {
 } from '@rosapay/stellar';
 import type {LocalReceipt, SettlementMode} from '../../state/appStore';
 import {useAppStore} from '../../state/appStore';
-import {apiBaseUrl} from '../../shared/apiConfig';
+import {useAppStore as useStore} from '../../state/appStore';
 import {createRandomBytes} from '../../shared/randomBytes';
 import type {MerchantProfile} from '../merchant/merchantProfile';
 import {createLifecycleReporter} from './paymentLifecycle';
@@ -97,7 +97,7 @@ export async function settlePaymentIntent(
   const mode = dependencies.mode ?? useAppStore.getState().settlementMode;
   if (mode === 'mock') return settleMockPayment(payload);
 
-  const baseUrl = dependencies.baseUrl ?? apiBaseUrl;
+  const baseUrl = dependencies.baseUrl ?? useStore.getState().apiBaseUrl;
   const merchantProfile = dependencies.merchantProfile ?? useAppStore.getState().merchantProfile;
   if (!merchantProfile) {
     throw new TestnetSettlementError(

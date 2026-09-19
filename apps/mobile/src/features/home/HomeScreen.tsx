@@ -7,6 +7,7 @@ import type {ReactNode} from 'react';
 import {AnimatedContent, Button, colors, CountUp, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {MainTabsParams, RootStackParams} from '../../app/navigation';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
+import {useMerchantPayments} from '../merchant/merchantRequestStatus';
 import {Screen} from '../../shared/Screen';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useWalletBalance} from '../../shared/useWalletBalance';
@@ -84,18 +85,31 @@ function CustomerHome({navigation, merchantEnabled, isNarrow}: {navigation: Prop
 
 function MerchantHome({navigation, recipient}: {navigation: Props['navigation']; recipient?: string}) {
   const receipts = useAppStore(state => state.receipts);
-  // Only this device's own receipts are known locally; merchant-side lookup
-  // still needs the API, so the card reports what it can actually prove.
-  const received = receipts.filter(receipt => receipt.recipient === recipient);
-  const settled = received.filter(receipt => receipt.settlementMode === 'testnet');
-  const total = received.reduce((sum, receipt) => sum + Number(receipt.amount), 0);
+  const merchantProfile = useAppStore(state => state.merchantProfile);
+  const settlementMode = useAppStore(state => state.settlementMode);
+  const payments = useMerchantPayments(settlementMode === 'testnet' ? merchantProfile?.merchantProfileId : undefined);
+
+  // On Testnet the API knows every request this merchant made, from any device;
+  // the demo mode only has what this device recorded.
+  const apiPayments = payments.data?.payments ?? [];
+  const useApi = settlementMode === 'testnet' && payments.isSuccess;
+  const localReceipts = receipts.filter(receipt => receipt.recipient === recipient);
+  const received = useApi ? apiPayments : localReceipts;
+  const settled = useApi
+    ? apiPayments.filter(payment => payment.status === 'confirmed')
+    : localReceipts.filter(receipt => receipt.settlementMode === 'testnet');
+  const total = settled.reduce((sum, payment) => sum + Number(payment.amount), 0);
   return (
     <>
       <AnimatedContent><SurfaceCard accent="amber" style={styles.merchantHero}>
-        <View style={styles.cardHeader}><Text style={styles.cardLabel}>RECEIVED ON THIS DEVICE</Text><StatusPill tone={received.length > 0 ? 'success' : 'neutral'}>{received.length > 0 ? 'LIVE' : 'NO PAYMENTS'}</StatusPill></View>
+        <View style={styles.cardHeader}><Text style={styles.cardLabel}>{useApi ? 'RECEIVED' : 'RECORDED ON THIS DEVICE'}</Text><StatusPill tone={received.length > 0 ? 'success' : 'neutral'}>{received.length > 0 ? 'LIVE' : 'NO PAYMENTS'}</StatusPill></View>
         <View style={styles.balanceLine}><CountUp value={total} decimals={2} style={styles.merchantTotal} /><Text style={styles.balanceAsset}>XLM</Text></View>
-        <Text style={styles.balanceValue}>{received.length} payment{received.length === 1 ? '' : 's'} recorded</Text>
-        <View style={styles.merchantMetricRow}><View><Text style={styles.metricValue}>{settled.length}</Text><Text style={styles.metricLabel}>On-chain</Text></View><View><Text style={styles.metricValue}>{received.length - settled.length}</Text><Text style={styles.metricLabel}>Demo</Text></View><View><Text style={styles.metricValue}>{received.length === 0 ? '—' : `${Math.round((settled.length / received.length) * 100)}%`}</Text><Text style={styles.metricLabel}>Settled</Text></View></View>
+        <Text style={styles.balanceValue}>
+          {payments.isError && settlementMode === 'testnet'
+            ? 'The API could not be reached, so this only counts this device.'
+            : `${received.length} request${received.length === 1 ? '' : 's'} · ${settled.length} settled`}
+        </Text>
+        <View style={styles.merchantMetricRow}><View><Text style={styles.metricValue}>{settled.length}</Text><Text style={styles.metricLabel}>Settled</Text></View><View><Text style={styles.metricValue}>{received.length - settled.length}</Text><Text style={styles.metricLabel}>Open</Text></View><View><Text style={styles.metricValue}>{received.length === 0 ? '—' : `${Math.round((settled.length / received.length) * 100)}%`}</Text><Text style={styles.metricLabel}>Completed</Text></View></View>
       </SurfaceCard></AnimatedContent>
       <Button icon={<QrCode color={colors.black} size={20} />} onPress={() => navigation.navigate('MerchantRequest')}>Create payment request</Button>
       <SectionTitle title="Merchant status" />

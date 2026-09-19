@@ -1,5 +1,5 @@
 import {RosaPayApiClient} from '../../api';
-import {apiBaseUrl} from '../../shared/apiConfig';
+import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
 import type {MerchantProfile} from './merchantProfile';
 
@@ -10,7 +10,7 @@ import type {MerchantProfile} from './merchantProfile';
  */
 export async function registerMerchantForTestnet(
   profile: MerchantProfile,
-  client: RosaPayApiClient = new RosaPayApiClient({baseUrl: apiBaseUrl}),
+  client: RosaPayApiClient = new RosaPayApiClient({baseUrl: useAppStore.getState().apiBaseUrl}),
 ): Promise<{transactionHash: string}> {
   await client.createMerchantProfile({
     id: profile.merchantProfileId,

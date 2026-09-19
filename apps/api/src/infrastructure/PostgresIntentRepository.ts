@@ -4,6 +4,7 @@ import type {PostgresQueryClient} from '@rosapay/postgres';
 import type {
   AuthorizationRecord,
   IntentRepository,
+  MerchantPayment,
   SettlementRecord,
   StoredIntent,
 } from '../application/IntentService';
@@ -155,6 +156,47 @@ export class PostgresIntentRepository implements IntentRepository {
             ORDER BY intent_id`,
         );
     return result.rows.map(mapSettlement);
+  }
+
+  async listMerchantPayments(merchantProfileId: string, limit: number): Promise<MerchantPayment[]> {
+    const result = await this.client.query<{
+      intent_id: string;
+      payload_json: unknown;
+      status: string | null;
+      tx_hash: string | null;
+      ledger: number | string | null;
+      confirmed_at: Date | string | null;
+    }>(
+      `SELECT i.intent_id, i.payload_json, s.status, s.tx_hash, s.ledger, s.confirmed_at
+         FROM payment_intents i
+         LEFT JOIN settlements s ON s.intent_id = i.intent_id
+        WHERE i.merchant_profile_id = $1
+        ORDER BY i.id DESC
+        LIMIT $2`,
+      [merchantProfileId, limit],
+    );
+
+    return result.rows.map(row => {
+      const payload = parseSignedPaymentIntent(
+        typeof row.payload_json === 'string' ? JSON.parse(row.payload_json) : row.payload_json,
+      );
+      const status = row.status ?? 'created';
+      if (!isPaymentStatus(status)) {
+        throw new Error(`Unexpected settlement status from PostgreSQL: ${status}`);
+      }
+      const ledger = row.ledger === null ? undefined : Number(row.ledger);
+      return {
+        intentId: row.intent_id,
+        amount: payload.intent.amount,
+        assetCode: payload.intent.asset.code,
+        reference: payload.intent.reference,
+        createdAt: payload.intent.createdAt,
+        status,
+        ...(row.tx_hash === null ? {} : {transactionHash: row.tx_hash}),
+        ...(ledger === undefined ? {} : {ledger}),
+        ...(row.confirmed_at === null ? {} : {confirmedAt: toIsoString(row.confirmed_at)}),
+      };
+    });
   }
 
   async saveSettlement(settlement: SettlementRecord): Promise<void> {

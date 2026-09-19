@@ -27,6 +27,9 @@ import {
 } from './application/MerchantProfileService';
 import {RelayerError, RelayerService} from './application/RelayerService';
 import {WalletProvisioningError, WalletProvisioningService} from './application/WalletProvisioningService';
+import type {WalletRepository} from './application/WalletRepository';
+import {RateLimiter, RateLimitError} from './application/RateLimiter';
+import {AuditLog, InMemoryAuditLog, type AuditLogRepository} from './application/AuditLog';
 import {InMemoryIntentRepository} from './infrastructure/InMemoryIntentRepository';
 import {InMemoryMerchantProfileRepository} from './infrastructure/InMemoryMerchantProfileRepository';
 
@@ -47,6 +50,8 @@ export type BuildAppOptions = {
   auth?: ApiAuthOptions;
   relayer?: RelayerService;
   wallets?: WalletProvisioningService;
+  walletRepository?: WalletRepository;
+  auditLog?: AuditLogRepository;
 };
 
 export function buildApp({
@@ -55,10 +60,13 @@ export function buildApp({
   auth,
   relayer,
   wallets,
+  walletRepository,
+  auditLog,
 }: BuildAppOptions = {}) {
   const app = Fastify({logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']}});
   const intents = new IntentService(repository);
   const merchants = new MerchantProfileService(merchantProfiles);
+  const audit = new AuditLog(auditLog ?? new InMemoryAuditLog());
   const authOptions: ApiAuthOptions = auth ?? {required: process.env.API_AUTH_REQUIRED === 'true'};
   const stellarConfig = createStellarConfig(process.env.STELLAR_NETWORK ?? 'testnet', {
     rpcUrl: process.env.STELLAR_RPC_URL,
@@ -67,10 +75,16 @@ export function buildApp({
   const stellar = new StellarRpcClient(stellarConfig);
   const walletService = wallets ?? new WalletProvisioningService({
     config: stellarConfig,
+    ...(walletRepository ? {wallets: walletRepository} : {}),
     ...(process.env.STELLAR_WALLET_WASM_HASH ? {walletWasmHash: process.env.STELLAR_WALLET_WASM_HASH} : {}),
     ...(process.env.STELLAR_ADMIN_SECRET ? {deployerSecret: process.env.STELLAR_ADMIN_SECRET} : {}),
     ...(process.env.STELLAR_WALLET_FUNDING ? {fundingAmount: process.env.STELLAR_WALLET_FUNDING} : {}),
   });
+  // The endpoints that spend funds are the ones worth limiting.
+  const walletLimiter = new RateLimiter({limit: 3, windowMs: 60 * 60 * 1000});
+  const relayerLimiter = new RateLimiter({limit: 30, windowMs: 60 * 1000});
+  const callerKey = (request: FastifyRequest) => request.ip ?? 'unknown';
+
   const relayerService = relayer ?? new RelayerService({
     config: stellarConfig,
     ...(process.env.STELLAR_RELAYER_SECRET ? {relayerSecret: process.env.STELLAR_RELAYER_SECRET} : {}),
@@ -96,11 +110,23 @@ export function buildApp({
     const idempotencyKey = z.string().min(16).parse(request.headers['idempotency-key']);
     const payload = await authorizeMerchantIntent(request.body, request, authOptions);
     const stored = await intents.create(payload, idempotencyKey);
+    await audit.record('payment_intent_created', stored.payload.intent.intentId, {
+      actor: stored.payload.intent.merchantSigningKey,
+      detail: {
+        merchantProfileId: stored.payload.intent.merchantProfileId,
+        amount: stored.payload.intent.amount,
+        asset: stored.payload.intent.asset.code,
+      },
+    });
     return reply.code(201).send(stored);
   });
   app.post('/v1/merchant-profiles', async (request, reply) => {
     const principal = await requireMerchantPrincipal(request, authOptions);
     const profile = await merchants.create(request.body, principal?.userId);
+    await audit.record('merchant_profile_created', profile.id, {
+      actor: profile.signingKey,
+      detail: {recipient: profile.recipient, network: profile.network},
+    });
     return reply.code(201).send(profile);
   });
   app.get('/v1/merchant-profiles/:merchantProfileId', async (request, reply) => {
@@ -116,12 +142,21 @@ export function buildApp({
   app.post('/v1/wallets', async (request, reply) => {
     const {devicePublicKey} = walletSchema.parse(request.body);
     await requireAuthenticatedPrincipal(request, authOptions);
+    walletLimiter.assert(`${callerKey(request)}:${devicePublicKey}`);
     const wallet = await walletService.provision(devicePublicKey);
+    if (!wallet.reused) {
+      await audit.record('wallet_provisioned', wallet.walletContractId, {
+        detail: {fundedAmount: wallet.fundedAmount, transactionHash: wallet.transactionHash},
+      });
+    }
     return reply.code(201).send(wallet);
   });
   app.post('/v1/relayer/transactions', async (request, reply) => {
     const {xdr} = relayerTransactionSchema.parse(request.body);
-    return reply.send(relayerService.signSettlementTransaction(xdr));
+    relayerLimiter.assert(callerKey(request));
+    const signed = relayerService.signSettlementTransaction(xdr);
+    await audit.record('relayer_signed_settlement', relayerService.identity().address);
+    return reply.send(signed);
   });
   app.post('/v1/merchant-profiles/:merchantProfileId/registration', async (request, reply) => {
     const {merchantProfileId} = profileParamsSchema.parse(request.params);
@@ -133,7 +168,21 @@ export function buildApp({
       signingKey: profile.signingKey,
       recipient: profile.recipient,
     });
+    await audit.record('merchant_registered_on_chain', profile.id, {
+      actor: profile.signingKey,
+      detail: {transactionHash: registration.transactionHash},
+    });
     return reply.code(201).send(registration);
+  });
+  app.get('/v1/merchant-profiles/:merchantProfileId/payments', async (request, reply) => {
+    const {merchantProfileId} = profileParamsSchema.parse(request.params);
+    const principal = await requireMerchantPrincipal(request, authOptions);
+    const profile = await merchants.get(merchantProfileId);
+    assertResourceOwnership(principal, profile.userId);
+    return reply.send({
+      merchantProfileId: profile.id,
+      payments: await intents.listMerchantPayments(profile.id),
+    });
   });
   app.get('/v1/payment-intents/:intentId', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);
@@ -143,7 +192,9 @@ export function buildApp({
   app.post('/v1/payment-intents/:intentId/authorize', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);
     await requireAuthenticatedPrincipal(request, authOptions);
-    const settlement = await intents.authorize(intentId, authorizeSchema.parse(request.body));
+    const authorization = authorizeSchema.parse(request.body);
+    const settlement = await intents.authorize(intentId, authorization);
+    await audit.record('payment_authorized', intentId, {actor: authorization.authorizer});
     return reply.send(settlement);
   });
   app.post('/v1/payment-intents/:intentId/submit', async (request, reply) => {
@@ -151,7 +202,12 @@ export function buildApp({
     await requireAuthenticatedPrincipal(request, authOptions);
     const {transactionHash} = submitSchema.parse(request.body);
     const settlement = await intents.submit(intentId, transactionHash);
+    await audit.record('payment_submitted', intentId, {detail: {transactionHash}});
     return reply.send(settlement);
+  });
+  app.get('/v1/payment-intents/:intentId/history', async (request, reply) => {
+    const {intentId} = paramsSchema.parse(request.params);
+    return reply.send({intentId, events: await audit.history(intentId)});
   });
   app.get('/v1/payment-intents/:intentId/authorization', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);
@@ -185,6 +241,12 @@ export function buildApp({
     }
     if (error instanceof MerchantProfileNotFoundError) {
       return reply.code(404).send({code: 'MERCHANT_PROFILE_NOT_FOUND', message: error.message});
+    }
+    if (error instanceof RateLimitError) {
+      return reply
+        .code(429)
+        .header('retry-after', String(error.retryAfterSeconds))
+        .send({code: 'RATE_LIMITED', message: 'Too many requests; try again shortly'});
     }
     if (error instanceof WalletProvisioningError) {
       const status = error.code === 'WALLET_PROVISIONING_DISABLED'

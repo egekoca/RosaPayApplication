@@ -3,11 +3,11 @@ import {useQuery} from '@tanstack/react-query';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {CircleAlert, CircleCheck, Fingerprint, FlaskConical, Radio, Wallet} from 'lucide-react-native';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
-import {Button, colors, radius, spacing, SurfaceCard, typography} from '@rosapay/ui';
+import {Button, colors, radius, spacing, SurfaceCard, TextField, typography} from '@rosapay/ui';
 import {createStellarConfig} from '@rosapay/stellar';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
-import {apiBaseUrl} from '../../shared/apiConfig';
+import {defaultApiBaseUrl, isReachableFromDevice, normalizeApiBaseUrl} from '../../shared/apiConfig';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useAppStore, type SettlementMode} from '../../state/appStore';
 import {
@@ -32,12 +32,22 @@ const modes: {value: SettlementMode; title: string; hint: string}[] = [
 ];
 
 export function DeveloperSettingsScreen(_props: Props) {
-  const {settlementMode, setSettlementMode, customerWallet, merchantProfile, merchantRegisteredOnChain, smartWallet} =
-    useAppStore();
+  const {
+    settlementMode,
+    setSettlementMode,
+    customerWallet,
+    merchantProfile,
+    merchantRegisteredOnChain,
+    smartWallet,
+    apiBaseUrl,
+    setApiBaseUrl,
+  } = useAppStore();
   const stellarHealth = useStellarHealth();
   const config = createStellarConfig('testnet');
   const [walletError, setWalletError] = useState<string | undefined>();
   const [session, setSession] = useState<SessionStorageStatus>(getSessionStorageStatus);
+  const [apiDraft, setApiDraft] = useState(apiBaseUrl);
+  const [apiError, setApiError] = useState<string | undefined>();
 
   useEffect(() => subscribeToSessionStorage(setSession), []);
 
@@ -54,6 +64,22 @@ export function DeveloperSettingsScreen(_props: Props) {
       setHardware(await action());
     } finally {
       setHardwareBusy(false);
+    }
+  };
+
+  const saveApiBaseUrl = () => {
+    try {
+      const normalized = normalizeApiBaseUrl(apiDraft);
+      setApiBaseUrl(normalized);
+      setApiDraft(normalized);
+      setApiError(
+        isReachableFromDevice(normalized)
+          ? undefined
+          : 'A phone cannot reach localhost on your computer; use its network address.',
+      );
+      void relayer.refetch();
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'That address could not be used');
     }
   };
 
@@ -149,6 +175,24 @@ export function DeveloperSettingsScreen(_props: Props) {
           ok={merchantRegisteredOnChain}
           last
         />
+      </SurfaceCard>
+
+      <SurfaceCard style={styles.card}>
+        <Text style={styles.label}>API ADDRESS</Text>
+        <TextField
+          autoCapitalize="none"
+          hint="On a phone, use your computer's network address, such as http://192.168.1.10:4100"
+          label=""
+          onChangeText={value => {
+            setApiDraft(value);
+            setApiError(undefined);
+          }}
+          placeholder={defaultApiBaseUrl}
+          testID="api-base-url"
+          value={apiDraft}
+          {...(apiError ? {error: apiError} : {})}
+        />
+        <Button tone="ghost" onPress={saveApiBaseUrl} testID="save-api-base-url">Use this address</Button>
       </SurfaceCard>
 
       <SurfaceCard style={styles.card}>

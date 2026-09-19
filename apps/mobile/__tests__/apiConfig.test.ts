@@ -1,25 +1,24 @@
-describe('API base URL', () => {
-  afterEach(() => {
-    jest.resetModules();
-    delete process.env.ROSAPAY_API_URL;
+import {Platform} from 'react-native';
+import {defaultApiBaseUrl, isReachableFromDevice, normalizeApiBaseUrl} from '../src/shared/apiConfig';
+
+describe('API address', () => {
+  it('defaults to a host the emulator can reach', () => {
+    expect(defaultApiBaseUrl).toBe(Platform.OS === 'android' ? 'http://10.0.2.2:4100' : 'http://127.0.0.1:4100');
   });
 
-  it('reaches the host machine from the Android emulator', () => {
-    jest.doMock('react-native', () => ({Platform: {OS: 'android'}}));
-    const {apiBaseUrl} = require('../src/shared/apiConfig');
-    expect(apiBaseUrl).toBe('http://10.0.2.2:4100');
+  it('accepts a development machine on the local network', () => {
+    expect(normalizeApiBaseUrl(' http://192.168.1.10:4100/ ')).toBe('http://192.168.1.10:4100');
+    expect(normalizeApiBaseUrl('https://api.rosapay.example')).toBe('https://api.rosapay.example');
   });
 
-  it('uses the loopback address on iOS, where the simulator shares the host network', () => {
-    jest.doMock('react-native', () => ({Platform: {OS: 'ios'}}));
-    const {apiBaseUrl} = require('../src/shared/apiConfig');
-    expect(apiBaseUrl).toBe('http://127.0.0.1:4100');
+  it('rejects an address the app cannot call', () => {
+    expect(() => normalizeApiBaseUrl('192.168.1.10:4100')).toThrow('Enter an address like');
+    expect(() => normalizeApiBaseUrl('ftp://host')).toThrow();
+    expect(() => normalizeApiBaseUrl('')).toThrow();
   });
 
-  it('lets a deployment override the API location', () => {
-    process.env.ROSAPAY_API_URL = 'https://api.rosapay.example';
-    jest.doMock('react-native', () => ({Platform: {OS: 'ios'}}));
-    const {apiBaseUrl} = require('../src/shared/apiConfig');
-    expect(apiBaseUrl).toBe('https://api.rosapay.example');
+  it('warns that a phone cannot reach the computer on localhost', () => {
+    expect(isReachableFromDevice('http://192.168.1.10:4100')).toBe(true);
+    expect(isReachableFromDevice('http://127.0.0.1:4100')).toBe(Platform.OS !== 'android');
   });
 });

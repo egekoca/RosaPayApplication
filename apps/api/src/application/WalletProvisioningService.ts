@@ -12,11 +12,13 @@ import {
 } from '@stellar/stellar-sdk';
 import {uncompressedPointFromSpki} from '@rosapay/secure-signer';
 import type {StellarConfig} from '@rosapay/stellar';
+import {InMemoryWalletRepository, type WalletRepository} from './WalletRepository';
 import {Buffer} from 'node:buffer';
 import {randomBytes} from 'node:crypto';
 
 export type WalletProvisioningOptions = {
   config: StellarConfig;
+  wallets?: WalletRepository;
   walletWasmHash?: string;
   deployerSecret?: string;
   /** Starting balance so a new wallet can pay before it ever receives funds. */
@@ -28,6 +30,8 @@ export type ProvisionedWallet = {
   devicePublicKey: string;
   transactionHash: string;
   fundedAmount: string;
+  /** True when the wallet already existed for this device key. */
+  reused: boolean;
 };
 
 export class WalletProvisioningError extends Error {
@@ -47,9 +51,11 @@ export class WalletProvisioningError extends Error {
  */
 export class WalletProvisioningService {
   private readonly deployer: Keypair | null;
+  private readonly wallets: WalletRepository;
 
   constructor(private readonly options: WalletProvisioningOptions) {
     this.deployer = options.deployerSecret?.trim() ? Keypair.fromSecret(options.deployerSecret.trim()) : null;
+    this.wallets = options.wallets ?? new InMemoryWalletRepository();
   }
 
   get enabled(): boolean {
@@ -73,6 +79,20 @@ export class WalletProvisioningService {
       );
     } catch {
       throw new WalletProvisioningError('INVALID_DEVICE_KEY', 'The device key is not an uncompressed secp256r1 point');
+    }
+
+    // A device key controls exactly one wallet, so provisioning is idempotent
+    // and a repeated call can never spend the funding balance twice.
+    const signer = devicePoint.toString('base64');
+    const existing = await this.wallets.findBySigner(signer);
+    if (existing) {
+      return {
+        walletContractId: existing.contractAddress,
+        devicePublicKey: signer,
+        transactionHash: '',
+        fundedAmount: '0',
+        reused: true,
+      };
     }
 
     const server = new rpc.Server(this.options.config.rpcUrl);
@@ -110,12 +130,19 @@ export class WalletProvisioningService {
 
     const fundedAmount = this.options.fundingAmount ?? '25';
     await this.fund(server, deployer, walletContractId, fundedAmount);
+    await this.wallets.save({
+      contractAddress: walletContractId,
+      publicSigner: signer,
+      network: this.options.config.network === 'pubnet' ? 'pubnet' : 'testnet',
+      status: 'active',
+    });
 
     return {
       walletContractId,
-      devicePublicKey: devicePoint.toString('base64'),
+      devicePublicKey: signer,
       transactionHash: sent.hash,
       fundedAmount,
+      reused: false,
     };
   }
 

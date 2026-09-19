@@ -1,16 +1,19 @@
 import {useQuery} from '@tanstack/react-query';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 import {ApiClientError, RosaPayApiClient} from '../../api';
-import {apiBaseUrl} from '../../shared/apiConfig';
+import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
 
-const client = new RosaPayApiClient({baseUrl: apiBaseUrl});
+
+function apiClient(): RosaPayApiClient {
+  return new RosaPayApiClient({baseUrl: useAppStore.getState().apiBaseUrl});
+}
 
 /** Publishes the request so a customer's settlement has an intent to move. */
 export async function publishPaymentRequest(request: SignedPaymentIntentV1): Promise<void> {
   try {
     // The intent ID is unique per request, so it is also a stable idempotency key.
-    await client.createPaymentIntent(request, `intent-${request.intent.intentId}`);
+    await apiClient().createPaymentIntent(request, `intent-${request.intent.intentId}`);
   } catch (error) {
     if (error instanceof ApiClientError && error.code === 'INTENT_CONFLICT') return;
     logger.error('payment_request_not_published', {
@@ -25,8 +28,19 @@ export async function publishPaymentRequest(request: SignedPaymentIntentV1): Pro
 export function usePaymentRequestStatus(intentId: string) {
   return useQuery({
     queryKey: ['settlement', intentId],
-    queryFn: () => client.getSettlement(intentId),
+    queryFn: () => apiClient().getSettlement(intentId),
     refetchInterval: 5_000,
+    retry: false,
+  });
+}
+
+/** Every payment this merchant has been asked for, not only this device's. */
+export function useMerchantPayments(merchantProfileId: string | undefined) {
+  return useQuery({
+    queryKey: ['merchant-payments', merchantProfileId],
+    enabled: Boolean(merchantProfileId),
+    queryFn: () => apiClient().listMerchantPayments(merchantProfileId!),
+    refetchInterval: 15_000,
     retry: false,
   });
 }

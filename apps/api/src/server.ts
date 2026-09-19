@@ -4,7 +4,12 @@ import {createApiRuntime} from './bootstrap';
 const port = Number.parseInt(process.env.API_PORT ?? '4100', 10);
 const host = process.env.API_HOST ?? '127.0.0.1';
 const runtime = createApiRuntime();
-const app = buildApp({repository: runtime.repository, merchantProfiles: runtime.merchantProfiles});
+const app = buildApp({
+  repository: runtime.repository,
+  merchantProfiles: runtime.merchantProfiles,
+  walletRepository: runtime.wallets,
+  auditLog: runtime.auditLog,
+});
 
 app.log.info({
   storage: runtime.storage,

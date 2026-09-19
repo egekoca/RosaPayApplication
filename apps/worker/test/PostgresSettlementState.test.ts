@@ -82,3 +82,28 @@ describe('Postgres settlement state', () => {
       .rejects.toThrow('Unexpected settlement status');
   });
 });
+
+describe('expiring settlements in PostgreSQL', () => {
+  it('lists only requests past their expiry and moves them to expired', async () => {
+    const client = fakeClient([{intent_id: 'intent-1', status: 'awaiting_approval', tx_hash: null}]);
+    const state = new PostgresSettlementState(client);
+
+    await state.expire('intent-1');
+
+    const update = client.statements[1];
+    expect(update?.text).toContain("status = 'expired'");
+    expect(update?.values).toEqual(['intent-1', 'awaiting_approval']);
+  });
+
+  it('refuses to expire a settled payment', async () => {
+    const state = new PostgresSettlementState(
+      fakeClient([{intent_id: 'intent-1', status: 'confirmed', tx_hash: 'a'.repeat(64)}]),
+    );
+    await expect(state.expire('intent-1')).rejects.toThrow('Cannot transition confirmed to expired');
+  });
+
+  it('rejects an unusable ledger before querying', async () => {
+    const state = new PostgresSettlementState(fakeClient([]));
+    await expect(state.listExpiredSettlements(0)).rejects.toThrow('positive ledger');
+  });
+});

@@ -1,5 +1,6 @@
 import type {
   AuthorizationRecord,
+  MerchantPayment,
   IntentRepository,
   SettlementRecord,
   StoredIntent,
@@ -43,6 +44,27 @@ export class InMemoryIntentRepository implements IntentRepository {
 
   async findAuthorization(intentId: string) {
     return this.authorizations.get(intentId) ?? null;
+  }
+
+  async listMerchantPayments(merchantProfileId: string, limit: number): Promise<MerchantPayment[]> {
+    return [...this.byId.values()]
+      .filter(intent => intent.payload.intent.merchantProfileId === merchantProfileId)
+      .sort((left, right) => right.payload.intent.createdAt.localeCompare(left.payload.intent.createdAt))
+      .slice(0, limit)
+      .map(intent => {
+        const settlement = this.settlements.get(intent.payload.intent.intentId);
+        return {
+          intentId: intent.payload.intent.intentId,
+          amount: intent.payload.intent.amount,
+          assetCode: intent.payload.intent.asset.code,
+          reference: intent.payload.intent.reference,
+          createdAt: intent.payload.intent.createdAt,
+          status: settlement?.status ?? 'created',
+          ...(settlement?.transactionHash ? {transactionHash: settlement.transactionHash} : {}),
+          ...(settlement?.ledger === undefined ? {} : {ledger: settlement.ledger}),
+          ...(settlement?.confirmedAt ? {confirmedAt: settlement.confirmedAt} : {}),
+        };
+      });
   }
 
   async saveSettlement(settlement: SettlementRecord) {

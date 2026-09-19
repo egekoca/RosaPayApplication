@@ -46,6 +46,19 @@ The Testnet smoke suite additionally proves a real native XLM transfer and live 
 
 Before Testnet release, add device-level tests for signer cancellation, biometric failure, process death during authorization, deep-link spoofing, API timeout/retry and stale-ledger expiry.
 
+## Relayer and wallet provisioning
+
+| Asset | Exposure | Control |
+| --- | --- | --- |
+| Relayer fee balance | Anyone who can reach the API can ask it to sign | It signs only a single `settle_payment` call on the configured contract, sourced by itself; anything else is refused before signing |
+| Deployer funding balance | Creating a wallet spends a starting balance | A device key controls exactly one wallet, so provisioning is idempotent and a repeat call funds nothing; the endpoint is also rate limited |
+| Customer funds | Held by a contract account | Only the device key can authorize a spend; the deployer can create the wallet but never move its funds |
+| Merchant registration | Writes a signing key to the contract | Admin-signed, and merchant profiles are ownership-guarded when auth is enforced |
+
+The rate limits are per process and are a bound on damage, not a distributed
+quota. A deployment behind more than one instance needs a shared store before it
+can rely on them.
+
 ## Operational rules
 
 Testnet and pubnet configuration are separate. No private key is checked into the repository. Deployment requires explicit deployer/admin environment variables and prints only public contract identifiers. A production rollout must add rate limits, encrypted secret storage, alerting for replay failures and an independent contract review.

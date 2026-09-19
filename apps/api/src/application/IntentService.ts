@@ -29,6 +29,18 @@ export type SettlementRecord = {
   confirmedAt?: string;
 };
 
+export type MerchantPayment = {
+  intentId: string;
+  amount: string;
+  assetCode: string;
+  reference: string;
+  createdAt: string;
+  status: PaymentStatus;
+  transactionHash?: string;
+  ledger?: number;
+  confirmedAt?: string;
+};
+
 export interface IntentRepository {
   findByIntentId(intentId: string): Promise<StoredIntent | null>;
   findByIdempotencyKey(key: string): Promise<StoredIntent | null>;
@@ -38,6 +50,7 @@ export interface IntentRepository {
   saveAuthorization?(authorization: AuthorizationRecord): Promise<void>;
   findAuthorization?(intentId: string): Promise<AuthorizationRecord | null>;
   listSettlements(status?: PaymentStatus): Promise<SettlementRecord[]>;
+  listMerchantPayments?(merchantProfileId: string, limit: number): Promise<MerchantPayment[]>;
   saveSettlement(settlement: SettlementRecord): Promise<void>;
 }
 
@@ -87,6 +100,11 @@ export class IntentService {
   async getSettlement(intentId: string): Promise<SettlementRecord | null> {
     if (!(await this.repository.findByIntentId(intentId))) return null;
     return this.repository.findSettlement(intentId);
+  }
+
+  /** What a merchant has been asked to be paid, and what happened to each request. */
+  listMerchantPayments(merchantProfileId: string, limit = 25): Promise<MerchantPayment[]> {
+    return this.repository.listMerchantPayments?.(merchantProfileId, limit) ?? Promise.resolve([]);
   }
 
   async listSubmittedSettlements(): Promise<SettlementRecord[]> {

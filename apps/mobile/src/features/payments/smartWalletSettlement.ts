@@ -2,7 +2,6 @@ import {Buffer} from 'buffer';
 import {createNativeRosaPaySigner} from '../../native/nativeSigner';
 import type {HardwareDigestSigner} from '@rosapay/stellar';
 import {RosaPayApiClient} from '../../api';
-import {apiBaseUrl} from '../../shared/apiConfig';
 import {logger} from '../../shared/logger';
 import {useAppStore, type SmartWallet} from '../../state/appStore';
 
@@ -32,7 +31,7 @@ export function createHardwareDigestSigner(publicKey: string): HardwareDigestSig
  * the wallet will ever accept.
  */
 export async function ensureSmartWallet(
-  client: RosaPayApiClient = new RosaPayApiClient({baseUrl: apiBaseUrl}),
+  client: RosaPayApiClient = new RosaPayApiClient({baseUrl: useAppStore.getState().apiBaseUrl}),
 ): Promise<SmartWallet> {
   const store = useAppStore.getState();
   const signer = createNativeRosaPaySigner();

@@ -5,11 +5,47 @@ export type SubmittedSettlement = {
   transactionHash: string;
 };
 
+export type ExpirableSettlement = {
+  intentId: string;
+  expiresAtLedger: number;
+};
+
 export type SettlementConfirmationState = {
   listSubmittedSettlements(): Promise<ReadonlyArray<SubmittedSettlement>>;
   confirm(intentId: string, transactionHash: string, ledger: number): Promise<unknown>;
   fail(intentId: string, failureCode: string): Promise<unknown>;
+  /** Payments still waiting for a customer once their expiry ledger has passed. */
+  listExpiredSettlements?(latestLedger: number): Promise<ReadonlyArray<ExpirableSettlement>>;
+  expire?(intentId: string): Promise<unknown>;
 };
+
+export type ExpirySummary = {
+  scanned: number;
+  expired: number;
+};
+
+/**
+ * Closes out payments nobody completed. Without this a request that was never
+ * paid stays pending forever, and a merchant cannot tell the difference between
+ * "still waiting" and "will never happen".
+ */
+export async function expireStaleSettlements(input: {
+  state: SettlementConfirmationState;
+  latestLedger: number;
+}): Promise<ExpirySummary> {
+  if (!input.state.listExpiredSettlements || !input.state.expire) {
+    return {scanned: 0, expired: 0};
+  }
+
+  const stale = await input.state.listExpiredSettlements(input.latestLedger);
+  let expired = 0;
+  for (const settlement of stale) {
+    if (settlement.expiresAtLedger > input.latestLedger) continue;
+    await input.state.expire(settlement.intentId);
+    expired += 1;
+  }
+  return {scanned: stale.length, expired};
+}
 
 export type TransactionConfirmation = {
   txHash: string;

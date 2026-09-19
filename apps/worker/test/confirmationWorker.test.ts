@@ -3,8 +3,9 @@ import {StellarTransactionError} from '@rosapay/stellar';
 import {
   confirmSubmittedSettlements,
   createConfirmationLoop,
-  reconcileSettlementEvents,
+  expireStaleSettlements,
   reconcileSettlementEventPage,
+  reconcileSettlementEvents,
   type SettlementConfirmationState,
 } from '../src/confirmationWorker';
 
@@ -227,5 +228,61 @@ describe('submitted settlement confirmation worker', () => {
       startLedger: 100,
     })).rejects.toThrow('temporary RPC outage');
     expect(saved).toEqual([]);
+  });
+});
+
+describe('expiring settlements nobody completed', () => {
+  function expiryState(rows: Array<{intentId: string; expiresAtLedger: number}>) {
+    const expired: string[] = [];
+    return {
+      expired,
+      async listSubmittedSettlements() {
+        return [];
+      },
+      async confirm() {},
+      async fail() {},
+      async listExpiredSettlements() {
+        return rows;
+      },
+      async expire(intentId: string) {
+        expired.push(intentId);
+      },
+    };
+  }
+
+  it('expires a request whose ledger has passed', async () => {
+    const state = expiryState([
+      {intentId: 'intent-1', expiresAtLedger: 900},
+      {intentId: 'intent-2', expiresAtLedger: 950},
+    ]);
+
+    const summary = await expireStaleSettlements({state, latestLedger: 1_000});
+
+    expect(summary).toEqual({scanned: 2, expired: 2});
+    expect(state.expired).toEqual(['intent-1', 'intent-2']);
+  });
+
+  it('leaves a request that is still within its window', async () => {
+    const state = expiryState([{intentId: 'intent-1', expiresAtLedger: 1_200}]);
+
+    const summary = await expireStaleSettlements({state, latestLedger: 1_000});
+
+    expect(summary).toEqual({scanned: 1, expired: 0});
+    expect(state.expired).toEqual([]);
+  });
+
+  it('does nothing when the state cannot report expiries', async () => {
+    const summary = await expireStaleSettlements({
+      state: {
+        async listSubmittedSettlements() {
+          return [];
+        },
+        async confirm() {},
+        async fail() {},
+      },
+      latestLedger: 1_000,
+    });
+
+    expect(summary).toEqual({scanned: 0, expired: 0});
   });
 });

@@ -1,6 +1,6 @@
 import type {SettlementPipelineProgress} from '@rosapay/stellar';
 import {RosaPayApiClient} from '../../api';
-import {apiBaseUrl} from '../../shared/apiConfig';
+import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
 
 export type LifecycleReporter = {
@@ -17,7 +17,7 @@ export type LifecycleReporter = {
 export function createLifecycleReporter(
   intentId: string,
   authorizer: string,
-  client: RosaPayApiClient = new RosaPayApiClient({baseUrl: apiBaseUrl}),
+  client: RosaPayApiClient = new RosaPayApiClient({baseUrl: useAppStore.getState().apiBaseUrl}),
 ): LifecycleReporter {
   let chain = Promise.resolve();
 

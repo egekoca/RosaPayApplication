@@ -161,3 +161,70 @@ describe('payment lifecycle', () => {
     expect(response.statusCode).toBe(404);
   });
 });
+
+describe('merchant payment history', () => {
+  it('lists what the merchant was asked to be paid and what happened', async () => {
+    const app = buildApp();
+    apps.push(app);
+    const intentId = await createIntent(app);
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/authorize`,
+      payload: {authorizer: customer},
+    });
+    await app.inject({method: 'POST', url: `/v1/payment-intents/${intentId}/submit`, payload: {transactionHash}});
+    await app.inject({
+      method: 'POST',
+      url: '/v1/merchant-profiles',
+      payload: {
+        id: '01K36YATYFVQBPR08G2YT29C3S',
+        displayName: 'Rose Coffee',
+        recipient: customer,
+        signingKey: customer,
+        network: 'testnet',
+      },
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/merchant-profiles/01K36YATYFVQBPR08G2YT29C3S/payments',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().payments).toEqual([
+      expect.objectContaining({intentId, amount: '2.5', assetCode: 'XLM', status: 'submitted', transactionHash}),
+    ]);
+  });
+
+  it('keeps one merchant from reading another merchant payment history', async () => {
+    const repository = new (await import('../src/infrastructure/InMemoryMerchantProfileRepository'))
+      .InMemoryMerchantProfileRepository();
+    const owner = buildApp({
+      merchantProfiles: repository,
+      auth: {required: true, resolve: async () => ({userId: 'user-1', capabilities: ['merchant'] as const})},
+    });
+    const other = buildApp({
+      merchantProfiles: repository,
+      auth: {required: true, resolve: async () => ({userId: 'user-2', capabilities: ['merchant'] as const})},
+    });
+    apps.push(owner, other);
+
+    await owner.inject({
+      method: 'POST',
+      url: '/v1/merchant-profiles',
+      payload: {
+        id: '01K36YATYFVQBPR08G2YT29C3S',
+        displayName: 'Rose Coffee',
+        recipient: customer,
+        signingKey: customer,
+        network: 'testnet',
+      },
+    });
+
+    const response = await other.inject({
+      method: 'GET',
+      url: '/v1/merchant-profiles/01K36YATYFVQBPR08G2YT29C3S/payments',
+    });
+    expect(response.statusCode).toBe(403);
+  });
+});

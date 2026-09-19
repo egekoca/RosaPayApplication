@@ -5,6 +5,7 @@ import {
   apiErrorResponseSchema,
   healthResponseSchema,
   merchantProfileSchema,
+  merchantPaymentsSchema,
   merchantRegistrationSchema,
   provisionedWalletSchema,
   settlementRecordSchema,
@@ -132,6 +133,12 @@ export class RosaPayApiClient {
       },
       90_000,
     );
+  }
+
+  /** What this merchant has been asked to be paid, across every device. */
+  listMerchantPayments(merchantProfileId: string) {
+    const id = z.string().min(1).parse(merchantProfileId);
+    return this.request(`/v1/merchant-profiles/${encodeURIComponent(id)}/payments`, merchantPaymentsSchema);
   }
 
   getSettlement(intentId: string) {

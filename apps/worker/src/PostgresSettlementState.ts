@@ -1,6 +1,10 @@
 import {transitionPayment, type Payment, type PaymentStatus} from '@rosapay/domain';
 import type {PostgresQueryClient} from '@rosapay/postgres';
-import type {SettlementConfirmationState, SubmittedSettlement} from './confirmationWorker';
+import type {
+  ExpirableSettlement,
+  SettlementConfirmationState,
+  SubmittedSettlement,
+} from './confirmationWorker';
 
 type SettlementRow = {
   intent_id: string;
@@ -31,6 +35,44 @@ export class PostgresSettlementState implements SettlementConfirmationState {
       }
       return {intentId: row.intent_id, transactionHash: row.tx_hash};
     });
+  }
+
+  /** Payments still awaiting a customer whose request has already expired. */
+  async listExpiredSettlements(latestLedger: number): Promise<ReadonlyArray<ExpirableSettlement>> {
+    if (!Number.isSafeInteger(latestLedger) || latestLedger <= 0) {
+      throw new SettlementStateError('A positive ledger is required to expire settlements');
+    }
+    const result = await this.client.query<{intent_id: string; expires_at_ledger: number | string}>(
+      `SELECT s.intent_id, i.expires_at_ledger
+         FROM settlements s
+         JOIN payment_intents i ON i.intent_id = s.intent_id
+        WHERE s.status IN ('awaiting_approval', 'authorized')
+          AND i.expires_at_ledger < $1
+        ORDER BY s.intent_id`,
+      [latestLedger],
+    );
+    return result.rows.map(row => {
+      const expiresAtLedger = Number(row.expires_at_ledger);
+      if (!Number.isSafeInteger(expiresAtLedger) || expiresAtLedger <= 0) {
+        throw new SettlementStateError(`Settlement ${row.intent_id} has an invalid expiry ledger`);
+      }
+      return {intentId: row.intent_id, expiresAtLedger};
+    });
+  }
+
+  async expire(intentId: string): Promise<void> {
+    const current = await this.requireCurrent(intentId);
+    if (current.status === 'expired') return;
+    this.assertTransition(current, 'expired');
+
+    await this.applyUpdate(
+      `UPDATE settlements
+          SET status = 'expired'
+        WHERE intent_id = $1 AND status = $2
+        RETURNING intent_id`,
+      [intentId, current.status],
+      intentId,
+    );
   }
 
   async confirm(intentId: string, transactionHash: string, ledger: number): Promise<void> {

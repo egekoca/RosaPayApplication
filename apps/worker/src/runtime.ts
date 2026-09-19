@@ -1,5 +1,6 @@
 import {
   confirmSubmittedSettlements,
+  expireStaleSettlements,
   reconcileSettlementEventPage,
   type EventCursorStore,
   type SettlementConfirmationState,
@@ -34,10 +35,16 @@ export function readWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
  * receipt first, then a single contract-event page is reconciled when a start
  * ledger and cursor store are configured.
  */
+export type LedgerSource = {
+  health(): Promise<{latestLedger: number}>;
+};
+
 export function createWorkerCycle(input: {
   state: SettlementConfirmationState;
   rpc: TransactionConfirmationRpc;
   config: WorkerConfig;
+  /** Used to close out requests nobody paid. */
+  ledgers?: LedgerSource;
   source?: SettlementEventSource;
   cursorStore?: EventCursorStore;
   log?: WorkerLog;
@@ -47,6 +54,12 @@ export function createWorkerCycle(input: {
   return async () => {
     const receipts = await confirmSubmittedSettlements({state: input.state, rpc: input.rpc});
     log({event: 'worker_receipt_cycle', ...receipts});
+
+    if (input.ledgers) {
+      const {latestLedger} = await input.ledgers.health();
+      const expiry = await expireStaleSettlements({state: input.state, latestLedger});
+      if (expiry.scanned > 0) log({event: 'worker_expiry_cycle', ...expiry, latestLedger});
+    }
 
     const {eventStartLedger} = input.config;
     if (!input.source || !input.cursorStore || eventStartLedger === undefined) return;

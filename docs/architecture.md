@@ -150,6 +150,14 @@ sees onboarding or the home screen. Developer settings report whether the sessio
 is actually being saved, so a device where the store is unavailable says so
 instead of silently losing the wallet on restart.
 
+### Configuration on device
+
+React Native only populates `process.env.NODE_ENV`, so a build-time variable for
+the API address would silently do nothing. The address is a runtime setting
+stored with the session instead, which is also what a physical device needs: a
+phone cannot reach the development machine on localhost, and pointing it at a
+different host must not require a rebuild.
+
 ### React Native and the Buffer polyfill
 
 `apps/mobile/src/shared/polyfills.ts` must be the first import in the app entry.
@@ -209,7 +217,10 @@ The account decision is recorded in [ADR 0001](adr/0001-passkey-account-and-nati
 
 `POST /v1/wallets` deploys a customer's wallet with the device key as its only
 signer and gives it a starting balance, so the deployer can create the account
-but can never spend from it. The app provisions that wallet the first time it
+but can never spend from it. A device key controls exactly one wallet, which the
+API records, so a repeated call returns the existing wallet and funds nothing;
+that endpoint and the relayer's signing endpoint are also rate limited, because
+they are the two that spend real funds. The app provisions that wallet the first time it
 pays, then settles with the wallet as the customer: the hardware key authorizes
 the exact invocation and the relayer remains the transaction source and fee payer.
 
@@ -230,6 +241,22 @@ payment, because deploying and funding it takes two Testnet transactions.
 Evidence is in `config/testnet-hardware-wallet-evidence.json`: the wallet is
 debited the amount and nothing else, the merchant is credited it, and the relayer
 pays the fee.
+
+## What the record keeps
+
+Every mutation appends an audit event: the intent that was created, who
+authorized it, the transaction that was submitted, the merchant key that was
+registered, the wallet that was provisioned and each settlement the relayer
+signed. The table is append-only and holds identifiers and Stellar addresses that
+are already public on the ledger; a detail whose name suggests a secret is
+dropped before it is written rather than masked afterwards, so a leak cannot
+happen through a caller passing the wrong field.
+
+`GET /v1/payment-intents/:id/history` reads a payment's trail, and
+`GET /v1/merchant-profiles/:id/payments` lists what a merchant has been asked to
+be paid with the outcome of each request. The merchant home reads the second one,
+so it reports every request that merchant made rather than only the ones this
+device recorded, and says so when the API cannot be reached.
 
 ## Interface and motion
 

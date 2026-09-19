@@ -35,6 +35,7 @@ const loop = createConfirmationLoop({
     state: new PostgresSettlementState(connection),
     rpc,
     config: workerConfig,
+    ledgers: rpc,
     source: rpc,
     cursorStore,
     log,

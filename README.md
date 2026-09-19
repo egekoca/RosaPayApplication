@@ -135,7 +135,33 @@ adb reverse tcp:4100 tcp:4100    # Android emulator
 
 In the app, open **Developer settings** from the home header, switch the
 settlement mode to **Testnet**, then create a business profile (it is registered
-on-chain) and pay a request. The relayed settlement path is also verifiable
+on-chain) and pay a request.
+
+### Testing on a real phone
+
+Neither platform needs a paid developer account to run the app on your own device.
+
+**Android** — no account at all. Enable Developer options and USB debugging on the
+phone, connect it, and `npm run android` installs directly. Point Metro and the
+API at your machine over the cable:
+
+```bash
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:4100 tcp:4100
+```
+
+**iOS** — a free Apple ID is enough. Open `apps/mobile/ios/RosaPay.xcworkspace`,
+select the RosaPay target, and under Signing & Capabilities pick your personal
+team; Xcode then provisions the device. A free signing identity expires after
+seven days, so the app has to be reinstalled after that, and the device has to
+trust the certificate under Settings → General → VPN & Device Management. The
+Secure Enclave and Face ID only exist on a real device, so this is also the only
+way to exercise the hardware signer for real.
+
+There is no `adb reverse` on iOS, so the phone reaches the API over the network:
+run it with `API_HOST=0.0.0.0 npm run api`, then set the address in the app's
+**Developer settings → API address** to your machine's LAN address, for example
+`http://192.168.1.10:4100`. The same field works on Android over Wi-Fi. The relayed settlement path is also verifiable
 without the app:
 
 ```bash
