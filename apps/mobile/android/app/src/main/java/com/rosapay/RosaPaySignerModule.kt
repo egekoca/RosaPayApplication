@@ -139,7 +139,7 @@ class RosaPaySignerModule(private val reactContext: ReactApplicationContext) :
         ?: return promise.reject("UNAVAILABLE", "No payment key exists on this device")
       Signature.getInstance(SIGNATURE_ALGORITHM).apply { initSign(privateKey as java.security.PrivateKey) }
     } catch (error: KeyPermanentlyInvalidatedException) {
-      promise.reject("LOCKED_OUT", "The payment key was invalidated by a screen-lock change", error)
+      promise.reject("KEY_INVALIDATED", "The payment key was invalidated by a screen-lock change", error)
       return
     } catch (error: Throwable) {
       promise.reject("UNAVAILABLE", error.message ?: "The payment key could not be used", error)

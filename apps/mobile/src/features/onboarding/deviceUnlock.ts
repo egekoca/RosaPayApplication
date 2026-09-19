@@ -10,7 +10,11 @@ const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
 export type UnlockResult =
   | {ok: true}
-  /** The device has no payment key yet, so there is nothing to unlock against. */
+  /**
+   * There is no key left to unlock against — it was never created, or the
+   * screen lock it was bound to changed and Android destroyed it. Either way
+   * retrying is pointless, so a caller must offer a way forward instead.
+   */
   | {ok: false; reason: 'no-key'; message: string}
   | {ok: false; reason: 'refused'; message: string};
 
@@ -48,6 +52,11 @@ export async function unlockWithDevice(): Promise<UnlockResult> {
     }
     return {ok: true};
   } catch (error) {
+    // A key the screen lock destroyed is gone for good, however well the owner
+    // proves who they are, so it is reported as absent rather than as refused.
+    if (error instanceof SecureSignerError && error.code === 'KEY_INVALIDATED') {
+      return {ok: false, reason: 'no-key', message: describe(error)};
+    }
     return {ok: false, reason: 'refused', message: describe(error)};
   }
 }
@@ -61,6 +70,8 @@ function describe(error: unknown): string {
         return 'The device could not confirm it was you';
       case 'LOCKED_OUT':
         return 'Too many attempts — unlock your phone first, then try again';
+      case 'KEY_INVALIDATED':
+        return 'Changing this phone’s screen lock destroyed the payment key';
       case 'UNAVAILABLE':
         return 'This device cannot unlock Lumenade Pay yet';
       default:

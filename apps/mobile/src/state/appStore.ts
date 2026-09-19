@@ -72,6 +72,15 @@ type AppState = {
   account: Account | null;
   /** True while a returning user has not yet proved they are the device owner. */
   locked: boolean;
+  /**
+   * Whether opening the app asks for the device owner at all.
+   *
+   * Off by default. What the device key protects is spending, and it is asked
+   * for at the moment of spending; demanding a fingerprint to read a balance
+   * taught people to approve prompts without reading them, which is the habit
+   * that gets money taken.
+   */
+  requireUnlock: boolean;
   merchantProfile: MerchantProfile | null;
   merchantRegisteredOnChain: boolean;
   smartWallet: SmartWallet | null;
@@ -81,6 +90,7 @@ type AppState = {
   createAccount(account: Omit<Account, 'createdAt'>): void;
   unlock(): void;
   lock(): void;
+  setRequireUnlock(required: boolean): void;
   signOut(): void;
   setMode(mode: AppMode): void;
   setApiBaseUrl(url: string): void;
@@ -159,6 +169,7 @@ export const useAppStore = create<AppState>()(
       account: null,
       // A session with an account starts locked; rehydration decides.
       locked: false,
+      requireUnlock: false,
       mode: 'customer',
       apiBaseUrl: defaultApiBaseUrl,
       merchantProfile: null,
@@ -170,7 +181,9 @@ export const useAppStore = create<AppState>()(
       createAccount: account =>
         set({account: {...account, createdAt: new Date().toISOString()}, locked: false}),
       unlock: () => set({locked: false}),
-      lock: () => set(state => (state.account ? {...state, locked: true} : state)),
+      lock: () =>
+        set(state => (state.account && state.requireUnlock ? {...state, locked: true} : state)),
+      setRequireUnlock: requireUnlock => set(state => ({...state, requireUnlock, locked: false})),
       signOut: () =>
         set({
           account: null,
@@ -201,9 +214,13 @@ export const useAppStore = create<AppState>()(
       migrate: state => dropUnusableSecrets(state as Partial<AppState>),
       merge: (persisted, current) => ({...current, ...dropUnusableSecrets(persisted as Partial<AppState>)}),
       onRehydrateStorage: () => state => {
-        // A returning account has to prove itself with the device before the
-        // app shows a balance or a receipt.
-        useAppStore.setState({hydrated: true, locked: Boolean(state?.account)});
+        // Only an owner who asked to be challenged is challenged. Everyone else
+        // returns straight to their balance, and is asked for the device when
+        // they go to pay.
+        useAppStore.setState({
+          hydrated: true,
+          locked: Boolean(state?.account) && Boolean(state?.requireUnlock),
+        });
         return state;
       },
       storage: createJSONStorage(() => secureSessionStorage, {
@@ -214,6 +231,7 @@ export const useAppStore = create<AppState>()(
       // request still on screen and their receipts.
       partialize: state => ({
         account: state.account,
+        requireUnlock: state.requireUnlock,
         mode: state.mode,
         apiBaseUrl: state.apiBaseUrl,
         merchantProfile: state.merchantProfile,

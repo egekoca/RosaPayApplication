@@ -33,6 +33,7 @@
       <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" /><path d="m8.4 12.2 2.4 2.4 4.8-4.9" /></symbol>
       <symbol id="i-x" viewBox="0 0 24 24"><path d="M7.2 7.2 16.8 16.8M16.8 7.2 7.2 16.8" /></symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.4 12h14.4M13.2 6.4 18.8 12l-5.6 5.6" /></symbol>
+
     </svg>
 
     <header class="site-header" data-header>
@@ -91,20 +92,113 @@
             <div class="orbit orbit-one" aria-hidden="true"><i></i></div>
             <div class="orbit orbit-two" aria-hidden="true"><i></i></div>
 
-            <div class="phone-float">
-              <div class="phone" data-phone>
-                <div class="phone-body" data-extrude="30" aria-hidden="true"></div>
-                <div class="phone-btn btn-action" data-extrude="18" aria-hidden="true"></div>
-                <div class="phone-btn btn-vol-up" data-extrude="18" aria-hidden="true"></div>
-                <div class="phone-btn btn-vol-down" data-extrude="18" aria-hidden="true"></div>
-                <div class="phone-btn btn-power" data-extrude="18" aria-hidden="true"></div>
-                <div class="phone-face">
-                  <div class="phone-screen">
-                    <img src="/assets/app-welcome.png" alt="The Lumenade Pay welcome screen running on a phone" width="644" height="1400" />
-                    <span class="screen-vignette" aria-hidden="true"></span>
-                    <span class="screen-glare" aria-hidden="true"></span>
+            <div class="counter" data-counter data-mode="qr" data-phase="aim">
+              <div class="counter-modes" role="status" aria-live="polite">
+                <p class="counter-mode counter-mode--qr">
+                  <svg class="i" aria-hidden="true"><use href="#i-qr" /></svg> Scan the code
+                </p>
+                <p class="counter-mode counter-mode--nfc">
+                  <svg class="i" aria-hidden="true"><use href="#i-nfc" /></svg> Or hold them together
+                </p>
+              </div>
+
+              <div class="counter-row">
+              <div class="hold hold--customer">
+                <div class="hold-float">
+                <span class="hand hand--left" aria-hidden="true">
+                  <!--
+                    Drawn rather than photographed: a stock photograph of
+                    someone else's hand is a licence we do not have, and a real
+                    hand beside a drawn phone reads as two pictures glued
+                    together. Every part is sized against the phone, so the grip
+                    holds together at any width.
+                  -->
+                  <i class="palm"></i>
+                  <i class="finger finger--1"></i>
+                  <i class="finger finger--2"></i>
+                  <i class="finger finger--3"></i>
+                  <i class="finger finger--4"></i>
+                </span>
+                <div class="phone phone--customer" data-phone>
+                  <div class="phone-body" data-extrude="30" aria-hidden="true"></div>
+                  <div class="phone-btn btn-action" data-extrude="18" aria-hidden="true"></div>
+                  <div class="phone-btn btn-vol-up" data-extrude="18" aria-hidden="true"></div>
+                  <div class="phone-btn btn-vol-down" data-extrude="18" aria-hidden="true"></div>
+                  <div class="phone-btn btn-power" data-extrude="18" aria-hidden="true"></div>
+                  <div class="phone-face">
+                    <div class="phone-screen">
+                      <div class="face face--scan">
+                        <span class="scan-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                        <span class="scan-sweep" aria-hidden="true"></span>
+                        <p class="scan-copy">Align the merchant QR inside the frame</p>
+                      </div>
+                      <div class="face face--tap">
+                        <span class="tap-mark" aria-hidden="true"><svg class="i"><use href="#i-nfc" /></svg></span>
+                        <p class="tap-title">Ready to pay</p>
+                        <p class="tap-note">Hold near the merchant's phone</p>
+                      </div>
+                      <div class="face face--done">
+                        <span class="done-tick" aria-hidden="true"><svg class="i"><use href="#i-check" /></svg></span>
+                        <p class="done-title">Paid</p>
+                        <p class="done-amount">24.9 <span>XLM</span></p>
+                        <p class="done-note">Settled on Stellar</p>
+                      </div>
+                      <span class="screen-vignette" aria-hidden="true"></span>
+                      <span class="screen-glare" aria-hidden="true"></span>
+                    </div>
                   </div>
                 </div>
+                <span class="hand hand--left hand--over" aria-hidden="true">
+                  <i class="thumb"></i>
+                </span>
+                </div>
+                <p class="hold-label"><span>Customer</span> pays</p>
+              </div>
+
+              <span class="link link--qr" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </span>
+              <span class="link link--nfc" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </span>
+
+              <div class="hold hold--merchant">
+                <div class="hold-float">
+                <span class="hand hand--right" aria-hidden="true">
+                  <!--
+                    Drawn rather than photographed: a stock photograph of
+                    someone else's hand is a licence we do not have, and a real
+                    hand beside a drawn phone reads as two pictures glued
+                    together. Every part is sized against the phone, so the grip
+                    holds together at any width.
+                  -->
+                  <i class="palm"></i>
+                  <i class="finger finger--1"></i>
+                  <i class="finger finger--2"></i>
+                  <i class="finger finger--3"></i>
+                  <i class="finger finger--4"></i>
+                </span>
+                <div class="phone phone--merchant" data-phone>
+                  <div class="phone-body" data-extrude="30" aria-hidden="true"></div>
+                  <div class="phone-btn btn-action" data-extrude="18" aria-hidden="true"></div>
+                  <div class="phone-btn btn-vol-up" data-extrude="18" aria-hidden="true"></div>
+                  <div class="phone-btn btn-vol-down" data-extrude="18" aria-hidden="true"></div>
+                  <div class="phone-btn btn-power" data-extrude="18" aria-hidden="true"></div>
+                  <div class="phone-face">
+                    <div class="phone-screen">
+                      <img src="/assets/merchant-request.png" alt="The merchant's phone showing a signed payment request as a QR code" width="276" height="620" />
+                      <span class="screen-vignette" aria-hidden="true"></span>
+                      <span class="screen-glare" aria-hidden="true"></span>
+                    </div>
+                  </div>
+                </div>
+                <span class="hand hand--right hand--over" aria-hidden="true">
+                  <i class="thumb"></i>
+                </span>
+                </div>
+                <p class="hold-label"><span>Merchant</span> asks</p>
+              </div>
+
               </div>
               <div class="phone-shadow" aria-hidden="true"></div>
             </div>

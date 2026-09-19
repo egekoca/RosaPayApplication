@@ -103,7 +103,67 @@ document.querySelectorAll('[data-extrude]').forEach(extrude);
 
 /* ---------- pointer + scroll driven rotation ---------- */
 const stage = document.querySelector('[data-stage]');
-const phone = document.querySelector('[data-phone]');
+const phone = document.querySelector('.phone--customer[data-phone]') ?? document.querySelector('[data-phone]');
+
+/*
+ * The two ways to hand a payment over, shown one at a time.
+ *
+ * Long enough to read the caption and watch the beam or the tap land, short
+ * enough that nobody scrolls past believing the scan is all there is. Paused
+ * while the tab is hidden, because a timer running in a background tab only
+ * ever comes back mid-swap.
+ */
+const counter = document.querySelector('[data-counter]');
+if (counter) {
+  /*
+   * One payment, told twice. Each step holds long enough to be read as an
+   * action rather than a flicker: the camera finds the code, or the phone is
+   * carried across and touched to the other one, and only then does the money
+   * land. Showing the result without the gesture that caused it is what made
+   * the old single frame say nothing.
+   */
+  const script = [
+    {mode: 'qr', phase: 'aim', hold: 2100},
+    {mode: 'qr', phase: 'done', hold: 2300},
+    {mode: 'nfc', phase: 'away', hold: 1100},
+    {mode: 'nfc', phase: 'tap', hold: 1500},
+    {mode: 'nfc', phase: 'done', hold: 2300},
+  ];
+
+  let step = 0;
+  let timer = 0;
+
+  const show = () => {
+    const frame = script[step];
+    counter.dataset.mode = frame.mode;
+    counter.dataset.phase = frame.phase;
+    return frame.hold;
+  };
+
+  const advance = () => {
+    step = (step + 1) % script.length;
+    timer = setTimeout(advance, show());
+  };
+
+  const start = () => {
+    if (timer || reduceMotion) return;
+    timer = setTimeout(advance, show());
+  };
+  const stop = () => {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = 0;
+  };
+
+  // Reduced motion gets the settled end of the story, held still.
+  if (reduceMotion) {
+    counter.dataset.mode = 'qr';
+    counter.dataset.phase = 'done';
+  } else {
+    document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+    start();
+  }
+}
 
 if (stage && phone && !reduceMotion) {
   const rest = {rx: 6, ry: -19, rz: 1};

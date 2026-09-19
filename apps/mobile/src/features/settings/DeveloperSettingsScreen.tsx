@@ -2,7 +2,7 @@ import {useEffect, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {CircleAlert, CircleCheck, Fingerprint, FlaskConical, Radio, Wallet} from 'lucide-react-native';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Switch, Text, View} from 'react-native';
 import {Button, colors, radius, spacing, SurfaceCard, TextField, typography} from '@rosapay/ui';
 import {createStellarConfig} from '@rosapay/stellar';
 import type {RootStackParams} from '../../app/navigation';
@@ -34,6 +34,8 @@ export function DeveloperSettingsScreen(_props: Props) {
     smartWallet,
     apiBaseUrl,
     setApiBaseUrl,
+    requireUnlock,
+    setRequireUnlock,
   } = useAppStore();
   const stellarHealth = useStellarHealth();
   const config = createStellarConfig('testnet');
@@ -148,6 +150,25 @@ export function DeveloperSettingsScreen(_props: Props) {
       </SurfaceCard>
 
       <SurfaceCard style={styles.card}>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleTitle}>Ask for me when the app opens</Text>
+            <Text style={styles.toggleBody}>
+              Off by default. Paying always asks, whatever this says.
+            </Text>
+          </View>
+          <Switch
+            accessibilityLabel="Ask for me when the app opens"
+            onValueChange={setRequireUnlock}
+            testID="require-unlock"
+            thumbColor={colors.white}
+            trackColor={{false: colors.line, true: colors.amber}}
+            value={requireUnlock}
+          />
+        </View>
+      </SurfaceCard>
+
+      <SurfaceCard style={styles.card}>
         <Text style={styles.label}>API ADDRESS</Text>
         <TextField
           autoCapitalize="none"
@@ -187,6 +208,10 @@ function shorten(value?: string): string {
 }
 
 const styles = StyleSheet.create({
+  toggleRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, justifyContent: 'space-between'},
+  toggleCopy: {flex: 1, gap: 4},
+  toggleTitle: {...typography.body, color: colors.ink, fontWeight: '600'},
+  toggleBody: {...typography.body, color: colors.inkMuted, fontSize: 13, lineHeight: 18},
   heading: {gap: spacing.xs},
   title: {...typography.title, color: colors.ink, fontSize: 24},
   subtitle: {color: colors.inkMuted, fontSize: 13, lineHeight: 19},

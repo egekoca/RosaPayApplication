@@ -19,6 +19,12 @@ export function UnlockScreen() {
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  /**
+   * Whether unlocking can ever succeed again. When the key is gone, offering
+   * "Try again" strands the owner on a screen that will refuse them forever —
+   * which is exactly what happens after the phone's screen lock is changed.
+   */
+  const [stranded, setStranded] = useState(false);
 
   const attempt = useCallback(async () => {
     setBusy(true);
@@ -31,9 +37,10 @@ export function UnlockScreen() {
       }
       // A session whose key is gone can never be unlocked, so the only honest
       // way forward is to start again rather than to keep asking.
+      setStranded(result.reason === 'no-key');
       setError(
         result.reason === 'no-key'
-          ? 'The payment key for this account is gone. Set up again to continue.'
+          ? `${result.message}. Setting up again makes a new one — the old account cannot be recovered.`
           : result.message,
       );
     } finally {
@@ -75,19 +82,28 @@ export function UnlockScreen() {
 
       <AnimatedContent delay={180} distance={8}>
         <View style={styles.actions}>
-          <Button loading={busy} onPress={() => void attempt()} testID="unlock">
-            {error ? 'Try again' : 'Unlock'}
-          </Button>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => (confirmingSignOut ? signOut() : setConfirmingSignOut(true))}
-            testID="sign-out">
-            <Text style={[styles.signOut, confirmingSignOut && styles.signOutConfirm]}>
-              {confirmingSignOut
-                ? 'Tap again to erase this account and start over'
-                : 'Use a different account'}
-            </Text>
-          </Pressable>
+          {stranded ? (
+            // One tap, not two. The usual confirmation guards something worth
+            // keeping; here the key is already destroyed, so there is nothing
+            // left to protect the owner from losing.
+            <Button onPress={signOut} testID="set-up-again">Set up this device again</Button>
+          ) : (
+            <>
+              <Button loading={busy} onPress={() => void attempt()} testID="unlock">
+                {error ? 'Try again' : 'Unlock'}
+              </Button>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => (confirmingSignOut ? signOut() : setConfirmingSignOut(true))}
+                testID="sign-out">
+                <Text style={[styles.signOut, confirmingSignOut && styles.signOutConfirm]}>
+                  {confirmingSignOut
+                    ? 'Tap again to erase this account and start over'
+                    : 'Use a different account'}
+                </Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </AnimatedContent>
     </Screen>

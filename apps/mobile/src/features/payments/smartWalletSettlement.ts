@@ -27,8 +27,11 @@ export function createHardwareDigestSigner(publicKey: string): HardwareDigestSig
 
 /**
  * Returns the smart wallet this device controls, deploying and funding it the
- * first time. The device key is created up front, because it is the only signer
- * the wallet will ever accept.
+ * first time, and making the device key if the phone does not have one yet.
+ *
+ * Signing up no longer demands a key, so the first payment is where one has to
+ * appear. That is also the honest place to ask: it is the moment the key starts
+ * guarding something.
  */
 export async function ensureSmartWallet(
   client: RosaPayApiClient = new RosaPayApiClient({baseUrl: useAppStore.getState().apiBaseUrl}),
@@ -36,11 +39,16 @@ export async function ensureSmartWallet(
   const store = useAppStore.getState();
   const signer = createNativeRosaPaySigner();
 
-  const identity = await signer.getIdentity().catch(() => null);
+  let identity = await signer.getIdentity().catch(() => null);
   if (!identity?.publicKey) {
+    identity = await signer.createIdentity('Lumenade Pay').catch(() => null);
+  }
+  if (!identity?.publicKey) {
+    // Android will not hold a key that requires the owner unless the phone has
+    // a screen lock, and that is something they can go and fix.
     throw new SmartWalletError(
       'DEVICE_KEY_MISSING',
-      'Create the device payment key in developer settings before paying on Testnet',
+      'Set a screen lock on this phone so it can hold a payment key, then try again',
     );
   }
 

@@ -10,7 +10,7 @@ jest.mock('../src/native/nativeSigner', () => ({
 
 declare global {
   // eslint-disable-next-line no-var
-  var __signerMock: {getIdentity: jest.Mock; signDigest: jest.Mock};
+  var __signerMock: {getIdentity: jest.Mock; createIdentity: jest.Mock; signDigest: jest.Mock};
 }
 
 function apiClient(overrides: {fail?: boolean} = {}) {
@@ -32,6 +32,7 @@ describe('smart wallet provisioning', () => {
     useAppStore.setState({smartWallet: null});
     globalThis.__signerMock = {
       getIdentity: jest.fn(async () => ({signerId: 'device', publicKey: devicePublicKey, kind: 'device-key'})),
+      createIdentity: jest.fn(async () => ({signerId: 'device', publicKey: devicePublicKey, kind: 'device-key'})),
       signDigest: jest.fn(),
     };
   });
@@ -57,10 +58,28 @@ describe('smart wallet provisioning', () => {
     expect((client as unknown as {provisionWallet: jest.Mock}).provisionWallet).toHaveBeenCalledTimes(1);
   });
 
-  it('says which step is missing when the device has no payment key', async () => {
+  it('makes the payment key at the first payment rather than refusing', async () => {
+    // Signing up no longer demands a key, so this is where one has to appear.
     globalThis.__signerMock.getIdentity = jest.fn(async () => null);
 
-    await expect(ensureSmartWallet(apiClient())).rejects.toMatchObject({code: 'DEVICE_KEY_MISSING'});
+    const wallet = await ensureSmartWallet(apiClient());
+
+    expect(globalThis.__signerMock.createIdentity).toHaveBeenCalled();
+    expect(wallet.contractId).toBe(contractId);
+  });
+
+  it('says what to do when the phone cannot hold a payment key at all', async () => {
+    // Android refuses a key that requires the owner unless a screen lock is
+    // set, and that is something a person can go and fix.
+    globalThis.__signerMock.getIdentity = jest.fn(async () => null);
+    globalThis.__signerMock.createIdentity = jest.fn(async () => {
+      throw new Error('no screen lock');
+    });
+
+    await expect(ensureSmartWallet(apiClient())).rejects.toMatchObject({
+      code: 'DEVICE_KEY_MISSING',
+      message: expect.stringContaining('screen lock'),
+    });
   });
 
   it('reports a provisioning failure instead of settling without a wallet', async () => {

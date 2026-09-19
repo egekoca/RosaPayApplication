@@ -73,6 +73,8 @@ describe('the wallet screen', () => {
 
   it('lets a signed-in person lock the app from where their account is shown', async () => {
     useAppStore.getState().createAccount({name: 'Ege Koca', email: 'ege@example.com'});
+    // Locking is opt-in: an owner who never asked to be challenged is not.
+    useAppStore.getState().setRequireUnlock(true);
     const renderer = await render();
 
     expect(JSON.stringify(renderer.toJSON())).toContain('Ege Koca');

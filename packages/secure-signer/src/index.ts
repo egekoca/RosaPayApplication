@@ -23,6 +23,12 @@ export type SecureSignerErrorCode =
   | 'USER_CANCELLED'
   | 'BIOMETRIC_FAILED'
   | 'LOCKED_OUT'
+  /**
+   * The key still exists but can never sign again, because the screen lock it
+   * was bound to was changed or removed. Distinct from LOCKED_OUT, which clears
+   * on its own: nothing the owner does will bring this key back.
+   */
+  | 'KEY_INVALIDATED'
   | 'PROCESS_INTERRUPTED'
   | 'INVALID_REQUEST';
 
