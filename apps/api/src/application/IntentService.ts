@@ -21,6 +21,7 @@ export interface IntentRepository {
   findByIntentId(intentId: string): Promise<StoredIntent | null>;
   findByIdempotencyKey(key: string): Promise<StoredIntent | null>;
   save(intent: StoredIntent): Promise<void>;
+  saveIntentWithSettlement?(intent: StoredIntent, settlement: SettlementRecord): Promise<void>;
   findSettlement(intentId: string): Promise<SettlementRecord | null>;
   listSettlements(status?: PaymentStatus): Promise<SettlementRecord[]>;
   saveSettlement(settlement: SettlementRecord): Promise<void>;
@@ -55,8 +56,13 @@ export class IntentService {
       idempotencyKey,
       status: 'created',
     };
-    await this.repository.save(stored);
-    await this.repository.saveSettlement({intentId: payload.intent.intentId, status: 'awaiting_approval'});
+    const initialSettlement: SettlementRecord = {intentId: payload.intent.intentId, status: 'awaiting_approval'};
+    if (this.repository.saveIntentWithSettlement) {
+      await this.repository.saveIntentWithSettlement(stored, initialSettlement);
+    } else {
+      await this.repository.save(stored);
+      await this.repository.saveSettlement(initialSettlement);
+    }
     return stored;
   }
 

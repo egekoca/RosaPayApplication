@@ -17,6 +17,11 @@ export class InMemoryIntentRepository implements IntentRepository {
     this.byIdempotencyKey.set(intent.idempotencyKey, intent);
   }
 
+  async saveIntentWithSettlement(intent: StoredIntent, settlement: SettlementRecord) {
+    await this.save(intent);
+    await this.saveSettlement(settlement);
+  }
+
   async findSettlement(intentId: string) {
     return this.settlements.get(intentId) ?? null;
   }

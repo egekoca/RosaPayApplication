@@ -23,6 +23,18 @@ export function createSettlementClient(
   });
 }
 
+/** Exposes the generated contract spec for typed event filters and decoding. */
+export function createSettlementContractSpec(config: StellarConfig) {
+  if (!config.settlementContractId) {
+    throw new Error('A deployed settlement contract ID is required');
+  }
+  return new GeneratedSettlementClient({
+    contractId: config.settlementContractId,
+    networkPassphrase: config.networkPassphrase,
+    rpcUrl: config.rpcUrl,
+  }).spec;
+}
+
 export {
   Client as SettlementContractClient,
   Errors as SettlementContractErrors,

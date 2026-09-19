@@ -1,12 +1,12 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   status TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE wallets (
+CREATE TABLE IF NOT EXISTS wallets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id),
   contract_address TEXT NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE wallets (
   status TEXT NOT NULL
 );
 
-CREATE TABLE merchant_profiles (
+CREATE TABLE IF NOT EXISTS merchant_profiles (
   id TEXT PRIMARY KEY,
   user_id UUID REFERENCES users(id),
   display_name TEXT NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE merchant_profiles (
   status TEXT NOT NULL
 );
 
-CREATE TABLE payment_intents (
+CREATE TABLE IF NOT EXISTS payment_intents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   intent_id TEXT NOT NULL UNIQUE,
   -- Merchant onboarding is a separate release slice; enforce the identifier
@@ -39,7 +39,7 @@ CREATE TABLE payment_intents (
   CHECK (payload_hash ~ '^[0-9a-fA-F]{64}$')
 );
 
-CREATE TABLE settlements (
+CREATE TABLE IF NOT EXISTS settlements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   intent_id TEXT NOT NULL UNIQUE REFERENCES payment_intents(intent_id),
   tx_hash TEXT UNIQUE CHECK (tx_hash IS NULL OR tx_hash ~ '^[0-9a-fA-F]{64}$'),
@@ -51,10 +51,10 @@ CREATE TABLE settlements (
   CHECK (status <> 'failed' OR failure_code IS NOT NULL)
 );
 
-CREATE INDEX settlements_status_idx ON settlements(status, intent_id);
-CREATE INDEX payment_intents_created_idx ON payment_intents(intent_id);
+CREATE INDEX IF NOT EXISTS settlements_status_idx ON settlements(status, intent_id);
+CREATE INDEX IF NOT EXISTS payment_intents_created_idx ON payment_intents(intent_id);
 
-CREATE TABLE worker_event_cursors (
+CREATE TABLE IF NOT EXISTS worker_event_cursors (
   name TEXT PRIMARY KEY,
   cursor TEXT NOT NULL,
   start_ledger BIGINT NOT NULL CHECK (start_ledger > 0),

@@ -3,6 +3,8 @@ import {StellarTransactionError} from '@rosapay/stellar';
 import {
   confirmSubmittedSettlements,
   createConfirmationLoop,
+  reconcileSettlementEvents,
+  reconcileSettlementEventPage,
   type SettlementConfirmationState,
 } from '../src/confirmationWorker';
 
@@ -131,5 +133,99 @@ describe('submitted settlement confirmation worker', () => {
     expect(calls).toBe(2);
     expect(errors).toHaveLength(1);
     loop.stop();
+  });
+
+  it('reconciles matching contract events only after a matching RPC receipt', async () => {
+    const state = stateFor([{intentId: 'intent-event', transactionHash: hash}]);
+    const summary = await reconcileSettlementEvents({
+      state,
+      events: [
+        {intentId: 'intent-event', transactionHash: hash, ledger: 77},
+        {intentId: 'intent-event', transactionHash: hash, ledger: 77},
+        {intentId: 'unknown', transactionHash: hash, ledger: 77},
+      ],
+      rpc: {confirmTransaction: async () => ({txHash: hash, ledger: 77})},
+    });
+
+    expect(summary).toEqual({scanned: 3, confirmed: 1, failed: 0, pending: 0, ignored: 2});
+    expect(state.confirmed).toEqual([['intent-event', hash, 77]]);
+  });
+
+  it('fails events whose receipt or submitted hash does not match', async () => {
+    const state = stateFor([
+      {intentId: 'intent-hash', transactionHash: hash},
+      {intentId: 'intent-receipt', transactionHash: hash},
+    ]);
+    let call = 0;
+    const summary = await reconcileSettlementEvents({
+      state,
+      events: [
+        {intentId: 'intent-hash', transactionHash: 'b'.repeat(64), ledger: 77},
+        {intentId: 'intent-receipt', transactionHash: hash, ledger: 77},
+      ],
+      rpc: {
+        confirmTransaction: async () => {
+          call += 1;
+          return {txHash: hash, ledger: call === 1 ? 76 : 77};
+        },
+      },
+    });
+
+    expect(summary).toEqual({scanned: 2, confirmed: 0, failed: 2, pending: 0, ignored: 0});
+    expect(state.failed).toEqual([
+      ['intent-hash', 'STELLAR_EVENT_TX_MISMATCH'],
+      ['intent-receipt', 'STELLAR_EVENT_RECEIPT_MISMATCH'],
+    ]);
+  });
+
+  it('loads and advances the event cursor after a page is reconciled', async () => {
+    const state = stateFor([{intentId: 'intent-cursor', transactionHash: hash}]);
+    const requested: Array<unknown> = [];
+    const saved: Array<unknown> = [];
+    const result = await reconcileSettlementEventPage({
+      state,
+      rpc: {confirmTransaction: async () => ({txHash: hash, ledger: 121})},
+      source: {
+        async getSettlementEvents(input) {
+          requested.push(input);
+          return {
+            events: [{intentId: 'intent-cursor', transactionHash: hash, ledger: 121, eventId: 'event-1', merchantId: 'merchant', customer: 'customer', recipient: 'recipient', token: 'token', amount: '1'}],
+            cursor: 'cursor-2',
+            latestLedger: 121,
+            oldestLedger: 100,
+          };
+        },
+      },
+      cursorStore: {
+        async load() { return {cursor: 'cursor-1', startLedger: 100}; },
+        async save(next) { saved.push(next); },
+      },
+      startLedger: 90,
+      limit: 50,
+    });
+
+    expect(result).toMatchObject({confirmed: 1, cursor: 'cursor-2', latestLedger: 121});
+    expect(requested).toEqual([{cursor: 'cursor-1', limit: 50}]);
+    expect(saved).toEqual([{cursor: 'cursor-2', startLedger: 121}]);
+  });
+
+  it('does not advance the event cursor when fetching a page fails', async () => {
+    const state = stateFor([]);
+    const saved: Array<unknown> = [];
+    await expect(reconcileSettlementEventPage({
+      state,
+      rpc: {confirmTransaction: async () => ({txHash: hash, ledger: 122})},
+      source: {
+        async getSettlementEvents() {
+          throw new Error('temporary RPC outage');
+        },
+      },
+      cursorStore: {
+        async load() { return null; },
+        async save(next) { saved.push(next); },
+      },
+      startLedger: 100,
+    })).rejects.toThrow('temporary RPC outage');
+    expect(saved).toEqual([]);
   });
 });

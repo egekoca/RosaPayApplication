@@ -3,6 +3,7 @@ import {ZodError, z} from 'zod';
 import {createStellarConfig, StellarRpcClient} from '@rosapay/stellar';
 import {
   IntentConflictError,
+  type IntentRepository,
   IntentService,
   SettlementInputError,
   SettlementTransitionError,
@@ -11,9 +12,13 @@ import {InMemoryIntentRepository} from './infrastructure/InMemoryIntentRepositor
 
 const paramsSchema = z.object({intentId: z.string().min(1)});
 
-export function buildApp() {
+export type BuildAppOptions = {
+  repository?: IntentRepository;
+};
+
+export function buildApp({repository = new InMemoryIntentRepository()}: BuildAppOptions = {}) {
   const app = Fastify({logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']}});
-  const intents = new IntentService(new InMemoryIntentRepository());
+  const intents = new IntentService(repository);
   const stellar = new StellarRpcClient(createStellarConfig(process.env.STELLAR_NETWORK ?? 'testnet', {
     rpcUrl: process.env.STELLAR_RPC_URL,
     settlementContractId: process.env.STELLAR_SETTLEMENT_CONTRACT_ID,

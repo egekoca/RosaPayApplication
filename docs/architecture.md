@@ -31,7 +31,7 @@ The repository uses npm workspaces. Dependencies point inward: screens depend on
 - `packages/ui`: platform-neutral design tokens and small presentational components.
 - `apps/mobile`: navigation, screen orchestration, runtime-validated API/query boundaries, capability switching and the mocked QR vertical slice.
 - `apps/api`: Fastify transport, request validation, idempotency and repository ports.
-- `apps/worker`: background RPC health and submitted-settlement confirmation boundary. The confirmation runner is transport-agnostic and can be connected to the API service or a durable repository; scheduling, indexing and notifications remain later phases.
+- `apps/worker`: background RPC health, submitted-settlement confirmation and contract-event reconciliation boundary. Event data is treated as an audit/recovery signal and must match the submitted transaction plus an RPC `SUCCESS` receipt before state changes; cursor persistence is exposed as a port and durable storage/indexing plus notifications remain later phases.
 - `contracts/settlement`: Soroban settlement policy and on-chain replay protection.
 
 The API settlement record follows the domain state machine: `awaiting_approval`
@@ -41,6 +41,18 @@ mutation and persistence will move behind authenticated relayer/worker ports.
 `StellarRpcClient.confirmTransaction` is the shared RPC guard for that receipt:
 it rejects malformed hashes, `NOT_FOUND`, `FAILED`, and incomplete success
 responses rather than allowing submission acceptance to masquerade as payment.
+
+The API repository port supports an atomic intent-plus-initial-settlement write.
+The PostgreSQL adapter uses `withTransaction` when the injected driver exposes it;
+the in-memory and test adapters retain a deterministic fallback. The server still
+defaults to memory until a deployment supplies a transaction-capable `pg` pool,
+so local emulators cannot accidentally depend on a missing database.
+
+Event pagination follows Stellar RPC's two modes: the first page uses a ledger
+range, and later pages use only the returned cursor. The worker persists the
+cursor after a page is reconciled, so a failed fetch does not advance the scan.
+`PostgresEventCursorStore` provides the durable adapter; the worker runtime still
+needs deployment-specific pool wiring before it is enabled in production.
 
 ## Signing and passkeys
 
