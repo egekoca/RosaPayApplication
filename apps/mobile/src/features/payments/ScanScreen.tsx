@@ -9,6 +9,11 @@ import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {RosaMark} from '../../shared/RosaMark';
 import {useStellarHealth} from '../../shared/useStellarHealth';
+import {useWalletBalance} from '../../shared/useWalletBalance';
+import {useBalanceValue} from '../../shared/useBalanceValue';
+import {displayAmount} from '../../shared/displayAmount';
+import {currencySymbol} from '../../shared/priceSource';
+import {useCurrentAccount} from '../wallet/currentAccount';
 import {useAppStore, type PaymentTransport} from '../../state/appStore';
 import {requestCameraPermission} from './cameraPermission';
 import {readPaymentQr} from './readPaymentQr';
@@ -96,6 +101,7 @@ export function ScanScreen({navigation}: Props) {
 
   return (
     <Screen contentStyle={styles.screen}>
+      <ScanBalance />
       <View style={styles.camera}>
         {camera === 'granted' ? (
           <Camera
@@ -171,8 +177,69 @@ function cameraMessage(state: CameraState, hasOwnRequest: boolean): string {
   }
 }
 
+/**
+ * What the customer has, above the camera they are about to pay with.
+ *
+ * Someone pointing a phone at a merchant's code is about to commit to an
+ * amount, and the one thing they need before that is whether they can cover it.
+ * The holdings are the settled truth; the lira figure beside them is a SEP-38
+ * indicative price, so it is shown as an approximation and disappears entirely
+ * when nothing will quote — a made-up conversion on a payment screen is worse
+ * than none.
+ */
+function ScanBalance() {
+  const t = useTranslate();
+  const account = useCurrentAccount();
+  const balance = useWalletBalance();
+  const value = useBalanceValue(balance.data);
+
+  // Nothing to show before there is a wallet, and no skeleton either: the row
+  // would appear, resize and settle while someone is trying to aim.
+  if (!account) return null;
+
+  const holdings = balance.data ?? [];
+
+  return (
+    <View style={styles.balance}>
+      <Text style={styles.balanceLabel}>{t('YOUR BALANCE')}</Text>
+      {balance.isPending ? (
+        <Text style={styles.balanceMuted}>{t('Reading your balance…')}</Text>
+      ) : balance.isError ? (
+        <Text style={styles.balanceMuted}>{t('Balance unavailable right now')}</Text>
+      ) : (
+        <View style={styles.balanceRow}>
+          <Text numberOfLines={1} style={styles.balanceAmount}>
+            {holdings.map(holding => `${displayAmount(holding.amount)} ${holding.code}`).join('  ·  ')}
+          </Text>
+          {value.data ? (
+            <Text style={styles.balanceValue}>
+              {`≈ ${currencySymbol(value.data.currency)}${value.data.amount}`}
+            </Text>
+          ) : null}
+        </View>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {justifyContent: 'center'},
+  balance: {
+    alignSelf: 'center',
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    gap: spacing.xs,
+    maxWidth: 420,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    width: '100%',
+  },
+  balanceLabel: {...typography.overline, color: colors.inkMuted, fontSize: 9, letterSpacing: 1.4},
+  balanceRow: {alignItems: 'baseline', flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between'},
+  balanceAmount: {...typography.title, color: colors.ink, flexShrink: 1, fontSize: 17},
+  balanceValue: {...typography.label, color: colors.goldDeep, fontSize: 13},
+  balanceMuted: {color: colors.inkMuted, fontSize: 13},
   camera: {alignItems: 'center', alignSelf: 'center', aspectRatio: 0.82, backgroundColor: colors.black, borderRadius: radius.md, justifyContent: 'center', gap: spacing.xl, maxWidth: 420, overflow: 'hidden', width: '100%'},
   scanFrame: {alignItems: 'center', borderColor: colors.lemon, borderRadius: radius.md, borderWidth: 2, height: 210, justifyContent: 'center', shadowColor: colors.lemon, shadowOpacity: 0.14, shadowRadius: 22, width: 210},
   cameraText: {...typography.label, color: colors.ink, maxWidth: 260, textAlign: 'center'},

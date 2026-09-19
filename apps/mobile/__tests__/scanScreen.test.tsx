@@ -4,6 +4,7 @@
 
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {encodePaymentQr} from '@rosapay/protocol';
 import {ScanScreen} from '../src/features/payments/ScanScreen';
 import {useAppStore} from '../src/state/appStore';
@@ -32,6 +33,21 @@ jest.mock('../src/shared/useStellarHealth', () => ({
   useStellarHealth: () => ({data: {latestLedger: 1_500_000}}),
 }));
 
+// The balance reads the ledger through two hooks; the screen's job is what it
+// does with their answers, so they are the seam rather than the network.
+jest.mock('../src/shared/useWalletBalance', () => ({
+  useWalletBalance: jest.fn().mockReturnValue({data: undefined, isPending: true, isError: false}),
+}));
+
+jest.mock('../src/shared/useBalanceValue', () => ({
+  useBalanceValue: jest.fn().mockReturnValue({data: null}),
+}));
+
+jest.mock('../src/features/wallet/currentAccount', () => ({
+  useCurrentAccount: jest.fn().mockReturnValue(null),
+  needsTrustlines: jest.fn().mockReturnValue(false),
+}));
+
 // The native module is what differs between the platforms, so it is the seam:
 // each test states what a real device would report and the screen follows.
 jest.mock('../src/native/nativeNfc', () => ({
@@ -54,9 +70,19 @@ function navigation(): Navigation {
 
 async function renderScanner(nav: Navigation) {
   const Screen = ScanScreen as unknown as React.ComponentType<{navigation: Navigation}>;
+  // The balance strip above the camera reads through react-query, so the screen
+  // needs a client the way the app gives it one. Retries are off so a failing
+  // balance read settles inside the test rather than backing off.
+  const queryClient = new QueryClient({
+    defaultOptions: {queries: {gcTime: 0, retry: false, staleTime: 0}},
+  });
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   await ReactTestRenderer.act(async () => {
-    renderer = ReactTestRenderer.create(<Screen navigation={nav} />);
+    renderer = ReactTestRenderer.create(
+      <QueryClientProvider client={queryClient}>
+        <Screen navigation={nav} />
+      </QueryClientProvider>,
+    );
     await Promise.resolve();
     await Promise.resolve();
   });
@@ -206,6 +232,75 @@ describe('the tap path across the two platforms', () => {
 
     expect(nfcStatus.startNfcReader).not.toHaveBeenCalled();
     expect(renderer.root.findAllByProps({testID: 'scan-start-tap'})).toHaveLength(0);
+  });
+});
+
+/**
+ * Someone aiming at a merchant's code is about to commit to an amount, so what
+ * they can cover has to be on that screen rather than a tab away.
+ */
+describe('the balance above the camera', () => {
+  const wallet = jest.requireMock('../src/shared/useWalletBalance') as {useWalletBalance: jest.Mock};
+  const valuation = jest.requireMock('../src/shared/useBalanceValue') as {useBalanceValue: jest.Mock};
+  const current = jest.requireMock('../src/features/wallet/currentAccount') as {
+    useCurrentAccount: jest.Mock;
+    needsTrustlines: jest.Mock;
+  };
+
+  beforeEach(() => {
+    current.useCurrentAccount.mockReturnValue({address: 'GABC', custody: 'device'});
+    wallet.useWalletBalance.mockReturnValue({
+      data: [{code: 'XLM', amount: '37.3134329'}],
+      isPending: false,
+      isError: false,
+    });
+    valuation.useBalanceValue.mockReturnValue({data: null});
+  });
+
+  it('shows each holding and what the wallet is worth in lira', async () => {
+    valuation.useBalanceValue.mockReturnValue({
+      data: {amount: '500.00', currency: 'TRY', holdings: []},
+    });
+
+    const tree = JSON.stringify((await renderScanner(navigation())).toJSON());
+
+    expect(tree).toContain('YOUR BALANCE');
+    // Read, not signed: the balance is rounded for legibility here, unlike the
+    // amount on the confirmation screen.
+    expect(tree).toContain('37.31 XLM');
+    expect(tree).toContain('₺500.00');
+    // Marked as an estimate, because a SEP-38 indicative price is one.
+    expect(tree).toContain('≈');
+  });
+
+  it('shows the holdings alone when nothing will quote a rate', async () => {
+    valuation.useBalanceValue.mockReturnValue({data: null});
+
+    const tree = JSON.stringify((await renderScanner(navigation())).toJSON());
+
+    expect(tree).toContain('37.31 XLM');
+    // A conversion this app invented would be worse than no conversion.
+    expect(tree).not.toContain('₺');
+    expect(tree).not.toContain('≈');
+  });
+
+  it('says the balance is unavailable rather than showing it as zero', async () => {
+    wallet.useWalletBalance.mockReturnValue({data: undefined, isPending: false, isError: true});
+
+    const tree = JSON.stringify((await renderScanner(navigation())).toJSON());
+
+    expect(tree).toContain('Balance unavailable right now');
+    // Telling someone holding lumens that they hold none is the failure worth
+    // avoiding here.
+    expect(tree).not.toContain('0 XLM');
+  });
+
+  it('shows no balance strip at all before there is a wallet', async () => {
+    current.useCurrentAccount.mockReturnValue(null);
+
+    const tree = JSON.stringify((await renderScanner(navigation())).toJSON());
+
+    expect(tree).not.toContain('YOUR BALANCE');
   });
 });
 

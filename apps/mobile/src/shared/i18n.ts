@@ -184,6 +184,9 @@ const TR: Record<string, string> = {
   "You can also hold this phone against the merchant's":
     'Telefonu satıcınınkine de yaklaştırabilirsiniz',
   'Pay by tapping instead': 'Bunun yerine yaklaştırarak öde',
+  'YOUR BALANCE': 'BAKİYENİZ',
+  'Reading your balance…': 'Bakiyeniz okunuyor…',
+  'Balance unavailable right now': 'Bakiye şu an alınamıyor',
   'YOU ARE PAYING': 'ÖDEYECEĞİNİZ',
   'SECURE CHECKOUT': 'GÜVENLİ ÖDEME',
   Recipient: 'Alıcı',

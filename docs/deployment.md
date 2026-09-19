@@ -149,6 +149,33 @@ TestFlight group.
 The API health response must report `storage: "postgres"`. If it reports
 `"memory"`, stop: that instance would lose payment state on restart.
 
+### Before a demo, wake the instance
+
+```sh
+npm run api:warm
+```
+
+A free instance is stopped after fifteen minutes without a request, and
+starting it again takes thirty to forty-five seconds. Every request arriving
+during that start-up waits for it, so this is not something the app can hide
+on its own: `useApiWarmup` fires a health check at launch, but a customer who
+opens the app and pays ten seconds later lands mid-start and waits out the
+rest. The only way nobody sees it is for the instance to be up before the
+first person touches the app.
+
+Once it is up it stays up: the app pings every ten minutes while it is open,
+inside the fifteen-minute window. A five-minute demo therefore needs one warm
+call beforehand and nothing after.
+
+What this cannot remove is the ledger. Testnet closes a ledger every five
+seconds, so a payment reads as `submitted` at once and reaches `confirmed` on
+the next close — that wait is Stellar's, not the host's, and paying for an
+always-on instance would not shorten it. If cold starts have to be impossible
+rather than merely avoidable — an unattended TestFlight group rather than a
+demo you are standing in front of — that is the point to leave the free plan.
+Keeping a free instance awake around the clock is not the alternative: the
+750 monthly instance-hours run out before the month does.
+
 ## Configuring a machine
 
 The API, the worker and the Testnet proof scripts all read the same `.env` at

@@ -7,6 +7,7 @@ import {colors} from '@rosapay/ui';
 
 import {AppErrorBoundary} from './src/app/AppErrorBoundary';
 import {RootNavigator} from './src/app/navigation';
+import {useApiWarmup} from './src/app/useApiWarmup';
 import {useAutoLock} from './src/app/useAutoLock';
 import {UnlockScreen} from './src/features/onboarding/UnlockScreen';
 import {RosaLoader} from './src/shared/RosaMark';
@@ -25,6 +26,8 @@ function App() {
   const hydrated = useAppStore(state => state.hydrated);
   const locked = useAppStore(state => state.locked);
   useAutoLock();
+  // Starts the hosted API waking now rather than when someone presses Approve.
+  useApiWarmup();
 
   return (
     <AppErrorBoundary>

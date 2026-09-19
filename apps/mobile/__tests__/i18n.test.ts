@@ -33,6 +33,11 @@ const USED = [
   // The iPhone tap path: iOS cannot listen in the background, so the customer
   // opens the reader from this button.
   'Pay by tapping instead',
+  // The balance strip above the camera, and the two states it can be in
+  // instead of a figure.
+  'YOUR BALANCE',
+  'Reading your balance…',
+  'Balance unavailable right now',
   'Anchor transfer',
   'App language',
   'Asset',
