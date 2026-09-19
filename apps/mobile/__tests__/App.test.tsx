@@ -33,6 +33,9 @@ test('offers one way into the app, in words a customer would use', async () => {
   const tree = JSON.stringify(renderer!.toJSON());
 
   expect(tree).toContain('Pay by scanning.');
+  expect(tree).toContain('Settle on Stellar.');
+  expect(tree).toContain('LUMEN');
+  expect(tree).toContain('LEMONADE');
   expect(tree).toContain('Get started');
 
   // The screen used to offer "Create your wallet" and "Sign in with passkey"

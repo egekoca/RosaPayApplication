@@ -2,11 +2,12 @@ import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
 import type {CompositeScreenProps} from '@react-navigation/native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ArrowUpRight, ChevronRight, Copy, QrCode, ScanLine, ShieldCheck, SlidersHorizontal, Store, TrendingUp} from 'lucide-react-native';
-import {Image, Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
+import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import type {ReactNode} from 'react';
 import {AnimatedContent, Button, colors, CountUp, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {MainTabsParams, RootStackParams} from '../../app/navigation';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
+import {LumenadeMark} from '../../shared/LumenadeMark';
 import {useMerchantPayments} from '../merchant/merchantRequestStatus';
 import {Screen} from '../../shared/Screen';
 import {useStellarHealth} from '../../shared/useStellarHealth';
@@ -29,7 +30,7 @@ export function HomeScreen({navigation}: Props) {
     <Screen>
       <View style={styles.header}>
         <View style={styles.identity}>
-          <Image accessibilityLabel="Lumenade Pay" source={require('../../assets/lumenadepay-logo.png')} style={styles.logo} />
+          <LumenadeMark motion="float" size={38} />
           <View><Text style={styles.eyebrow}>LUMENADE PAY</Text><Text style={styles.greeting} numberOfLines={1}>{greetingFor(account?.name)}</Text></View>
         </View>
         <Pressable accessibilityLabel="Developer settings" onPress={() => navigation.navigate('DeveloperSettings')} style={styles.iconButton} testID="open-developer-settings"><SlidersHorizontal color={colors.inkMuted} size={19} /></Pressable>
@@ -84,8 +85,8 @@ function CustomerHome({navigation, merchantEnabled, isNarrow}: {navigation: Prop
         <View style={styles.activityRow}><View style={styles.activityIcon}><TrendingUp color={colors.success} size={18} /></View><View style={styles.activityCopy}><Text style={styles.activityTitle}>No payments yet</Text><Text style={styles.activityHint}>Your confirmed payments will appear here.</Text></View><ChevronRight color={colors.inkMuted} size={17} /></View>
       </SurfaceCard>
       {!merchantEnabled && (
-        <SurfaceCard accent="rose" style={styles.capabilityCard}>
-          <View style={styles.capabilityIcon}><Store color={colors.rose} size={20} /></View>
+        <SurfaceCard accent="amber" style={styles.capabilityCard}>
+          <View style={styles.capabilityIcon}><Store color={colors.lemon} size={20} /></View>
           <View style={styles.capabilityCopy}><Text style={styles.capabilityTitle}>Accept payments</Text><Text style={styles.capabilityBody}>Add merchant tools to this account.</Text></View>
           <Button tone="ghost" onPress={() => navigation.navigate('MerchantOnboarding')}>Activate</Button>
         </SurfaceCard>
@@ -151,7 +152,6 @@ function SectionTitle({title, action, onAction}: {title: string; action?: string
 const styles = StyleSheet.create({
   header: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
   identity: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
-  logo: {borderRadius: radius.sm, height: 38, width: 38},
   iconButton: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, height: 38, justifyContent: 'center', width: 38},
   eyebrow: {...typography.label, color: colors.amber, fontSize: 10, letterSpacing: 1.2},
   greeting: {...typography.title, color: colors.ink, fontSize: 20},

@@ -35,6 +35,7 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 
 ## P1 - Application and API Foundation
 
+- [x] Replace the legacy blue-gray/rose palette with the black, lemon-yellow and white Lumenade system; add an animated lemon/XLM mark for hydration, unlock, camera startup and final-status settlement waiting.
 - [x] Add the React Native shell, navigation, design system, English copy and error boundary; motion primitives are React Native ports of React Bits components, screen transitions run on the native stack, and the home balance is the wallet's real on-chain balance rather than a fixture.
 - [x] Add Zustand capability/mode state, TanStack Query and structured redacted logging boundaries, with the session persisted in encrypted device storage.
 - [x] Add a runtime-validated mobile API client with stable error handling.
@@ -62,6 +63,7 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 
 ## P2 - Reliability and Evidence
 
+- [x] Publish a responsive product website at `https://lumenade-pay.vercel.app` with mobile-source links and independently inspectable Testnet contract, transaction and manifest evidence.
 - [~] Implement the worker confirmation port and safe interval lifecycle: the runtime reconciles submitted settlements through the RPC receipt guard and closes out requests whose expiry ledger has passed, on a non-overlapping interval with graceful shutdown; durable indexing, retry and notification hooks remain.
 - [x] Add offline-safe retry using API idempotency keys; a dropped connection, a timeout, a 5xx or a 429 is tried again with backoff, every retried call is idempotent on the server, and the two that spend funds — wallet provisioning and on-chain merchant registration — are deliberately left alone.
 - [~] Read `PaymentSettled` events through the generated contract spec and reconcile them against submitted API state only after a matching RPC receipt; cursor persistence and runtime wiring are in place behind `WORKER_EVENT_START_LEDGER`, while durable event indexing remains.
@@ -193,4 +195,4 @@ What still stands between here and a store build:
 1. Verify the NFC transport across two physical Android devices.
 2. Issue authenticated passkey sessions, then extend capability checks to every mutating endpoint.
 3. Produce signed release builds for both stores and deploy the API.
-4. Add payment metrics and the demo evidence set.
+4. Record 100+ successful Testnet settlements and publish anonymized demo metrics.

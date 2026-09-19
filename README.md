@@ -2,6 +2,8 @@
 
 Lumenade Pay is a non-custodial Stellar payment app for iOS and Android, built with React Native and TypeScript.
 
+Website: [lumenade-pay.vercel.app](https://lumenade-pay.vercel.app)
+
 The product source of truth is [docs/PRD.md](docs/PRD.md), with implementation status tracked in [docs/TODO.md](docs/TODO.md). The implemented boundaries are documented in [architecture.md](docs/architecture.md), [rtp-1.md](docs/rtp-1.md), and [security-model.md](docs/security-model.md).
 
 ## Current Status
@@ -9,7 +11,7 @@ The product source of truth is [docs/PRD.md](docs/PRD.md), with implementation s
 The foundation and first vertical slice are implemented:
 
 - Bare React Native 0.85 app for iOS and Android, with one account and Customer/Merchant capability switching.
-- English dark near-black, amber and restrained rose design system with a complete mocked QR request, scan, confirm and receipt flow.
+- Black, lemon-yellow and white brand system with an animated lemon/XLM mark across onboarding, camera startup and settlement loading states.
 - RTP/1 schema, QR codec, canonical hashing, merchant signature verification and policy tests.
 - Stellar RPC adapter with live Testnet health checking.
 - Typed RTP/1-to-settlement envelope conversion and a Stellar CLI-generated contract client binding.
@@ -38,6 +40,7 @@ apps/
   mobile/          React Native application
   api/             Fastify API and database boundary
   worker/          Stellar background worker boundary
+  web/             Public product and Testnet evidence website
 packages/
   domain/          Payment state machine
   protocol/        RTP/1 types, validation, canonicalization and QR codec
@@ -203,9 +206,14 @@ npm run testnet:smoke
 
 ## Deploying
 
-The API and the worker are long-lived processes and the database is plain
+The static product website is deployed at
+[lumenade-pay.vercel.app](https://lumenade-pay.vercel.app) from `apps/web`. The
+mobile source and reproducible Testnet evidence are linked from that page; it
+does not imply an App Store or Play Store release.
+
+The API and worker are long-lived processes and the database is plain
 PostgreSQL; see [docs/deployment.md](docs/deployment.md) for what each one needs,
-why the backend is not a serverless deployment, and the checklist to go live.
+why that backend is not a serverless deployment, and the checklist to go live.
 
 ## Stellar Agent Tooling
 
@@ -237,4 +245,7 @@ ROSAPAY_STELLAR_CONFIG_DIR=<optional-cli-config-dir> \
 ./scripts/deploy-testnet.sh
 ```
 
-The next integration milestone is the native signer/passkey decision and replacement of the mocked mobile settlement adapter with generated-client simulation, authorization, submission and polling. Android NFC remains the final fast path and QR remains mandatory on both platforms.
+The current integration uses a device-controlled smart wallet, generated-client
+simulation, authorization, relayer submission and final-status polling. The next
+public milestone is physical-device validation and a remotely hosted API/worker;
+QR remains mandatory on both platforms and Android NFC is an optional fast path.

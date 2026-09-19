@@ -6,7 +6,7 @@ type SurfaceCardProps = {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   padded?: boolean;
-  accent?: 'none' | 'amber' | 'rose' | 'success';
+  accent?: 'none' | 'amber' | 'success';
 };
 
 export function SurfaceCard({children, style, padded = true, accent = 'none'}: SurfaceCardProps) {
@@ -24,6 +24,5 @@ const styles = StyleSheet.create({
   },
   padded: {padding: spacing.xl},
   amber: {borderTopColor: colors.amber, borderTopWidth: 2},
-  rose: {borderTopColor: colors.rose, borderTopWidth: 2},
   success: {borderTopColor: colors.success, borderTopWidth: 2},
 });

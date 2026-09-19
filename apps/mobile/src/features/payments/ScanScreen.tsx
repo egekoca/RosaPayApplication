@@ -7,6 +7,7 @@ import {Button, colors, radius, spacing, typography} from '@rosapay/ui';
 import {encodePaymentQr} from '@rosapay/protocol';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
+import {LumenadeMark} from '../../shared/LumenadeMark';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useAppStore} from '../../state/appStore';
 import {mockSignedIntent} from './mockIntent';
@@ -101,9 +102,8 @@ export function ScanScreen({navigation}: Props) {
           />
         ) : null}
         <View style={styles.scanFrame} pointerEvents="none">
-          {camera === 'granted' ? null : (
-            <CameraOff color={camera === 'checking' ? colors.inkMuted : colors.amber} size={52} />
-          )}
+          {camera === 'checking' ? <LumenadeMark motion="spin" showOrbit size={64} /> : null}
+          {camera !== 'checking' && camera !== 'granted' ? <CameraOff color={colors.amber} size={52} /> : null}
           {camera === 'granted' ? <ScanLine color={colors.amber} size={52} /> : null}
         </View>
         <Text style={styles.cameraText} pointerEvents="none">
@@ -153,7 +153,7 @@ function cameraMessage(state: CameraState): string {
 const styles = StyleSheet.create({
   screen: {justifyContent: 'center'},
   camera: {alignItems: 'center', alignSelf: 'center', aspectRatio: 0.82, backgroundColor: colors.black, borderRadius: radius.md, justifyContent: 'center', gap: spacing.xl, maxWidth: 420, overflow: 'hidden', width: '100%'},
-  scanFrame: {alignItems: 'center', borderColor: colors.amber, borderRadius: radius.md, borderWidth: 3, height: 210, justifyContent: 'center', width: 210},
+  scanFrame: {alignItems: 'center', borderColor: colors.lemon, borderRadius: radius.md, borderWidth: 2, height: 210, justifyContent: 'center', shadowColor: colors.lemon, shadowOpacity: 0.22, shadowRadius: 18, width: 210},
   cameraText: {...typography.label, color: colors.ink, maxWidth: 260, textAlign: 'center'},
   fallback: {fontSize: 13, lineHeight: 18, color: colors.inkMuted, textAlign: 'center'},
   error: {...typography.label, color: colors.danger, textAlign: 'center'},

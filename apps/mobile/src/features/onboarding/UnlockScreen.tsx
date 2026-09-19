@@ -1,8 +1,9 @@
 import {Fingerprint, ScanFace} from 'lucide-react-native';
 import {useCallback, useEffect, useState} from 'react';
-import {Image, Platform, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Platform, Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, radius, spacing, typography} from '@rosapay/ui';
 import {Screen} from '../../shared/Screen';
+import {LumenadeMark, LumenadeWordmark} from '../../shared/LumenadeMark';
 import {useAppStore} from '../../state/appStore';
 import {unlockWithDevice} from './deviceUnlock';
 
@@ -51,8 +52,8 @@ export function UnlockScreen() {
     <Screen contentStyle={styles.screen}>
       <AnimatedContent>
         <View style={styles.brand}>
-          <Image accessibilityLabel="Lumenade Pay" source={require('../../assets/lumenadepay-logo.png')} style={styles.brandMark} />
-          <Text style={styles.brandName}>Lumenade Pay</Text>
+          <LumenadeMark motion={busy ? 'spin' : 'float'} showOrbit size={58} />
+          <LumenadeWordmark compact />
         </View>
       </AnimatedContent>
 
@@ -95,9 +96,7 @@ export function UnlockScreen() {
 
 const styles = StyleSheet.create({
   screen: {justifyContent: 'center', gap: spacing.xxl},
-  brand: {alignItems: 'center', alignSelf: 'center', flexDirection: 'row', gap: spacing.md},
-  brandMark: {borderRadius: radius.sm, height: 36, width: 36},
-  brandName: {...typography.title, color: colors.ink, fontSize: 18},
+  brand: {alignItems: 'center', alignSelf: 'center', gap: spacing.sm},
   hero: {alignItems: 'center', gap: spacing.lg},
   badge: {alignItems: 'center', backgroundColor: colors.amberSoft, borderRadius: radius.round, height: 84, justifyContent: 'center', width: 84},
   title: {...typography.display, color: colors.ink, fontSize: 28, lineHeight: 34, textAlign: 'center'},

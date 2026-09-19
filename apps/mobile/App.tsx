@@ -1,7 +1,7 @@
 import React from 'react';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {NavigationContainer} from '@react-navigation/native';
-import {ActivityIndicator, StatusBar, StyleSheet, View} from 'react-native';
+import {StatusBar, StyleSheet, View} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {colors} from '@rosapay/ui';
 
@@ -9,6 +9,7 @@ import {AppErrorBoundary} from './src/app/AppErrorBoundary';
 import {RootNavigator} from './src/app/navigation';
 import {useAutoLock} from './src/app/useAutoLock';
 import {UnlockScreen} from './src/features/onboarding/UnlockScreen';
+import {LumenadeLoader} from './src/shared/LumenadeMark';
 import {useAppStore} from './src/state/appStore';
 
 const queryClient = new QueryClient({
@@ -41,7 +42,7 @@ function App() {
             </NavigationContainer>
           ) : (
             <View style={styles.splash}>
-              <ActivityIndicator color={colors.amber} size="large" />
+              <LumenadeLoader label="Preparing your wallet" />
             </View>
           )}
         </QueryClientProvider>

@@ -5,6 +5,7 @@
 **Product type:** React Native mobile payment application for iOS and Android  
 **Network:** Stellar Testnet first, Mainnet-ready architecture  
 **Primary audience:** Customers and small merchants accepting fast Stellar payments  
+**Public website:** https://lumenade-pay.vercel.app
 **Document language:** English  
 **Last updated:** 2026-08-25
 
@@ -41,7 +42,9 @@ Make a Stellar payment feel like tapping a card while preserving the strongest p
 - Provide a merchant payment request that can be verified independently of Lumenade Pay's backend.
 - Produce a real Stellar testnet transaction and a receipt with a transaction hash.
 - Support iOS and Android from one React Native codebase.
-- Keep all UI text in English and use the Lumenade Pay dark near-black, amber and restrained rose brand system.
+- Publish a responsive website that presents the mobile product and links every Testnet claim to reproducible evidence.
+- Keep all UI text in English and use the Lumenade Pay black, lemon-yellow and white brand system. Green and red are reserved for semantic success and failure states.
+- Express the Lumen + lemonade name through the lemon/XLM mark, using restrained rotation and orbit motion during loading, settlement and selected transitions without implying success before final confirmation.
 
 ### 4.2 Technical goals
 

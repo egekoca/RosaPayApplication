@@ -7,6 +7,7 @@ import {AnimatedContent, Button, colors, Pulse, radius, spacing, SplitText, Stat
 import {verifyMerchantSignature} from '@rosapay/stellar/merchant-signature';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
+import {LumenadeLoadingOverlay} from '../../shared/LumenadeMark';
 import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
 import type {SettlementPipelineProgress} from '@rosapay/stellar';
@@ -58,6 +59,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
   const issuer = intent.asset.issuer ?? intent.asset.contractId;
 
   return (
+    <>
     <Screen>
       <AnimatedContent><View style={styles.header}><View><Text style={styles.eyebrow}>SECURE CHECKOUT</Text><SplitText delay={90} splitBy="word" style={styles.title} text="Review payment" /></View><View style={styles.pills}><StatusPill tone={settlementMode === 'testnet' ? 'success' : 'pending'}>{settlementMode === 'testnet' ? 'TESTNET' : 'DEMO'}</StatusPill><StatusPill tone={verified ? 'success' : 'danger'}>{verified ? 'VERIFIED' : 'UNVERIFIED'}</StatusPill></View></View></AnimatedContent>
       <AnimatedContent delay={90} scaleFrom={0.98}><SurfaceCard accent="amber" style={styles.merchantCard}><View style={styles.merchant}><View style={styles.initial}><Text style={styles.initialText}>{initialsOf(intent.merchantName)}</Text></View><View style={styles.merchantCopy}><Text style={styles.merchantName}>{intent.merchantName}</Text><View style={styles.verified}>{verified ? <BadgeCheck color={colors.success} size={16} /> : <ShieldAlert color={colors.danger} size={16} />}<Text style={[styles.verifiedText, !verified && styles.unverifiedText]}>{verified ? 'Signature matches this merchant key' : 'Signature does not match this merchant key'}</Text></View></View></View></SurfaceCard></AnimatedContent>
@@ -85,6 +87,12 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
       {mutation.error ? <Text style={styles.error}>{describeSettlementError(mutation.error)}</Text> : null}
       <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={() => mutation.mutate()} testID="approve-payment">{mutation.isPending ? stageLabel(stage) : 'Approve payment'}</Button>
     </Screen>
+    <LumenadeLoadingOverlay
+      detail={settlementDetail(stage)}
+      title={stageLabel(stage)}
+      visible={mutation.isPending}
+    />
+    </>
   );
 }
 
@@ -122,6 +130,21 @@ function stageLabel(stage: SettlementPipelineProgress['stage'] | undefined): str
       return 'Confirmed';
     default:
       return 'Authorizing on this device';
+  }
+}
+
+function settlementDetail(stage: SettlementPipelineProgress['stage'] | undefined): string {
+  switch (stage) {
+    case 'simulated':
+      return 'The exact amount and recipient are ready for device authorization.';
+    case 'authorized':
+      return 'Your authorization is locked. The relayer cannot change the payment.';
+    case 'submitted':
+      return 'The transaction is submitted. Waiting for a final Stellar ledger result.';
+    case 'confirmed':
+      return 'The payment reached a confirmed Stellar ledger.';
+    default:
+      return 'Approve the exact payment with your device security.';
   }
 }
 

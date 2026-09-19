@@ -115,7 +115,7 @@ export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {})
           onPress={() => navigation?.navigate('AnchorTransfer', {kind: 'withdraw'})}
           style={[styles.transferRow, (!address || !navigation) && styles.disabledAction]}
           testID="withdraw-money">
-          <View style={styles.transferIcon}><ArrowUpFromLine color={colors.rose} size={19} /></View>
+          <View style={styles.transferIcon}><ArrowUpFromLine color={colors.lemon} size={19} /></View>
           <View style={styles.networkCopy}>
             <Text style={styles.rowTitle}>Withdraw</Text>
             <Text style={styles.body}>Hosted SEP-24 withdrawal · Testnet XLM</Text>

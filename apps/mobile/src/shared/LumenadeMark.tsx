@@ -1,0 +1,178 @@
+import {useEffect, useRef} from 'react';
+import {
+  Animated,
+  Easing,
+  Modal,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import {colors, elevation, radius, spacing, typography} from '@rosapay/ui';
+
+type MarkMotion = 'none' | 'enter' | 'float' | 'spin';
+
+type LumenadeMarkProps = {
+  motion?: MarkMotion;
+  showOrbit?: boolean;
+  size?: number;
+  style?: StyleProp<ViewStyle>;
+};
+
+export function LumenadeMark({motion = 'none', showOrbit = false, size = 48, style}: LumenadeMarkProps) {
+  const rotation = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(motion === 'enter' ? 0 : 1)).current;
+  const animatedMotion = process.env.NODE_ENV === 'test' ? 'none' : motion;
+
+  useEffect(() => {
+    rotation.stopAnimation();
+    pulse.stopAnimation();
+
+    let animation: Animated.CompositeAnimation | undefined;
+    if (animatedMotion === 'spin') {
+      rotation.setValue(0);
+      pulse.setValue(1);
+      animation = Animated.parallel([
+        Animated.loop(
+          Animated.timing(rotation, {
+            duration: 2_600,
+            easing: Easing.linear,
+            toValue: 1,
+            useNativeDriver: true,
+          }),
+        ),
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(pulse, {duration: 900, toValue: 1.045, useNativeDriver: true}),
+            Animated.timing(pulse, {duration: 900, toValue: 1, useNativeDriver: true}),
+          ]),
+        ),
+      ]);
+    } else if (animatedMotion === 'float') {
+      rotation.setValue(0);
+      pulse.setValue(1);
+      animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(rotation, {duration: 1_800, easing: Easing.inOut(Easing.sin), toValue: 1, useNativeDriver: true}),
+          Animated.timing(rotation, {duration: 1_800, easing: Easing.inOut(Easing.sin), toValue: 0, useNativeDriver: true}),
+        ]),
+      );
+    } else if (animatedMotion === 'enter') {
+      rotation.setValue(0);
+      pulse.setValue(0);
+      animation = Animated.parallel([
+        Animated.timing(rotation, {duration: 650, easing: Easing.out(Easing.cubic), toValue: 1, useNativeDriver: true}),
+        Animated.spring(pulse, {friction: 7, tension: 80, toValue: 1, useNativeDriver: true}),
+      ]);
+    } else {
+      rotation.setValue(0);
+      pulse.setValue(1);
+    }
+
+    animation?.start();
+    return () => animation?.stop();
+  }, [animatedMotion, pulse, rotation]);
+
+  const rotate = rotation.interpolate({
+    inputRange: [0, 1],
+    outputRange:
+      animatedMotion === 'float'
+        ? ['-2deg', '2deg']
+        : animatedMotion === 'enter'
+          ? ['-12deg', '0deg']
+          : ['0deg', '360deg'],
+  });
+  const opacity = animatedMotion === 'enter' ? pulse : 1;
+  const orbitSize = size + Math.max(14, size * 0.22);
+
+  return (
+    <View
+      accessibilityLabel="Lumenade Pay"
+      style={[styles.markShell, {height: orbitSize, width: orbitSize}, style]}>
+      {showOrbit ? (
+        <>
+          <View style={[styles.orbit, {borderRadius: orbitSize / 2, height: orbitSize, width: orbitSize}]} />
+          <View style={[styles.orbitDot, {right: Math.max(1, size * 0.02), top: size * 0.16}]} />
+        </>
+      ) : null}
+      <Animated.Image
+        source={require('../assets/lumenadepay-logo.png')}
+        style={[
+          styles.mark,
+          {
+            borderRadius: Math.max(radius.sm, size * 0.23),
+            height: size,
+            opacity,
+            transform: [{rotate}, {scale: pulse}],
+            width: size,
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
+export function LumenadeWordmark({compact = false}: {compact?: boolean}) {
+  return (
+    <Text style={[styles.wordmark, compact && styles.wordmarkCompact]}>
+      Lumenade <Text style={styles.wordmarkAccent}>Pay</Text>
+    </Text>
+  );
+}
+
+export function LumenadeLoader({label = 'Loading Lumenade Pay'}: {label?: string}) {
+  return (
+    <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.loader}>
+      <LumenadeMark motion="spin" showOrbit size={78} />
+      <Text style={styles.loaderLabel}>{label}</Text>
+      <Text style={styles.loaderCaption}>LUMEN × LEMONADE</Text>
+    </View>
+  );
+}
+
+export function LumenadeLoadingOverlay({detail, title, visible}: {detail?: string; title: string; visible: boolean}) {
+  return (
+    <Modal animationType="fade" onRequestClose={() => undefined} statusBarTranslucent transparent visible={visible}>
+      <View style={styles.overlay}>
+        <View style={styles.overlayCard}>
+          <LumenadeMark motion="spin" showOrbit size={70} />
+          <Text style={styles.overlayTitle}>{title}</Text>
+          {detail ? <Text style={styles.overlayDetail}>{detail}</Text> : null}
+          <View style={styles.progressTrack}><View style={styles.progressGlow} /></View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  markShell: {alignItems: 'center', justifyContent: 'center'},
+  orbit: {borderColor: 'rgba(255,176,0,0.34)', borderWidth: 1, position: 'absolute'},
+  orbitDot: {backgroundColor: colors.lemon, borderRadius: radius.round, height: 7, position: 'absolute', width: 7},
+  mark: {...elevation.card, shadowColor: colors.lemon, shadowOpacity: 0.24},
+  wordmark: {...typography.title, color: colors.white, fontSize: 21, letterSpacing: -0.45},
+  wordmarkCompact: {fontSize: 18},
+  wordmarkAccent: {color: colors.lemon},
+  loader: {alignItems: 'center', gap: spacing.md},
+  loaderLabel: {...typography.label, color: colors.white, fontSize: 15, marginTop: spacing.sm},
+  loaderCaption: {...typography.overline, color: colors.lemon, fontSize: 9, letterSpacing: 1.8},
+  overlay: {alignItems: 'center', backgroundColor: 'rgba(5,5,5,0.92)', flex: 1, justifyContent: 'center', padding: spacing.xl},
+  overlayCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    gap: spacing.md,
+    maxWidth: 360,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.huge,
+    width: '100%',
+    ...elevation.raised,
+  },
+  overlayTitle: {...typography.title, color: colors.white, fontSize: 20, marginTop: spacing.sm, textAlign: 'center'},
+  overlayDetail: {...typography.body, color: colors.inkMuted, fontSize: 13, lineHeight: 19, textAlign: 'center'},
+  progressTrack: {backgroundColor: colors.lemonSoft, borderRadius: radius.round, height: 3, marginTop: spacing.md, overflow: 'hidden', width: '76%'},
+  progressGlow: {backgroundColor: colors.lemon, borderRadius: radius.round, height: 3, width: '62%'},
+});

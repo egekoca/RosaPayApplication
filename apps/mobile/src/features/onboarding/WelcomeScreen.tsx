@@ -1,9 +1,10 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ArrowRight, Nfc, ScanLine, ShieldCheck} from 'lucide-react-native';
-import {Image, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
+import {StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import type {ReactNode} from 'react';
 import {AnimatedContent, Button, colors, radius, spacing, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
+import {LumenadeMark, LumenadeWordmark} from '../../shared/LumenadeMark';
 import {Screen} from '../../shared/Screen';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Welcome'>;
@@ -16,17 +17,20 @@ export function WelcomeScreen({navigation}: Props) {
     <Screen contentStyle={styles.screen}>
       <AnimatedContent>
         <View style={styles.brand}>
-          <Image accessibilityLabel="Lumenade Pay" source={require('../../assets/lumenadepay-logo.png')} style={styles.brandMark} />
-          <Text style={styles.brandName}>Lumenade Pay</Text>
+          <LumenadeMark motion="float" showOrbit size={82} />
+          <LumenadeWordmark />
+          <View style={styles.originBadge}>
+            <Text style={styles.originText}>LUMEN</Text>
+            <Text style={styles.originSymbol}>×</Text>
+            <Text style={styles.originText}>LEMONADE</Text>
+          </View>
         </View>
       </AnimatedContent>
 
       <AnimatedContent delay={90} distance={20} scaleFrom={0.98}>
         <View style={styles.hero}>
-          <Text style={[styles.title, {maxWidth: measure}]}>Pay by scanning.{'\n'}Get paid by showing.</Text>
-          <Text style={[styles.subtitle, {maxWidth: measure}]}>
-            One app for both sides of the counter. Your money moves on Stellar, and only this phone can approve it.
-          </Text>
+          <Text style={[styles.title, {maxWidth: measure}]}>Pay by scanning.{'\n'}<Text style={styles.titleAccent}>Settle on Stellar.</Text></Text>
+          <Text style={[styles.subtitle, {maxWidth: measure}]}>One app for both sides of the counter. Your money moves on Stellar, and only this phone can approve it.</Text>
         </View>
       </AnimatedContent>
 
@@ -65,16 +69,18 @@ function Point({icon, text}: {icon: ReactNode; text: string}) {
 }
 
 const styles = StyleSheet.create({
-  screen: {justifyContent: 'center', gap: spacing.xl},
-  brand: {alignItems: 'center', flexDirection: 'row', gap: spacing.md},
-  brandMark: {borderRadius: radius.sm, height: 40, width: 40},
-  brandName: {...typography.title, color: colors.ink, fontSize: 20},
-  hero: {gap: spacing.lg},
-  title: {...typography.display, color: colors.ink},
-  subtitle: {...typography.body, color: colors.inkMuted},
-  points: {gap: spacing.lg},
-  point: {alignItems: 'center', flexDirection: 'row', gap: spacing.md},
-  pointIcon: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radius.round, height: 40, justifyContent: 'center', width: 40},
+  screen: {justifyContent: 'center', gap: spacing.xl, paddingTop: spacing.xxl},
+  brand: {alignItems: 'center', gap: spacing.sm},
+  originBadge: {alignItems: 'center', backgroundColor: colors.lemonSoft, borderColor: 'rgba(255,176,0,0.24)', borderRadius: radius.round, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: 6},
+  originText: {...typography.overline, color: colors.lemon, fontSize: 9, letterSpacing: 1.4},
+  originSymbol: {color: colors.white, fontSize: 10},
+  hero: {alignItems: 'center', gap: spacing.lg},
+  title: {...typography.display, color: colors.ink, textAlign: 'center'},
+  titleAccent: {color: colors.lemon},
+  subtitle: {...typography.body, color: colors.inkMuted, textAlign: 'center'},
+  points: {gap: spacing.sm},
+  point: {alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.lineSoft, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.md},
+  pointIcon: {alignItems: 'center', backgroundColor: colors.lemonSoft, borderRadius: radius.round, height: 40, justifyContent: 'center', width: 40},
   pointText: {...typography.body, color: colors.ink, flex: 1, fontSize: 15},
   actions: {gap: spacing.lg},
   footnote: {color: colors.inkFaint, fontSize: 13, lineHeight: 19, textAlign: 'center'},
