@@ -30,6 +30,8 @@ const USED = [
   'Exchanged for the',
   'You will never pay more than',
   'Allow camera access',
+  // The welcome screen's whole copy: the name carries the rest.
+  'Scan. Approve. Settled.',
   // The iPhone tap path: iOS cannot listen in the background, so the customer
   // opens the reader from this button.
   'Pay by tapping instead',

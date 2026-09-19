@@ -32,10 +32,14 @@ test('offers the lira-capable wallet path in customer language', async () => {
   });
   const tree = JSON.stringify(renderer!.toJSON());
 
-  expect(tree).toContain('Pay by scanning.');
-  expect(tree).toContain('Settle on Stellar.');
-  expect(tree).toContain('LUMEN');
-  expect(tree).toContain('ROSE');
+  // The name and one line under it. The screen used to carry a headline, a
+  // subtitle paragraph, three feature rows and a footnote as well; all of it
+  // arrived before anyone had done anything, and none of it is what a person
+  // needs in order to get in.
+  expect(tree).toContain('Rosa ');
+  expect(tree).toContain('Pay');
+  expect(tree).toContain('Scan. Approve. Settled.');
+
   expect(tree).toContain('Create a new wallet');
   // Someone who already has a Stellar wallet is not made to create a second one
   // to get in.
@@ -43,15 +47,22 @@ test('offers the lira-capable wallet path in customer language', async () => {
 
   // And someone whose phone is gone needs a different road entirely: there is
   // nothing for them to type, because the key that controlled their wallet
-  // could never leave the handset. A recovery nobody can find is not one.
+  // could never leave the handset. A recovery nobody can find is not one, so
+  // it stays on this screen however quiet it gets.
   expect(tree).toContain('I lost my phone');
-  expect(tree).toContain('a passkey brings it back if the phone is lost');
 
   // The screen used to offer "Create your wallet" and "Sign in with passkey"
   // side by side. Both did exactly the same thing, and neither told a customer
   // which one was theirs.
   expect(tree).not.toContain('Sign in with passkey');
   expect(tree).not.toContain('Create your wallet');
+
+  // What the redesign dropped, so a later edit cannot quietly put the wall of
+  // text back: the feature list and the reassurance paragraph now live on the
+  // screens that actually ask for a decision.
+  expect(tree).not.toContain("Scan a merchant's code to pay");
+  expect(tree).not.toContain('Or hold the two phones together');
+  expect(tree).not.toContain('No password to remember');
 });
 
 test('sends wallet creation to account setup', async () => {

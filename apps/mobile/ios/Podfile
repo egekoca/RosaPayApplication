@@ -6,6 +6,25 @@ require Pod::Executable.execute_command('node', ['-p',
   )', __dir__]).strip
 
 platform :ios, min_ios_version_supported
+
+# React Native Core is built from source rather than taken from the Maven
+# tarball. The prebuilt core does not carry the C++ symbols third-party Fabric
+# components link against: with it, react-native-svg fails the app's link step
+# with missing vtables for facebook::react::Props, YogaStylableProps and
+# DebugStringConvertible, and no simulator build completes. RN exposes this as
+# the escape hatch it is (scripts/cocoapods/rncore.rb).
+#
+# The cost lands almost entirely on clean builds, measured on this project:
+# a clean build goes from about three minutes to twenty, while an incremental
+# one — what a day of work is made of — goes from about two minutes to two and
+# a half. So it is a release-and-fresh-checkout cost, not a per-build one, and
+# it is paid locally only because CI does not build iOS.
+#
+# Set RCT_USE_PREBUILT_RNCORE=1 before `pod install` to go back, and expect the
+# link error to return with it. react-native-svg 15.15.5 is already the latest
+# published version, so there is no upgrade that resolves this instead.
+ENV['RCT_USE_PREBUILT_RNCORE'] ||= '0'
+
 prepare_react_native_project!
 
 linkage = ENV['USE_FRAMEWORKS']

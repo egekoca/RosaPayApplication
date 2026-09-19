@@ -113,9 +113,20 @@ export function RosaMark({motion = 'none', showOrbit = false, size = 48, style}:
   );
 }
 
-export function RosaWordmark({compact = false}: {compact?: boolean}) {
+/**
+ * `hero` is for the one screen where the name is the subject rather than a
+ * label: the first thing a new customer sees. Everywhere else the wordmark sits
+ * above content and stays out of its way.
+ */
+export function RosaWordmark({
+  compact = false,
+  hero = false,
+}: {
+  compact?: boolean;
+  hero?: boolean;
+}) {
   return (
-    <Text style={[styles.wordmark, compact && styles.wordmarkCompact]}>
+    <Text style={[styles.wordmark, compact && styles.wordmarkCompact, hero && styles.wordmarkHero]}>
       Rosa <Text style={styles.wordmarkAccent}>Pay</Text>
     </Text>
   );
@@ -153,6 +164,9 @@ const styles = StyleSheet.create({
   mark: {...elevation.card, shadowOpacity: 0.32},
   wordmark: {...typography.title, color: colors.white, fontSize: 21},
   wordmarkCompact: {fontSize: 18},
+  // Tightened tracking as the size goes up: display-size type set at body
+  // spacing reads as though the letters are drifting apart.
+  wordmarkHero: {fontSize: 34, letterSpacing: -0.6, lineHeight: 40},
   wordmarkAccent: {color: colors.lemon},
   loader: {alignItems: 'center', gap: spacing.md},
   loaderLabel: {...typography.label, color: colors.white, fontSize: 15, marginTop: spacing.sm},

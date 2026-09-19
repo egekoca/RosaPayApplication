@@ -55,6 +55,16 @@ services:
         sync: false
       - key: STELLAR_WALLET_WASM_HASH
         sync: false
+      # CoinGecko prices the lira figure every converted amount is read in. The
+      # keyless tier is rate limited per source IP, which on a shared host is
+      # spent by other tenants as much as by this service, and a 429 clears the
+      # cached rate rather than serving a stale one — so one throttle removes
+      # every conversion until the feed recovers. A free demo key is dedicated
+      # and makes that stop happening. Without it the app still works: amounts
+      # stay in XLM and the "≈ ₺" line disappears rather than showing a number
+      # nobody stands behind.
+      - key: RATE_FEED_API_KEY
+        sync: false
       - key: DATABASE_MAX_CONNECTIONS
         value: "3"
       - key: DATABASE_STATEMENT_TIMEOUT_MS

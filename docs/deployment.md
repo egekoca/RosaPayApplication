@@ -149,6 +149,38 @@ TestFlight group.
 The API health response must report `storage: "postgres"`. If it reports
 `"memory"`, stop: that instance would lose payment state on restart.
 
+### Set a rate-feed key, or expect the lira figure to vanish
+
+`RATE_FEED_API_KEY` is a free CoinGecko demo key, and it is the difference
+between a balance that reads `10,000.00 XLM  ≈ ₺93,300.00` and one that reads
+`10,000.00 XLM` alone.
+
+The keyless tier is rate limited per source IP. On a shared host that budget is
+spent by whoever else is on the address, so a deployment well inside its own
+request rate still gets `429`. `PriceService` caches a rate for sixty seconds
+and collapses concurrent reads into one, but on a failed read it *deletes* the
+cached rate rather than serving a stale one — deliberately, because a rate the
+market has left is worse than none on a payment screen. The consequence is that
+one throttled read removes every conversion until the feed recovers.
+
+Nothing breaks without it. Amounts are held and signed in the asset, the lira
+line is an SEP-38 indicative price shown with `≈`, and it disappears rather
+than showing a number nobody stands behind. But it disappears often enough to
+look broken, so set the key before a demo:
+
+```
+RATE_FEED_API_KEY=<demo key from coingecko.com>
+```
+
+Verify it with the endpoint the app actually reads:
+
+```sh
+curl "$API/sep38/prices?sell_asset=stellar:native&sell_amount=1"
+```
+
+`PRICE_UNAVAILABLE` with `The rate feed answered 429` is the throttle; a list of
+`iso4217:` prices is a working feed.
+
 ### Before a demo, wake the instance
 
 ```sh

@@ -184,6 +184,9 @@ const TR: Record<string, string> = {
   "You can also hold this phone against the merchant's":
     'Telefonu satıcınınkine de yaklaştırabilirsiniz',
   'Pay by tapping instead': 'Bunun yerine yaklaştırarak öde',
+  // The brand line, the same one the website is titled with. Kept to three
+  // words in Turkish too: it sits under the name as a mark, not a sentence.
+  'Scan. Approve. Settled.': 'Okut. Onayla. Tamamlandı.',
   'YOUR BALANCE': 'BAKİYENİZ',
   'Reading your balance…': 'Bakiyeniz okunuyor…',
   'Balance unavailable right now': 'Bakiye şu an alınamıyor',

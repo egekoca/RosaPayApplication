@@ -1,8 +1,6 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ArrowRight, Nfc, ScanLine, ShieldCheck} from 'lucide-react-native';
-import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
-import type {ReactNode} from 'react';
-import {AnimatedContent, Button, colors, radius, spacing, typography} from '@rosapay/ui';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {AnimatedContent, Button, colors, spacing, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
 import {RosaMark, RosaWordmark} from '../../shared/RosaMark';
 import {Screen} from '../../shared/Screen';
@@ -10,100 +8,95 @@ import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Welcome'>;
 
+/**
+ * The first screen, and the one with the least to say.
+ *
+ * It used to carry the mark, an origin badge, a two-line headline, a paragraph
+ * of subtitle, three feature rows, a button, two links and a footnote — nine
+ * things competing before anyone had done anything. What a person needs here is
+ * to recognise the app and find their way in, so this is the mark, the name, one
+ * line, and the two roads. Everything the removed copy explained belongs on the
+ * screens that ask for it, where it is an answer rather than a preamble.
+ */
 export function WelcomeScreen({navigation}: Props) {
   const t = useTranslate();
-  const {width} = useWindowDimensions();
-  const measure = Math.min(400, width - 48);
 
   return (
     <Screen contentStyle={styles.screen}>
-      <AnimatedContent>
-        <View style={styles.brand}>
-          <RosaMark motion="float" showOrbit size={82} />
-          <RosaWordmark />
-          <View style={styles.originBadge}>
-            <Text style={styles.originText}>LUMEN</Text>
-            <Text style={styles.originSymbol}>×</Text>
-            <Text style={styles.originText}>ROSE</Text>
+      <View style={styles.brand}>
+        <AnimatedContent distance={18} scaleFrom={0.94}>
+          <RosaMark motion="float" showOrbit size={124} />
+        </AnimatedContent>
+
+        <AnimatedContent delay={140} distance={14}>
+          <View style={styles.name}>
+            <RosaWordmark hero />
+            <Text style={styles.slogan}>{t('Scan. Approve. Settled.')}</Text>
           </View>
-        </View>
-      </AnimatedContent>
+        </AnimatedContent>
+      </View>
 
-      <AnimatedContent delay={90} distance={20} scaleFrom={0.98}>
-        <View style={styles.hero}>
-          <Text style={[styles.title, {maxWidth: measure}]}>Pay by scanning.{'\n'}<Text style={styles.titleAccent}>{t('Settle on Stellar.')}</Text></Text>
-          <Text style={[styles.subtitle, {maxWidth: measure}]}>{t('One app for both sides of the counter. Your money moves on Stellar, and only this phone can approve it.')}</Text>
-        </View>
-      </AnimatedContent>
-
-      <AnimatedContent delay={180}>
-        <View style={styles.points}>
-          <Point icon={<ScanLine color={colors.amber} size={18} />} text="Scan a merchant's code to pay" />
-          <Point icon={<Nfc color={colors.amber} size={18} />} text="Or hold the two phones together" />
-          <Point icon={<ShieldCheck color={colors.success} size={18} />} text="Approved with your face or fingerprint" />
-        </View>
-      </AnimatedContent>
-
-      <AnimatedContent delay={280} distance={10}>
+      <AnimatedContent delay={280} distance={10} style={styles.actionsWrap}>
         <View style={styles.actions}>
           <Button
-            icon={<ArrowRight color={colors.black} size={20} />}
             onPress={() => navigation.navigate('CreateAccount', {intent: 'create'})}
-            testID="get-started">{t('Create a new wallet')}</Button>
+            testID="get-started">
+            {t('Create a new wallet')}
+          </Button>
           {/*
-            Quiet rather than hidden. Most people arriving here have no Stellar
-            account, so this is not the main road — but someone who does has one
-            already and should not be made to create a second.
+            A button rather than the text link it was. Most people arriving here
+            have no Stellar account, so this is not the main road — but it is a
+            road, and someone who already has a wallet should not have to read
+            past the primary action to find it.
           */}
-          <Pressable
-            accessibilityRole="button"
+          <Button
             onPress={() => navigation.navigate('CreateAccount', {intent: 'import'})}
-            testID="restore-wallet">
-            <Text style={styles.restore}>{t('I already have a wallet')}</Text>
-          </Pressable>
+            testID="restore-wallet"
+            tone="secondary">
+            {t('I already have a wallet')}
+          </Button>
           {/*
-            For someone whose phone is gone. There is nothing for them to type —
-            the key that controlled the wallet never left that handset — so this
-            is a different road from restoring a phrase, and saying so is the
-            only way they will find it.
+            Kept, and kept quiet. Someone whose phone is gone has nothing to
+            type — the key that controlled the wallet never left that handset —
+            so this is a different road from importing a phrase, and a recovery
+            nobody can find is not one. It stays a link because it is the rarest
+            of the three, not because it matters least.
           */}
           <Pressable
             accessibilityRole="button"
+            hitSlop={12}
             onPress={() => navigation.navigate('RecoverWallet')}
             testID="recover-wallet-entry">
-            <Text style={styles.restore}>{t('I lost my phone')}</Text>
+            <Text style={styles.recover}>{t('I lost my phone')}</Text>
           </Pressable>
-          <Text style={styles.footnote}>{t('No password to remember. Your phone holds a key it cannot give away, and a passkey brings it back if the phone is lost.')}</Text>
         </View>
       </AnimatedContent>
     </Screen>
   );
 }
 
-function Point({icon, text}: {icon: ReactNode; text: string}) {
-  return (
-    <View style={styles.point}>
-      <View style={styles.pointIcon}>{icon}</View>
-      <Text style={styles.pointText}>{text}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  screen: {justifyContent: 'center', gap: spacing.xl, paddingTop: spacing.xxl},
-  brand: {alignItems: 'center', gap: spacing.sm},
-  originBadge: {alignItems: 'center', backgroundColor: colors.lemonSoft, borderColor: 'rgba(224,180,93,0.24)', borderRadius: radius.round, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: 6},
-  originText: {...typography.overline, color: colors.lemon, fontSize: 9, letterSpacing: 1.4},
-  originSymbol: {color: colors.white, fontSize: 10},
-  hero: {alignItems: 'center', gap: spacing.lg},
-  title: {...typography.display, color: colors.ink, textAlign: 'center'},
-  titleAccent: {color: colors.lemon},
-  subtitle: {...typography.body, color: colors.inkMuted, textAlign: 'center'},
-  points: {gap: spacing.sm},
-  point: {alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.lineSoft, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.md},
-  pointIcon: {alignItems: 'center', backgroundColor: colors.lemonSoft, borderRadius: radius.round, height: 40, justifyContent: 'center', width: 40},
-  pointText: {...typography.body, color: colors.ink, flex: 1, fontSize: 15},
-  actions: {gap: spacing.lg},
-  restore: {...typography.body, color: colors.gold, textAlign: 'center'},
-  footnote: {color: colors.inkFaint, fontSize: 13, lineHeight: 19, textAlign: 'center'},
+  // The mark and the name take the room they need and the actions sit under
+  // them, rather than everything being packed against the top.
+  screen: {gap: spacing.huge, justifyContent: 'center'},
+  brand: {alignItems: 'center', gap: spacing.xl},
+  name: {alignItems: 'center', gap: spacing.sm},
+  slogan: {
+    ...typography.label,
+    color: colors.inkMuted,
+    fontSize: 14,
+    // Letter-spaced because it reads as a mark of its own under the name, not
+    // as the first sentence of a paragraph.
+    letterSpacing: 1.6,
+    textAlign: 'center',
+  },
+  actionsWrap: {width: '100%'},
+  actions: {gap: spacing.md},
+  recover: {
+    ...typography.label,
+    color: colors.inkFaint,
+    marginTop: spacing.xs,
+    paddingVertical: spacing.sm,
+    textAlign: 'center',
+  },
 });
