@@ -61,7 +61,12 @@ export type PendingAnchorTransfer = {
 };
 
 export type AppMode = 'customer' | 'merchant';
-export type PaymentTransport = 'qr' | 'nfc' | 'unknown';
+/**
+ * How a signed request reached this phone. `nfc` is a tap; `ble` is the
+ * Bluetooth proximity transport, which exists because iOS grants no
+ * third-party card emulation and two iPhones can therefore never tap.
+ */
+export type PaymentTransport = 'qr' | 'nfc' | 'ble' | 'unknown';
 export type LocalReceipt = {
   intentId: string;
   merchantName: string;

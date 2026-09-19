@@ -1,14 +1,14 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import {AppState} from 'react-native';
-import {NFC_AUTO_AUTHORIZATION_DELAY_MS, useNfcAutoAuthorization} from '../src/features/payments/useNfcAutoAuthorization';
+import {AUTOMATIC_AUTHORIZATION_DELAY_MS, useAutomaticAuthorization} from '../src/features/payments/useAutomaticAuthorization';
 
-function Harness(props: Parameters<typeof useNfcAutoAuthorization>[0]) {
-  useNfcAutoAuthorization(props);
+function Harness(props: Parameters<typeof useAutomaticAuthorization>[0]) {
+  useAutomaticAuthorization(props);
   return null;
 }
 
-describe('NFC auto-authorization', () => {
+describe('automatic authorization', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     Object.defineProperty(AppState, 'currentState', {configurable: true, value: 'active'});
@@ -30,12 +30,12 @@ describe('NFC auto-authorization', () => {
 
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <Harness intentId="intent-background" transport="nfc" ready authorize={authorize} />,
+        <Harness intentId="intent-background" automatic ready authorize={authorize} />,
       );
     });
 
     ReactTestRenderer.act(() => onChange('background'));
-    ReactTestRenderer.act(() => jest.advanceTimersByTime(NFC_AUTO_AUTHORIZATION_DELAY_MS));
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS));
     expect(authorize).not.toHaveBeenCalled();
 
     ReactTestRenderer.act(() => renderer.unmount());
@@ -48,34 +48,36 @@ describe('NFC auto-authorization', () => {
 
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <Harness intentId="intent-nfc" transport="nfc" ready authorize={authorize} />,
+        <Harness intentId="intent-nfc" automatic ready authorize={authorize} />,
       );
     });
 
-    ReactTestRenderer.act(() => jest.advanceTimersByTime(NFC_AUTO_AUTHORIZATION_DELAY_MS - 1));
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS - 1));
     expect(authorize).not.toHaveBeenCalled();
 
     ReactTestRenderer.act(() => jest.advanceTimersByTime(1));
     expect(authorize).toHaveBeenCalledTimes(1);
 
     ReactTestRenderer.act(() => {
-      renderer.update(<Harness intentId="intent-nfc" transport="nfc" ready authorize={authorize} />);
-      jest.advanceTimersByTime(NFC_AUTO_AUTHORIZATION_DELAY_MS);
+      renderer.update(<Harness intentId="intent-nfc" automatic ready authorize={authorize} />);
+      jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS);
     });
     expect(authorize).toHaveBeenCalledTimes(1);
     ReactTestRenderer.act(() => renderer.unmount());
   });
 
-  it('never auto-authorizes QR requests', () => {
+  it('never raises the prompt for an arrival that did not say what was meant', () => {
+    // A scan, or a Bluetooth merchant merely in the room rather than against
+    // the phone. Both open the screen; neither starts the prompt.
     const authorize = jest.fn();
     let renderer!: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <Harness intentId="intent-qr" transport="qr" ready authorize={authorize} />,
+        <Harness intentId="intent-qr" automatic={false} ready authorize={authorize} />,
       );
     });
 
-    ReactTestRenderer.act(() => jest.advanceTimersByTime(NFC_AUTO_AUTHORIZATION_DELAY_MS));
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS));
     expect(authorize).not.toHaveBeenCalled();
     ReactTestRenderer.act(() => renderer.unmount());
   });
@@ -86,14 +88,14 @@ describe('NFC auto-authorization', () => {
 
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <Harness intentId="intent-later" transport="nfc" ready={false} authorize={authorize} />,
+        <Harness intentId="intent-later" automatic ready={false} authorize={authorize} />,
       );
-      jest.advanceTimersByTime(NFC_AUTO_AUTHORIZATION_DELAY_MS);
+      jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS);
     });
     expect(authorize).not.toHaveBeenCalled();
 
-    ReactTestRenderer.act(() => renderer.update(<Harness intentId="intent-later" transport="nfc" ready authorize={authorize} />));
-    ReactTestRenderer.act(() => jest.advanceTimersByTime(NFC_AUTO_AUTHORIZATION_DELAY_MS));
+    ReactTestRenderer.act(() => renderer.update(<Harness intentId="intent-later" automatic ready authorize={authorize} />));
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS));
     expect(authorize).toHaveBeenCalledTimes(1);
     ReactTestRenderer.act(() => renderer.unmount());
   });

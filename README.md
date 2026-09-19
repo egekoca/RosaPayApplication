@@ -22,6 +22,7 @@ The foundation and first vertical slice are implemented:
 - Merchant QR requests expire after 60 ledgers (about five minutes) by default; the protocol factory also rejects longer caller-supplied lifetimes. A reader accepts up to 72, because the merchant, the API and the customer each read `latestLedger` from their own RPC poll and a receiver a few ledgers behind must not reject an honest request.
 - The API rechecks that same policy against live Stellar Testnet before storing an intent, so an expired or long-lived crafted request is rejected rather than becoming a durable QR/NFC offer.
 - NFC carries the exact RTP/1 URI: Android merchants publish it over HCE, Android and iPhone customers can tap to open Confirm, and an NFC tap starts one biometric/device authorization automatically. QR remains the fallback; iPhone merchants cannot publish HCE.
+- Bluetooth LE carries the same signed payload in every direction, including iPhone to iPhone, which NFC cannot do because iOS grants no third-party card emulation. Native filters on signal strength so only a nearby merchant is offered, and a sustained reading at touching strength raises the device prompt by itself just as a tap does; a weaker one opens the confirmation screen and waits for Approve. Neither bypasses the prompt — the payment key is minted so the hardware will not sign without it.
 - A small SEP-12 customer-information client and deterministic in-memory mock anchor are included for the hackathon walkthrough. It demonstrates `NEEDS_INFO` -> `ACCEPTED` without persisting identity values and is not production KYC.
 
 The settlement contract is deployed on Stellar Testnet as `CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO`. It uses the verified deterministic native XLM SAC `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` and routes funding swaps through the Soroswap router `CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD`. The WASM is 11,301 bytes (`SHA-256 b7fa54ae6f14cf76854977e4ba9d8e6da0957c4a5cb211a9c2f34d0f8ef85a4b`); public deployment and smoke-test evidence live under `config/`. The previous deployment was `CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO`, which has no funding-swap entry point.
@@ -304,7 +305,8 @@ QR remains available on both platforms. Android can publish NFC and accept taps
 while Rosa Pay is in the foreground; a verified tap starts the device's
 biometric authorization without an extra in-app approval button. It never
 bypasses that device prompt. iPhone customers can read an Android merchant's
-NFC request after starting Core NFC from the scan screen; iPhones cannot publish
+NFC request after starting Core NFC from the tap action on the home screen or
+the scan screen; iPhones cannot publish
 over NFC because iOS withholds card emulation from third-party apps. Merchant
 QRs are shown only after the API confirms the same signed request and expire
 after 60 ledgers (about five minutes). The Android merchant HCE service is

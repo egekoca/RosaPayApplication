@@ -25,7 +25,12 @@ export function DashboardScreen() {
 
   const confirmedReceipts = receipts.filter(receipt => receipt.status === 'confirmed');
   const qrTotal = totalForTransport(confirmedReceipts, 'qr');
-  const nfcTotal = totalForTransport(confirmedReceipts, 'nfc');
+  // One number for both radios: to whoever paid, each was holding the phones
+  // together, and which one carried the bytes is an implementation detail.
+  const tapTotal = sumAmounts([
+    totalForTransport(confirmedReceipts, 'nfc'),
+    totalForTransport(confirmedReceipts, 'ble'),
+  ]);
   const localTotal = sumAmounts(confirmedReceipts.map(receipt => receipt.amount));
   const serverTotal = payments.data?.payments
     .filter(payment => payment.status === 'confirmed')
@@ -62,7 +67,7 @@ export function DashboardScreen() {
         <Text style={styles.sectionLabel}>{t('PAYMENT CHANNELS')}</Text>
         <View style={styles.grid}>
           <MetricCard icon={<ScanLine color={colors.goldBright} size={19} />} label={t('QR RECEIVED')} value={qrTotal} confirmedLabel={t('confirmed')} />
-          <MetricCard icon={<Radio color={colors.goldBright} size={19} />} label={t('NFC RECEIVED')} value={nfcTotal} confirmedLabel={t('confirmed')} />
+          <MetricCard icon={<Radio color={colors.goldBright} size={19} />} label={t('TAP RECEIVED')} value={tapTotal} confirmedLabel={t('confirmed')} />
         </View>
       </AnimatedContent>
 

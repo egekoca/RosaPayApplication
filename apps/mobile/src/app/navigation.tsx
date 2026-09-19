@@ -25,7 +25,7 @@ import {MerchantRequestScreen} from '../features/merchant/MerchantRequestScreen'
 import {hasRestorableSession, useAppStore, type LocalReceipt} from '../state/appStore';
 import type {PaymentTransport} from '../state/appStore';
 import {DashboardScreen} from '../features/dashboard/DashboardScreen';
-import {ForegroundNfcPaymentListener} from '../features/payments/ForegroundNfcPaymentListener';
+import {ForegroundPaymentListener} from '../features/payments/ForegroundPaymentListener';
 import {useStellarHealth} from '../shared/useStellarHealth';
 
 export type RootStackParams = {
@@ -45,7 +45,16 @@ export type RootStackParams = {
   /** Buying USDC with lira, through the anchor's SEP-6 door. */
   LiraDeposit: undefined;
   Scan: undefined;
-  Confirm: {payload: SignedPaymentIntentV1; transport?: PaymentTransport};
+  Confirm: {
+    payload: SignedPaymentIntentV1;
+    transport?: PaymentTransport;
+    /**
+     * Whether the way this request arrived already said what the customer
+     * meant, so the device prompt may start without a button. A tap does; a
+     * Bluetooth arrival does only when the phones were held together.
+     */
+    automatic?: boolean;
+  };
   Receipt: {receipt: LocalReceipt};
   DeveloperSettings: undefined;
   MerchantOnboarding: undefined;
@@ -139,10 +148,10 @@ function MainTabs() {
 }
 
 /**
- * Keeps the customer side ready for a merchant tap while the app is in a
- * normal foreground screen. Scan owns its reader session, and MerchantRequest
- * owns HCE, so neither route is armed here or the two native transports could
- * compete on the same phone.
+ * Keeps the customer side ready for a merchant while the app is in a normal
+ * foreground screen. Scan owns its reader session, and MerchantRequest owns
+ * the outgoing radios, so neither route is armed here or a phone would be
+ * talking to itself over two transports at once.
  */
 // `getCurrentRoute()` returns the focused child of the tab navigator, not only
 // the stack's `Main` route. Include all three tab leaves so a tap works while
@@ -158,7 +167,7 @@ const foregroundNfcRoutes = new Set<string>([
   'Receipt',
 ]);
 
-export function shouldListenForForegroundNfc(routeName: string | undefined, locked: boolean): boolean {
+export function shouldListenInForeground(routeName: string | undefined, locked: boolean): boolean {
   return !locked && routeName !== undefined && foregroundNfcRoutes.has(routeName);
 }
 
@@ -177,7 +186,7 @@ export function freshLedgerFromRefetch(result: {
   return ledger;
 }
 
-export function RootNfcPaymentListener() {
+export function RootPaymentListener() {
   // This component is deliberately mounted beside the root navigator so it can
   // keep listening across every customer screen. `useNavigationState` cannot be
   // used there: it requires a child navigator context. The container ref is
@@ -202,7 +211,7 @@ export function RootNfcPaymentListener() {
   }, [navigation]);
 
   const locked = useAppStore(state => state.locked);
-  const active = shouldListenForForegroundNfc(routeName, locked);
+  const active = shouldListenInForeground(routeName, locked);
   const stellarHealth = useStellarHealth(active);
 
   const refreshLedger = React.useCallback(async () => {
@@ -211,7 +220,7 @@ export function RootNfcPaymentListener() {
   }, [stellarHealth]);
 
   return (
-    <ForegroundNfcPaymentListener
+    <ForegroundPaymentListener
       active={active}
       latestLedger={stellarHealth.data?.latestLedger}
       refreshLedger={refreshLedger}

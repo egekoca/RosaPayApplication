@@ -1,5 +1,5 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ChevronRight, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
+import {Bluetooth, ChevronRight, Nfc, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
 import {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
@@ -22,6 +22,8 @@ import {greetingFor} from './greeting';
 import {PaymentCard} from './PaymentCard';
 import {AssetMark} from './AssetMark';
 import {payableAssetByCode} from '../payments/assets';
+import {useNfcTapControl} from '../payments/nfcTapControl';
+import {useProximityStatus} from '../payments/useProximity';
 import {currencySymbol} from '../../shared/priceSource';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Main'>;
@@ -94,6 +96,9 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
   const identity = useAppStore(state => state.account);
   const receipts = useAppStore(state => state.receipts);
   const setMode = useAppStore(state => state.setMode);
+  // Set only where a reader has to be opened by hand, which today means iOS.
+  const startTap = useNfcTapControl(state => state.startTap);
+  const proximity = useProximityStatus();
   const balance = useWalletBalance();
   const value = useBalanceValue(balance.data);
   const finishWalletSetup = () => {
@@ -131,12 +136,70 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
         </AnimatedContent>
       ) : null}
 
+      {/*
+        Bluetooth is what makes "walk up and pay" true between two iPhones, and
+        it needs one grant before it can ever be silent. Ask here, once, where
+        someone is already looking for how to pay — not at launch, where a
+        permission sheet on a wallet asking about Bluetooth explains nothing.
+        The row is gone for good once granted.
+      */}
+      {proximity.supported && !proximity.authorized ? (
+        <AnimatedContent delay={80}>
+          <PressScale>
+            <Pressable
+              accessibilityRole="button"
+              onPress={proximity.request}
+              style={styles.tapAction}
+              testID="home-allow-proximity">
+              <View style={styles.tapIcon}>
+                <Bluetooth color={colors.black} size={24} />
+              </View>
+              <View style={styles.scanCopy}>
+                <Text style={styles.scanTitle}>{t('Turn on paying by holding phones together')}</Text>
+                <Text style={styles.scanHint}>{t('Rosa Pay finds the merchant you are standing at, and nothing else.')}</Text>
+              </View>
+              <ChevronRight color={colors.inkMuted} size={19} />
+            </Pressable>
+          </PressScale>
+        </AnimatedContent>
+      ) : null}
+
+      {/*
+        On iOS a Core NFC reader cannot sit armed, so the customer has to open
+        it. That opener used to live behind the camera screen, which made
+        tapping feel like a fallback inside scanning rather than its own way to
+        pay. It stays available for an Android merchant publishing over NFC;
+        Bluetooth covers the rest without a press. On Android this is never
+        rendered, because the phone is already listening.
+      */}
+      {startTap ? (
+        <AnimatedContent delay={85}>
+          <PressScale>
+            <Pressable
+              accessibilityRole="button"
+              onPress={startTap}
+              style={styles.tapAction}
+              testID="home-tap-to-pay">
+              <View style={styles.tapIcon}>
+                <Nfc color={colors.black} size={24} />
+              </View>
+              <View style={styles.scanCopy}>
+                <Text style={styles.scanTitle}>{t('Tap to pay')}</Text>
+                <Text style={styles.scanHint}>{t("Hold this phone against the merchant's")}</Text>
+              </View>
+              <ChevronRight color={colors.inkMuted} size={19} />
+            </Pressable>
+          </PressScale>
+        </AnimatedContent>
+      ) : null}
+
       <AnimatedContent delay={90}>
         <PressScale>
           <Pressable
             accessibilityRole="button"
             onPress={() => navigation.navigate('Scan')}
-            style={styles.scanAction}
+            // The rows read as one group when a proximity action sits above.
+            style={[styles.scanAction, startTap || (proximity.supported && !proximity.authorized) ? styles.scanActionUnderTap : null]}
             testID="scan-to-pay">
             <View style={styles.scanIcon}>
               <ScanLine color={colors.black} size={24} />
@@ -439,6 +502,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 52,
   },
+  tapAction: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.lg,
+    marginTop: spacing.xl,
+    padding: spacing.lg,
+  },
+  tapIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.amber,
+    borderRadius: radius.md,
+    height: 52,
+    justifyContent: 'center',
+    width: 52,
+  },
+  scanActionUnderTap: {marginTop: spacing.md},
   scanCopy: {flex: 1, gap: 3},
   scanTitle: {...typography.title, color: colors.ink, fontSize: 18},
   scanHint: {color: colors.inkMuted, fontSize: 13, lineHeight: 18},

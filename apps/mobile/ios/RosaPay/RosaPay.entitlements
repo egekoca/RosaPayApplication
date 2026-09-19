@@ -24,9 +24,11 @@
 	</array>
 	<!--
 	  Lets the app open an NFCTagReaderSession, which is how an iPhone reads the
-	  request an Android merchant publishes over NFC. TAG is the raw-tag format;
-	  the AID the session is allowed to see is listed in Info.plist under
-	  com.apple.developer.nfc.readersession.iso7816.select-identifiers.
+	  request an Android merchant publishes over NFC. TAG is the raw-tag format,
+	  and it is the only NFC key that belongs in an entitlements file. The AIDs
+	  the session may be handed live in Info.plist under
+	  com.apple.developer.nfc.readersession.iso7816.select-identifiers; an
+	  entitlement no provisioning profile grants fails code signing.
 
 	  This is the standard "Near Field Communication Tag Reading" capability and
 	  needs no approval from Apple. The other direction does: iOS does not let a
@@ -36,15 +38,6 @@
 	<key>com.apple.developer.nfc.readersession.formats</key>
 	<array>
 		<string>TAG</string>
-	</array>
-	<!--
-	  This is an entitlement, not an Info.plist setting. Without it a signed
-	  release can open Core NFC but will not pass Rosa Pay's proprietary ISO-7816
-	  tag to the app. Keep it equal to apduservice.xml and RosaPayNfcModule.AID.
-	-->
-	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
-	<array>
-		<string>F0526F736150617901</string>
 	</array>
 </dict>
 </plist>

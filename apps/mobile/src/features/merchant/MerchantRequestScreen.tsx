@@ -1,6 +1,6 @@
 import {useEffect, useState, type ReactNode} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Nfc, RefreshCw, Store} from 'lucide-react-native';
+import {Bluetooth, Nfc, RefreshCw, Store} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, LoadingDots, radius, spacing, StatusPill, Stepper, SurfaceCard, TextField, typography} from '@rosapay/ui';
@@ -16,6 +16,7 @@ import {OptionField, OptionSheet, type SheetOption} from '../../shared/OptionShe
 import {displayCurrencyMeta} from '../../shared/priceSource';
 import {useAppStore} from '../../state/appStore';
 import {useNfcBroadcast} from '../payments/useNfc';
+import {useProximityBroadcast} from '../payments/useProximity';
 import {businessEmailSchema, createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
 import {priceRequest, referenceForRequest} from './pricedRequest';
 import {defaultPayableAsset, payableAssets, type PayableAsset} from '../payments/assets';
@@ -484,7 +485,13 @@ function RequestCard({
     !expired;
   const encoded = encodePaymentQr(request);
   // Do not offer a request until the API knows it, or after its one payment.
-  const nfc = useNfcBroadcast(requestLive ? encoded : null);
+  const offered = requestLive ? encoded : null;
+  const nfc = useNfcBroadcast(offered);
+  // Both radios carry the same bytes, and a counter does not know what the
+  // customer walking up is holding. NFC is the better tap where both phones are
+  // Android; Bluetooth is what lets an iPhone customer — or an iPhone running
+  // this very screen — take part at all, since iOS grants no card emulation.
+  const proximity = useProximityBroadcast(offered);
   return (
     <>
       <SurfaceCard style={styles.requestCard}>
@@ -528,6 +535,35 @@ function RequestCard({
             ) : null}
           </View>
         )}
+        {requestLive && proximity.canBroadcast && proximity.enabled && proximity.authorized ? (
+          <View style={styles.nfcRow}>
+            <Bluetooth color={colors.amber} size={18} />
+            <Text style={styles.nfcText}>
+              {proximity.broadcasting
+                ? t('Or let the customer hold their phone here')
+                : proximity.broadcastError
+                  ? t('Bluetooth is unavailable right now; use the QR code')
+                  : t('Preparing Bluetooth')}
+            </Text>
+            {proximity.broadcastError ? (
+              <Button
+                icon={<RefreshCw color={colors.black} size={16} />}
+                onPress={proximity.retry}
+                testID="retry-proximity-broadcast"
+                tone="ghost">
+                {t('Retry Bluetooth')}
+              </Button>
+            ) : null}
+          </View>
+        ) : requestLive && proximity.supported && !proximity.authorized ? (
+          <View style={styles.nfcRow}>
+            <Bluetooth color={colors.amber} size={18} />
+            <Text style={styles.nfcText}>{t('Allow Bluetooth so a customer can pay by holding their phone here')}</Text>
+            <Button onPress={proximity.request} testID="allow-proximity-broadcast" tone="ghost">
+              {t('Allow Bluetooth')}
+            </Button>
+          </View>
+        ) : null}
         {requestLive && nfc.canBroadcast && nfc.enabled ? (
           <View style={styles.nfcRow}>
             <Nfc color={colors.amber} size={18} />

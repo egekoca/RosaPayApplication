@@ -1,17 +1,17 @@
-import {freshLedgerFromRefetch, shouldListenForForegroundNfc} from '../src/app/navigation';
+import {freshLedgerFromRefetch, shouldListenInForeground} from '../src/app/navigation';
 
-describe('foreground NFC route policy', () => {
+describe('foreground proximity route policy', () => {
   it('keeps the reader armed on every main tab', () => {
-    expect(shouldListenForForegroundNfc('WalletTab', false)).toBe(true);
-    expect(shouldListenForForegroundNfc('DashboardTab', false)).toBe(true);
-    expect(shouldListenForForegroundNfc('ProfileTab', false)).toBe(true);
+    expect(shouldListenInForeground('WalletTab', false)).toBe(true);
+    expect(shouldListenInForeground('DashboardTab', false)).toBe(true);
+    expect(shouldListenInForeground('ProfileTab', false)).toBe(true);
   });
 
   it('does not compete with Scan, Confirm or merchant HCE routes', () => {
-    expect(shouldListenForForegroundNfc('Scan', false)).toBe(false);
-    expect(shouldListenForForegroundNfc('Confirm', false)).toBe(false);
-    expect(shouldListenForForegroundNfc('MerchantRequest', false)).toBe(false);
-    expect(shouldListenForForegroundNfc('WalletTab', true)).toBe(false);
+    expect(shouldListenInForeground('Scan', false)).toBe(false);
+    expect(shouldListenInForeground('Confirm', false)).toBe(false);
+    expect(shouldListenInForeground('MerchantRequest', false)).toBe(false);
+    expect(shouldListenInForeground('WalletTab', true)).toBe(false);
   });
 
   it('does not treat a stale cached ledger as live after a failed refresh', () => {

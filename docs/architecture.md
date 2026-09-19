@@ -302,10 +302,13 @@ customer routes, including the main tab navigator before the customer opens the
 camera, while the dedicated scan screen temporarily owns the reader when it is
 focused. The listener stops when the app backgrounds, locks, enters a payment or
 merchant request route, or leaves those customer routes. CoreNFC puts a system
-sheet on screen, so iOS opens the reader only after a deliberate press from the
-scan screen and closes it after one read; `needsUserAction` carries that
-distinction to the UI, and a cancelled or timed-out session exposes the tap
-control again.
+sheet on screen, so iOS opens the reader only after a deliberate press and
+closes it after one read; `needsUserAction` carries that distinction to the UI,
+and a cancelled or timed-out session exposes the tap control again. The root
+listener owns that reader on iOS as well, and publishes its opener through
+`nfcTapControl` so the home screen can offer tapping as its own payment action
+rather than burying it behind the camera. Android never publishes an opener,
+because it is already listening.
 
 Neither transport is trusted. Whatever arrives — scanned, tapped, or read from
 this device's own request — goes through the same check before a customer sees an
@@ -329,6 +332,24 @@ broadcast as soon as it expires or moves out of `awaiting_approval`.
 Android HCE is declared unlock-required as an additional guard against a locked
 merchant handset serving an old request; the customer still validates the live
 ledger and signature after the tap.
+
+Bluetooth is the transport that does not care which phone is which. NFC leaves
+two iPhones unable to pay each other at all, because iOS grants no third-party
+card emulation and an iPhone merchant therefore publishes nothing to tap.
+`RosaPayProximity` is both roles on both platforms: the merchant runs a GATT
+peripheral advertising `F0526F73-6150-4179-9C01-524F53415041` — the NFC AID in
+its first two groups, so the two transports read as one protocol — and pushes
+the payload as `[sequence][total][data]` notifications sized to the negotiated
+MTU. The customer's scanner connects only above roughly -55 dBm, and reads three
+consecutive samples before acting on any of them, which is the rule that stands
+in for what a tap gives for free: an assertion that these two phones are
+deliberately together rather than merely in the same room. A run of readings at
+-45 dBm or better is reported as touching, and the confirmation screen then
+raises the device prompt by itself the way a tap does. A weaker run opens the
+screen and waits for Approve. Neither is an authorization: the signing key is
+minted so the hardware will not sign until the owner answers the prompt. The merchant screen advertises over both radios at once and the
+customer listens on both, so the same request often arrives twice; the first
+one through is the payment and the second is dropped.
 
 The wire budget is fixed in both native implementations: 240 UTF-8 bytes per
 APDU response, at most 24 chunks, and therefore 5,760 bytes per request. RTP/1

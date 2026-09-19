@@ -6,6 +6,22 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.NFC" />
 
+    <!-- Bluetooth LE carries a payment request between two phones held together,
+         which is the only proximity transport that works iPhone to iPhone.
+         Android 12 split these by purpose; `neverForLocation` says truthfully
+         that Rosa Pay reads a merchant's request and never derives a position,
+         which is what keeps a payment app out of the location permission. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" tools:targetApi="s" />
+    <!-- Before Android 12 the same work was gated on the old pair, and scanning
+         additionally on location. Capped so a modern phone is never asked. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+
     <!-- The camera library declares storage permissions for saving photos.
          Rosa Pay only reads QR codes, and a payment app asking to read the
          gallery is both unjustifiable and a store review risk. -->
@@ -20,6 +36,8 @@
          still a phone that can pay. -->
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
+    <!-- Proximity is a convenience over the QR path on every platform. -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 
     <application
       android:name=".MainApplication"

@@ -41,6 +41,33 @@
 	<string>Rosa Pay uses Face ID to approve a payment with the key stored on this device.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>Rosa Pay reads a merchant's payment request when you hold your phone near theirs.</string>
+	<!--
+	  Core NFC will not hand an ISO-7816 tag to the app unless the AID is listed
+	  here. This is an Info.plist key, not an entitlement: the entitlement is
+	  `com.apple.developer.nfc.readersession.formats` (TAG), which Xcode's "Near
+	  Field Communication Tag Reading" capability writes into
+	  RosaPay.entitlements. Putting this array there instead leaves the polling
+	  list empty, so an iPhone sees the Android merchant's card and is never
+	  given it — and the signing step can reject an entitlement no provisioning
+	  profile grants.
+
+	  Keep it equal to apduservice.xml and RosaPayNfcModule.AID:
+	  F0 "RosaPay" 01, a proprietary F0-prefixed AID.
+	-->
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>F0526F736150617901</string>
+	</array>
+	<!--
+	  Core Bluetooth prompts once on first use and refuses outright without this.
+	  Rosa Pay is both roles: a merchant iPhone advertises the request it is
+	  showing, and a customer iPhone finds the merchant it is being held against.
+	-->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Rosa Pay uses Bluetooth to pass a payment request between two phones held together.</string>
+	<!-- iOS 12 and earlier read this key instead; kept so the prompt is never blank. -->
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Rosa Pay uses Bluetooth to share a payment request with the customer in front of you.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

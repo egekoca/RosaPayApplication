@@ -362,11 +362,51 @@ fails, the QR remains available and the UI offers a retry.
 
 iOS reads a tap and cannot publish one, and that split is Apple's, not a sequencing choice.
 
-**Reading (implemented).** `RosaPayNfc.swift` opens an `NFCTagReaderSession` and speaks the same ISO 7816-4 exchange the Android reader speaks against the same AID, so an iPhone customer can pay an Android merchant by tapping. This needs the standard Near Field Communication Tag Reading capability (`com.apple.developer.nfc.readersession.formats` = `TAG`) plus the AID in `com.apple.developer.nfc.readersession.iso7816.select-identifiers`; neither requires approval from Apple. A CoreNFC session is a system sheet rather than background polling, so iOS requires the customer to press the tap-to-pay control on the scan screen before presenting the merchant phone. The verified tap then starts device authorization automatically; biometric/platform confirmation remains mandatory.
+**Reading (implemented).** `RosaPayNfc.swift` opens an `NFCTagReaderSession` and speaks the same ISO 7816-4 exchange the Android reader speaks against the same AID, so an iPhone customer can pay an Android merchant by tapping. This needs the standard Near Field Communication Tag Reading capability, and the two halves of it live in different files: the entitlement `com.apple.developer.nfc.readersession.formats` = `TAG` belongs in `RosaPay.entitlements`, which is what Xcode's capability editor writes, while the AID list `com.apple.developer.nfc.readersession.iso7816.select-identifiers` is an **Info.plist** key. Core NFC polls against the Info.plist list, so an AID placed only in the entitlements file leaves the app unable to see the merchant at all, and a provisioning profile that was never asked for that entitlement can fail signing. Neither half requires approval from Apple. A CoreNFC session is a system sheet rather than background polling, so iOS cannot arm a reader the way Android does and the customer opens one. That control is on the home screen as its own way to pay, and also on the scan screen; the session closes itself after a single read. The verified tap then starts device authorization automatically; biometric/platform confirmation remains mandatory.
 
 **Publishing (not possible).** iOS does not grant third-party apps host card emulation. The exception added in iOS 17.4 requires a commercial agreement with Apple and the NFC & SE Platform entitlement, is limited to the EEA, and is scoped to payment, transit, key and badge categories. An iPhone merchant therefore shows the QR code, and `startBroadcast` rejects instead of silently doing nothing.
 
-The UI shows `Scan QR` whenever NFC is unavailable, and QR remains the path that works in every direction.
+### 13.4 Bluetooth LE proximity (the transport that works in every direction)
+
+NFC leaves one pair unserved, and it is not a rare one: two iPhones. iOS grants
+no third-party card emulation, so an iPhone merchant publishes nothing an
+iPhone customer can tap, and those two phones would otherwise be left with the
+camera. Bluetooth LE has no such asymmetry — every platform can be both roles —
+so it carries the identical signed RTP/1 payload as a second transport rather
+than a different protocol.
+
+`RosaPayProximity` on both platforms is the merchant and the customer at once.
+The merchant runs a GATT peripheral advertising service
+`F0526F73-6150-4179-9C01-524F53415041`, whose first two groups are the NFC AID
+so the two transports are recognisably one protocol. A request is far past the
+512-byte ceiling on a readable attribute, so the payload is pushed as
+notifications framed `[sequence][total][data]`, sized to the negotiated MTU and
+capped at 255 frames and the same 4,096-byte bound RTP/1 puts on its QR URI.
+
+A radio does not say what someone meant, which is the one thing a tap gives for
+free. Signal strength stands in for it, at two levels. A merchant at roughly
+-55 dBm or closer is offered at all — phones in the same conversation, not a
+till across the room. A merchant at roughly -45 dBm or closer, sustained across
+three consecutive readings so a spike cannot pass for contact, is treated as a
+tap: the confirmation screen raises the device prompt by itself, with no button,
+exactly as NFC does. Anything in between opens the screen and waits for Approve,
+which is also what settles matters where several counters are advertising in one
+cafe — the screen names the business and the amount.
+
+Starting the prompt early is a convenience, never an authorization. The payment
+key is minted with `.userPresence` on iOS and `setUserAuthenticationRequired` on
+Android, so the hardware refuses to sign until the owner answers Face ID, Touch
+ID or the device passcode. There is no configuration in which proximity alone
+spends money, and there could not be without minting a key the device would let
+anything use.
+
+Both platforms need one grant before any of this can be silent — Core Bluetooth
+prompts on first use, Android 12 and later require the scan/advertise/connect
+runtime permissions — and the home screen asks for it once, in the place someone
+is already looking for how to pay.
+
+The UI shows `Scan QR` whenever no radio is available, and QR remains the path
+that works in every direction.
 
 ## 14. Backend and Data Model
 

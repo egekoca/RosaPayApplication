@@ -193,6 +193,21 @@ kurtarma-cümlesi hesabı seçilirse o yola hiç girilmez.
   KANIT       Fişteki tx hash'ini stellar.expert'te aç ve
               demoyu orada bitir.
 
+  IPHONE      İki iPhone NFC ile ödeşemez: iOS üçüncü taraf uygulamaya
+  IPHONE'A    kart emülasyonu vermiyor, yani QR'ı gösteren iPhone
+              dokunulacak bir şey yaymıyor. Bu çift için Bluetooth
+              kullanılır. Her iki telefonda da ilk açılışta ana
+              ekrandaki "Telefonları yaklaştırarak ödemeyi aç"
+              satırına bir kez basılır. Sonrası: satıcı iPhone QR
+              ekranında dururken müşteri iPhone uygulama açıkken
+              yanına gider; telefonlar birbirine değecek kadar
+              yaklaşınca Confirm ekranı kendiliğinden açılır ve
+              telefonlar değdiğinde Face ID kendiliğinden açılır;
+              NFC ile aynı. Sinyal zayıfsa (aradaki mesafe fazla)
+              ekran açılır ama "Ödemeyi onayla"ya basmak gerekir.
+              Face ID her hâlükârda sorulur: imza anahtarı cihaz
+              kimlik doğrulaması olmadan imzalamayı reddediyor.
+
   SEP-12      Anchor bölümünde `packages/anchor` testini çalıştır.
               `createMockSep12Anchor` ile NEEDS_INFO -> ACCEPTED akışını göster.
               Bu yalnızca protokol demosudur; gerçek kimlik bilgisi girme.
