@@ -26,8 +26,9 @@ const CHECKS = 3;
  * not to make them type it twice.
  */
 export function RecoveryPhraseScreen({route, navigation}: Props) {
-  const {phrase} = route.params;
+  const {phrase, name, email} = route.params;
   const setWallet = useAppStore(state => state.setWallet);
+  const createAccount = useAppStore(state => state.createAccount);
   const words = useMemo(() => phrase.split(' '), [phrase]);
   const asked = useMemo(() => pickWordsToCheck(words.length, CHECKS), [words.length]);
 
@@ -62,6 +63,9 @@ export function RecoveryPhraseScreen({route, navigation}: Props) {
           message: cause instanceof Error ? cause.message : 'unknown',
         });
       });
+      // Together, and only now: the wallet is on the phone, so the account it
+      // belongs to is real too.
+      createAccount({name, ...(email ? {email} : {})});
       setWallet({address: keypair.publicKey(), origin: 'created'});
       navigation.replace('Main');
     } catch (failure) {

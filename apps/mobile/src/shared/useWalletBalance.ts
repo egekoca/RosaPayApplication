@@ -2,7 +2,7 @@ import {useQuery} from '@tanstack/react-query';
 import {Asset} from '@stellar/stellar-sdk';
 import {createStellarConfig, readAssetBalance} from '@rosapay/stellar';
 import {payableAssets} from '../features/payments/assets';
-import {useAppStore} from '../state/appStore';
+import {needsTrustlines, useCurrentAccount} from '../features/wallet/currentAccount';
 
 export type Holding = {code: string; amount: string};
 
@@ -16,44 +16,49 @@ function contractIdOf(asset: (typeof payableAssets)[number], networkPassphrase: 
 /**
  * What the customer holds, one entry per asset they could pay with.
  *
- * A smart wallet is a contract, so its balances only exist through the asset
- * contracts; there is nothing to read until the device has one. Assets the
- * customer has none of are dropped rather than listed at zero — a wallet
- * showing a row of empty balances says nothing except that we support them.
+ * Balances are read through each asset's own contract, which answers for a
+ * contract account and a classic one alike; there is nothing to read until the
+ * phone has an account at all. Assets the customer has none of are dropped
+ * rather than listed at zero — a wallet showing a row of empty balances says
+ * nothing except that we support them.
  */
 export function useWalletBalance() {
-  const smartWallet = useAppStore(state => state.smartWallet);
+  const account = useCurrentAccount();
 
   return useQuery({
-    queryKey: ['wallet-balance', smartWallet?.contractId],
-    enabled: Boolean(smartWallet),
+    queryKey: ['wallet-balance', account?.address],
+    enabled: Boolean(account),
     refetchInterval: 20_000,
     staleTime: 10_000,
     retry: 1,
     queryFn: async (): Promise<Holding[]> => {
       const config = createStellarConfig('testnet');
       /*
-       * A failed read is not a zero balance.
+       * What a failed read means depends on which account this is.
        *
-       * This used to catch and substitute '0', on the reasoning that a missing
-       * trustline reads as a failure and honestly means "none of this". But the
-       * customer's wallet is a contract, and a contract needs no trustline —
-       * every asset answers, with zero when it has never been paid. So the only
-       * thing a failure here can mean is that the ledger could not be reached,
-       * and calling that zero told someone holding USDC that they held none.
+       * A contract account needs no trustline, so every asset answers — zero
+       * when it has never been paid. The only thing a failure can mean there is
+       * that the ledger was unreachable, and calling that zero once told
+       * someone holding USDC that they held none. So it is left to throw, the
+       * card goes to its reconnecting state, and the query retries.
        *
-       * Letting it throw puts the card in its reconnecting state, which is the
-       * true thing to say, and the query retries on its own.
+       * A classic account is the opposite: without a trustline the asset cannot
+       * reach it at all and the balance call fails outright. There, a failure
+       * on a non-native asset honestly means "none of this", and throwing would
+       * put a working wallet permanently in an error state.
        */
+      const classic = needsTrustlines(account);
       const balances = await Promise.all(
-        payableAssets.map(async entry => ({
-          code: entry.code,
-          amount: await readAssetBalance(
+        payableAssets.map(async entry => {
+          const read = readAssetBalance(
             config,
-            smartWallet!.contractId,
+            account!.address,
             contractIdOf(entry, config.networkPassphrase),
-          ),
-        })),
+          );
+          const amount =
+            classic && entry.asset.type !== 'native' ? await read.catch(() => '0') : await read;
+          return {code: entry.code, amount};
+        }),
       );
 
       const held = balances.filter(balance => Number(balance.amount) > 0);

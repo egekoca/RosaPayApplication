@@ -359,27 +359,54 @@ describe('what a balance is worth', () => {
       json({buy_assets: [{asset: 'iso4217:USD', price: '0.39', decimals: 4}]}),
     ) as unknown as typeof fetch;
 
-    const prices = await readIndicativePrices({anchor: withQuotes, sellAmount: '100', fetcher});
+    const prices = await readIndicativePrices({source: withQuotes, sellAmount: '100', fetcher});
 
     expect(prices).toEqual([{asset: 'iso4217:USD', price: '0.39', decimals: 4}]);
   });
 
   it('returns nothing when the anchor quotes no prices', async () => {
     const fetcher = vi.fn(async () => json({}, 404)) as unknown as typeof fetch;
-    await expect(readIndicativePrices({anchor: withQuotes, sellAmount: '100', fetcher})).resolves.toEqual([]);
+    await expect(readIndicativePrices({source: withQuotes, sellAmount: '100', fetcher})).resolves.toEqual([]);
   });
 
-  it('returns nothing when the anchor has no quote server at all', async () => {
+  it('reads a bare quote server that is not an anchor at all', async () => {
+    // The deployment serves its own SEP-38 for currencies no anchor prices, so
+    // a `quoteServer` on its own has to be as good as a discovered anchor.
+    const fetcher = vi.fn(async () =>
+      json({buy_assets: [{asset: 'iso4217:TRY', price: '8.97', decimals: 2}]}),
+    ) as unknown as typeof fetch;
+
+    const prices = await readIndicativePrices({
+      source: {quoteServer: 'https://pay.example/sep38'},
+      sellAmount: '1',
+      fetcher,
+    });
+
+    expect(prices).toEqual([{asset: 'iso4217:TRY', price: '8.97', decimals: 2}]);
+    const [url] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
+    expect(url).toContain('https://pay.example/sep38/prices');
+  });
+
+  it('returns nothing when there is no quote server at all', async () => {
     // Rather than invent a rate, which is what a payment screen must never do.
-    await expect(readIndicativePrices({anchor: anchorInfo(), sellAmount: '100'})).resolves.toEqual([]);
+    await expect(readIndicativePrices({source: anchorInfo(), sellAmount: '100'})).resolves.toEqual([]);
   });
 
-  it('lists only the currencies the anchor can actually price', async () => {
+  /**
+   * SEP-38 quotes units of the sold asset for one unit of the bought one, which
+   * is the opposite of how a menu price reads. The numbers here are what the TR
+   * mock anchor actually returns for USDC: one lira costs about two cents, so a
+   * merchant is shown roughly 48 lira to the dollar.
+   *
+   * Reading it unflipped is not a rounding error. It priced a 500 lira coffee
+   * at 24,095 USDC, and went unnoticed while the only quote server in play was
+   * this project's own, inverted the same way.
+   */
+  it('reads a SEP-38 price in the direction the standard sends it', async () => {
     const fetcher = vi.fn(async () =>
       json({
         buy_assets: [
-          {asset: 'iso4217:USD', price: '0.39'},
-          {asset: 'iso4217:TRY', price: '13.4'},
+          {asset: 'iso4217:TRY', price: '0.0207511932', decimals: 2},
           // An anchor that answers with a zero rate has told us nothing, and a
           // merchant offered that currency would price a meal at infinity.
           {asset: 'iso4217:BRL', price: '0'},
@@ -387,14 +414,26 @@ describe('what a balance is worth', () => {
       }),
     ) as unknown as typeof fetch;
 
-    const currencies = await readCurrencyPrices({anchor: withQuotes, fetcher});
+    const currencies = await readCurrencyPrices({source: withQuotes, fetcher});
 
-    expect(currencies).toEqual([
-      {currency: 'USD', asset: 'iso4217:USD', perUnit: '0.39'},
-      {currency: 'TRY', asset: 'iso4217:TRY', perUnit: '13.4'},
-    ]);
+    expect(currencies).toHaveLength(1);
+    expect(currencies[0]!.currency).toBe('TRY');
+    expect(Number(currencies[0]!.perUnit)).toBeCloseTo(48.19, 1);
     const [url] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
     expect(url).toContain('sell_amount=1');
+  });
+
+  it('converts a lira price through that rate the way the anchor would', async () => {
+    const fetcher = vi.fn(async () =>
+      json({buy_assets: [{asset: 'iso4217:TRY', price: '0.0207511932', decimals: 2}]}),
+    ) as unknown as typeof fetch;
+
+    const [lira] = await readCurrencyPrices({source: withQuotes, fetcher});
+
+    // The anchor's own /price answers 10.2702777 USDC for 500 TRY before fees.
+    // Anything near 24,095 means the rate was read upside down.
+    const amount = Number(assetAmountForPrice({amount: '500', perUnit: lira!.perUnit}));
+    expect(amount).toBeCloseTo(10.375, 1);
   });
 
   it('converts a price on a menu into the amount that settles it', () => {

@@ -41,6 +41,7 @@ import {
   DeviceAuthenticationError,
   type DeviceAuthService,
 } from './application/DeviceAuthService';
+import {PriceService, PriceUnavailableError} from './application/PriceService';
 
 const paramsSchema = z.object({intentId: z.string().min(1)});
 const profileParamsSchema = z.object({merchantProfileId: z.string().min(1)});
@@ -58,6 +59,11 @@ const countersignatureSchema = z.object({
   customerAddress: stellarAddress,
   // A base64 Ed25519 signature is exactly 64 bytes.
   signature: z.string().regex(/^[A-Za-z0-9+/]{86}==$/),
+});
+const pricesQuerySchema = z.object({
+  sell_asset: z.string().min(1).max(120),
+  // SEP-38 allows asking by either side; this server prices what is being sold.
+  sell_amount: z.string().min(1).max(40).default('1'),
 });
 const deviceAuthChallengeSchema = z.object({publicSigner: z.string().min(64).max(512)});
 const deviceAuthSessionSchema = z.object({
@@ -77,6 +83,7 @@ export type BuildAppOptions = {
   walletRepository?: WalletRepository;
   auditLog?: AuditLogRepository;
   deviceAuth?: DeviceAuthService;
+  prices?: PriceService;
 };
 
 export function buildApp({
@@ -89,6 +96,7 @@ export function buildApp({
   walletRepository,
   auditLog,
   deviceAuth,
+  prices,
 }: BuildAppOptions = {}) {
   const app = Fastify({logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']}});
   const intents = new IntentService(repository);
@@ -111,6 +119,8 @@ export function buildApp({
   const walletLimiter = new RateLimiter({limit: 3, windowMs: 60 * 60 * 1000});
   const relayerLimiter = new RateLimiter({limit: 30, windowMs: 60 * 1000});
   const authenticationLimiter = new RateLimiter({limit: 10, windowMs: 60 * 1000});
+  // Rates are cached upstream, so this only bounds how hard one caller can ask.
+  const priceLimiter = new RateLimiter({limit: 60, windowMs: 60 * 1000});
   const callerKey = (request: FastifyRequest) => request.ip ?? 'unknown';
 
   const relayerService = relayer ?? new RelayerService({
@@ -122,6 +132,30 @@ export function buildApp({
   // The storage mode is part of health because in-memory data disappears on
   // restart, and a client that records payments deserves to know that.
   app.get('/v1/health', async () => ({status: 'ok', storage}));
+  /**
+   * SEP-38 indicative prices, served by this deployment rather than an anchor.
+   *
+   * Nothing on Stellar quotes Turkish lira — of every domain in the Stellar
+   * Anchor Directory, two publish a quote server and both price only the
+   * Brazilian real — so a merchant who sets prices in lira has to get the rate
+   * from somewhere. Serving it in SEP-38's own shape means the app reads it
+   * with the same code it would read a real anchor with, and pointing it at one
+   * later costs a configuration change rather than a rewrite.
+   *
+   * Unauthenticated, as SEP-38 specifies for `/info` and `/prices`. There is
+   * deliberately no `/quote`: a firm rate is a promise to exchange at it, and
+   * this deployment settles on chain instead of exchanging anything.
+   */
+  app.get('/sep38/info', async (request, reply) => {
+    if (!prices) return reply.code(503).send({code: 'PRICING_DISABLED', message: 'This deployment serves no rates'});
+    return reply.send(prices.info());
+  });
+  app.get('/sep38/prices', async (request, reply) => {
+    if (!prices) return reply.code(503).send({code: 'PRICING_DISABLED', message: 'This deployment serves no rates'});
+    const query = pricesQuerySchema.parse(request.query);
+    priceLimiter.assert(callerKey(request));
+    return reply.send(await prices.prices({sellAsset: query.sell_asset, sellAmount: query.sell_amount}));
+  });
   app.post('/v1/auth/challenges', async (request, reply) => {
     if (!deviceAuth) return reply.code(503).send({code: 'AUTHENTICATION_DISABLED', message: 'Device authentication is unavailable'});
     const {publicSigner} = deviceAuthChallengeSchema.parse(request.body);
@@ -331,6 +365,11 @@ export function buildApp({
     }
     if (error instanceof DeviceAuthenticationError) {
       return reply.code(401).send({code: error.code, message: error.message});
+    }
+    if (error instanceof PriceUnavailableError) {
+      // No rate is a temporary state of the world, not a bad request: the
+      // caller asked a reasonable question and the answer is not available.
+      return reply.code(503).send({code: error.code, message: error.message});
     }
     if (error instanceof IntentConflictError) {
       return reply.code(409).send({code: 'INTENT_CONFLICT', message: error.message});

@@ -8,6 +8,7 @@ import {Screen} from '../../shared/Screen';
 import {logger} from '../../shared/logger';
 import {createRandomBytes} from '../../shared/randomBytes';
 import {useAppStore} from '../../state/appStore';
+import {useCurrentAccount} from '../wallet/currentAccount';
 import {createMerchantProfile, MerchantProfileError} from './merchantProfile';
 import {registerMerchantForTestnet} from './merchantRegistration';
 
@@ -17,9 +18,14 @@ type Props = NativeStackScreenProps<RootStackParams, 'MerchantOnboarding'>;
 const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
 export function MerchantOnboardingScreen({navigation}: Props) {
-  const {saveMerchantProfile, setMerchantRegisteredOnChain, smartWallet} = useAppStore();
+  const {saveMerchantProfile, setMerchantRegisteredOnChain} = useAppStore();
+  const account = useCurrentAccount();
   const [displayName, setDisplayName] = useState('');
-  const [recipient, setRecipient] = useState(smartWallet?.contractId ?? '');
+  // The account this phone already pays from is the account it gets paid into.
+  // Asking for an address here made a second setup out of what is one wallet,
+  // and the answer was always the address already on the screen behind.
+  const [recipient, setRecipient] = useState(account?.address ?? '');
+  const [editingRecipient, setEditingRecipient] = useState(!account);
   const [errors, setErrors] = useState<{displayName?: string; recipient?: string; general?: string}>({});
   const [registering, setRegistering] = useState(false);
 
@@ -66,7 +72,7 @@ export function MerchantOnboardingScreen({navigation}: Props) {
           <View style={styles.icon}><Store color={colors.goldBright} size={22} /></View>
           <Text style={styles.eyebrow}>GET PAID</Text>
           <Text style={styles.title}>Set up your business</Text>
-          <Text style={styles.subtitle}>Customers see this name and pay the address you verify here.</Text>
+          <Text style={styles.subtitle}>Customers see this name. You are paid into the wallet you already have.</Text>
         </View>
       </AnimatedContent>
       <AnimatedContent delay={80} scaleFrom={0.985}>
@@ -83,40 +89,38 @@ export function MerchantOnboardingScreen({navigation}: Props) {
             value={displayName}
             {...(errors.displayName ? {error: errors.displayName} : {})}
           />
-          {smartWallet && smartWallet.contractId !== recipient ? (
+          {account && !editingRecipient ? (
             <Pressable
               accessibilityRole="button"
-              onPress={() => {
-                setRecipient(smartWallet.contractId);
-                setErrors(current => ({...current, recipient: undefined}));
-              }}
+              onPress={() => setEditingRecipient(true)}
               style={styles.useWallet}
-              testID="use-this-wallet">
+              testID="change-recipient">
               <Smartphone color={colors.goldBright} size={18} />
               <View style={styles.useWalletCopy}>
-                <Text style={styles.useWalletTitle}>Get paid into this phone</Text>
+                <Text style={styles.useWalletTitle}>Paid into this wallet</Text>
                 <Text style={styles.useWalletBody}>
-                  Uses this phone's protected smart wallet as the verified settlement recipient.
+                  {`${account.address.slice(0, 8)}…${account.address.slice(-6)} — the account this phone already uses. Tap to be paid somewhere else instead.`}
                 </Text>
               </View>
             </Pressable>
-          ) : null}
-          <TextField
-            autoCapitalize="characters"
-            hint="Stellar account or contract address that receives payments"
-            label="RECEIVING ADDRESS"
-            maxLength={56}
-            mono
-            multiline
-            onChangeText={value => {
-              setRecipient(value);
-              if (errors.recipient) setErrors(current => ({...current, recipient: undefined}));
-            }}
-            placeholder="GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
-            testID="merchant-recipient"
-            value={recipient}
-            {...(errors.recipient ? {error: errors.recipient} : {})}
-          />
+          ) : (
+            <TextField
+              autoCapitalize="characters"
+              hint="Stellar account or contract address that receives payments"
+              label="RECEIVING ADDRESS"
+              maxLength={56}
+              mono
+              multiline
+              onChangeText={value => {
+                setRecipient(value);
+                if (errors.recipient) setErrors(current => ({...current, recipient: undefined}));
+              }}
+              placeholder="GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
+              testID="merchant-recipient"
+              value={recipient}
+              {...(errors.recipient ? {error: errors.recipient} : {})}
+            />
+          )}
         </SurfaceCard>
       </AnimatedContent>
       <AnimatedContent delay={160}>

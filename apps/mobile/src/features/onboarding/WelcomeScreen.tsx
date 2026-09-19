@@ -1,6 +1,6 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ArrowRight, Nfc, ScanLine, ShieldCheck} from 'lucide-react-native';
-import {StyleSheet, Text, useWindowDimensions, View} from 'react-native';
+import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import type {ReactNode} from 'react';
 import {AnimatedContent, Button, colors, radius, spacing, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
@@ -46,12 +46,24 @@ export function WelcomeScreen({navigation}: Props) {
         <View style={styles.actions}>
           <Button
             icon={<ArrowRight color={colors.black} size={20} />}
-            onPress={() => navigation.navigate('CreateAccount')}
+            onPress={() => navigation.navigate('CreateAccount', {intent: 'create'})}
             testID="get-started">
             Create a new wallet
           </Button>
+          {/*
+            Quiet rather than hidden. Most people arriving here have no Stellar
+            account, so this is not the main road — but someone who does has one
+            already and should not be made to create a second.
+          */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('CreateAccount', {intent: 'import'})}
+            testID="restore-wallet">
+            <Text style={styles.restore}>I already have a wallet</Text>
+          </Pressable>
           <Text style={styles.footnote}>
-            No password to remember. Your payment key stays in this phone's secure hardware.
+            No password to remember. You choose whether your key stays in this phone's secure hardware or comes from a
+            recovery phrase.
           </Text>
         </View>
       </AnimatedContent>
@@ -83,5 +95,6 @@ const styles = StyleSheet.create({
   pointIcon: {alignItems: 'center', backgroundColor: colors.lemonSoft, borderRadius: radius.round, height: 40, justifyContent: 'center', width: 40},
   pointText: {...typography.body, color: colors.ink, flex: 1, fontSize: 15},
   actions: {gap: spacing.lg},
+  restore: {...typography.body, color: colors.gold, textAlign: 'center'},
   footnote: {color: colors.inkFaint, fontSize: 13, lineHeight: 19, textAlign: 'center'},
 });

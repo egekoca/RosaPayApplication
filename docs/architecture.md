@@ -388,6 +388,60 @@ The first network is Stellar Testnet. The read path uses Stellar RPC; Horizon is
 
 The contract stores the Testnet network identifier and settlement contract address in the signed intent. A pubnet deployment must use a separate configuration and separate keys.
 
+## Pricing in a currency no anchor quotes
+
+A merchant prices a coffee in the money their customers count in, and the
+contract moves an asset. Something has to hold the rate between the two, and
+SEP-38 is the standard shape for it: the app asks a quote server what one lumen
+is worth, converts the menu price into an asset amount, and sends the fiat label
+along in the signed reference so the customer can check the screen against the
+till.
+
+The rate comes from an anchor where one exists. For lira that is
+`tr-mock-anchor.fly.dev`, a Testnet sandbox quoting TRY against the same USDC
+issuer this app settles in, whose `/info` and `/prices` need no key — which is
+what lets a price appear on a merchant's screen before anyone has signed in.
+
+Finding it took a survey, because almost nothing on Stellar quotes fiat at all:
+of every domain in the Stellar Anchor Directory, 27 publish a `stellar.toml`,
+two declare an `ANCHOR_QUOTE_SERVER`, both belong to one operator, and the only
+fiat either prices is the Brazilian real. `testanchor.stellar.org` offers USD
+and CAD and its `/prices` answers 502. The TRY tokens on the public network
+publish no home domain and so no quote server. Buying lumens for lira through a
+wallet like LOBSTR goes through MoonPay, a card ramp rather than a rate service.
+
+The lira anchor prices USDC and not lumens, so this deployment still serves
+`/sep38/info` and `/sep38/prices` from a public market feed for the assets no
+anchor will quote. Both speak SEP-38, so `readCurrencyPrices` cannot tell them
+apart and `priceSource.ts` simply routes each sold asset to whichever server
+quotes it. A merchant is offered the currencies that can actually be quoted for
+the asset they chose, rather than a fixed row of flags.
+
+### The direction of a SEP-38 price
+
+SEP-38 quotes `price` as units of the **sold** asset for one unit of the
+**bought** one. Selling USDC to buy lira is therefore about `0.0207` — one lira
+costs two cents — not `48`, which is the same rate read backwards.
+
+This app had it backwards, and so did the server it was talking to, so the two
+agreed and nothing failed. Pointing at a real anchor turned a 500 lira coffee
+into 24,095 USDC. The flip now happens once, at the edge, in
+`readCurrencyPrices`, and this deployment's own server publishes the standard's
+direction so that it and a real anchor are interchangeable — which is the entire
+point of speaking SEP-38 rather than inventing an endpoint.
+
+What it costs is provenance. These are market rates, not an anchor's quote, and
+nothing here implements `/quote` — a firm rate is a promise to exchange at it,
+and this deployment settles on chain instead of exchanging anything. Rates are
+cached for a minute and a failed read clears the cache rather than serving a
+stale number, because a stale rate prices a sale at a figure the market has
+already left.
+
+The gap this leaves is the customer holding the wrong asset. A merchant paid in
+USDC and a customer holding only XLM cannot transact today; closing it needs a
+DEX, either before settlement or inside the contract, and is tracked in the
+backlog rather than half-built here.
+
 ## Platform sequencing
 
 QR is the required common payment path and is the current vertical slice. Android NFC is an optimization after real QR settlement. iOS uses the same QR path as a safe fallback because background NFC behavior and entitlement requirements differ by device and OS version. NFC must not introduce a second payment protocol.

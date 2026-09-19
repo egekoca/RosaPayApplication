@@ -13,6 +13,7 @@ import {displayAmount} from '../../shared/displayAmount';
 import {useBalanceValue} from '../../shared/useBalanceValue';
 import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
+import {useCurrentAccount} from '../wallet/currentAccount';
 import {greetingFor} from './greeting';
 import {MerchantBalanceCard} from './MerchantBalanceCard';
 import {PaymentCard} from './PaymentCard';
@@ -52,13 +53,13 @@ export function HomeScreen({navigation}: Props) {
  * bar is a promise of somewhere else to go, and there is nowhere else.
  */
 function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigation']; merchantEnabled: boolean}) {
-  const smartWallet = useAppStore(state => state.smartWallet);
+  const account = useCurrentAccount();
   const receipts = useAppStore(state => state.receipts);
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupError, setSetupError] = useState<string>();
   const balance = useWalletBalance();
   const value = useBalanceValue(balance.data);
-  const address = smartWallet?.contractId;
+  const address = account?.address;
 
   const finishWalletSetup = async () => {
     setSetupBusy(true);
@@ -83,13 +84,18 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
           {...(value.data ? {value: value.data} : {})}
           {...(address === undefined ? {} : {address})}
           state={
-            !smartWallet ? 'no-wallet' : balance.isPending ? 'loading' : balance.isError ? 'error' : 'ready'
+            !account ? 'no-wallet' : balance.isPending ? 'loading' : balance.isError ? 'error' : 'ready'
           }
           onCopy={() => address && void shareValue('My Lumenade Pay wallet', address)}
         />
       </AnimatedContent>
 
-      {!smartWallet ? (
+      {/*
+        Only a phone that chose device custody can finish setup this way; a
+        recovery-phrase account is already an account, and offering to deploy a
+        smart wallet over it would make a second wallet nobody asked for.
+      */}
+      {!account ? (
         <AnimatedContent delay={70}>
           <View accessibilityRole="alert" style={styles.walletSetup}>
             <View style={styles.walletSetupCopy}>
@@ -177,6 +183,10 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
 
 function MerchantHome({navigation}: {navigation: Props['navigation']}) {
   const receipts = useAppStore(state => state.receipts);
+  // The same wallet the Pay view reads. One account, so one balance.
+  const balance = useWalletBalance();
+  const value = useBalanceValue(balance.data);
+  const nativeBalance = balance.data?.find(holding => holding.code === 'XLM')?.amount;
   const merchantProfile = useAppStore(state => state.merchantProfile);
   const merchantRegisteredOnChain = useAppStore(state => state.merchantRegisteredOnChain);
   const pendingRequest = useAppStore(state => state.pendingRequest);
@@ -214,6 +224,8 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
           requestCount={received.length}
           settledCount={settled.length}
           total={total}
+          {...(nativeBalance === undefined ? {} : {balance: nativeBalance})}
+          {...(value.data ? {balanceCurrency: value.data} : {})}
         />
       </AnimatedContent>
 

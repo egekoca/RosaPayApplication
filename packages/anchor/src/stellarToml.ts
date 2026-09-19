@@ -20,6 +20,15 @@ export type AnchorInfo = {
   signingKey: string;
   webAuthEndpoint?: string;
   transferServerSep24?: string;
+  /**
+   * SEP-6, the programmatic deposit and withdrawal door.
+   *
+   * Read alongside SEP-24 rather than instead of it: the two are different
+   * protocols, not versions of one. SEP-24 hands the customer a hosted page and
+   * SEP-6 hands the wallet the bank details to render itself, and an anchor may
+   * publish either or both. The lira anchor publishes only this one.
+   */
+  transferServerSep6?: string;
   kycServer?: string;
   quoteServer?: string;
   /** SEP-45, for authenticating a contract account rather than a classic one. */
@@ -139,6 +148,7 @@ export async function discoverAnchor(
     domain,
     'TRANSFER_SERVER_SEP0024',
   );
+  const transferServerSep6 = secureEndpoint(values.TRANSFER_SERVER, domain, 'TRANSFER_SERVER');
   const kycServer = secureEndpoint(values.KYC_SERVER, domain, 'KYC_SERVER');
   const quoteServer = secureEndpoint(values.ANCHOR_QUOTE_SERVER, domain, 'ANCHOR_QUOTE_SERVER');
   const webAuthForContractsEndpoint = secureEndpoint(
@@ -153,6 +163,7 @@ export async function discoverAnchor(
     signingKey: signingKey.data,
     ...(webAuthEndpoint ? {webAuthEndpoint} : {}),
     ...(transferServerSep24 ? {transferServerSep24} : {}),
+    ...(transferServerSep6 ? {transferServerSep6} : {}),
     ...(kycServer ? {kycServer} : {}),
     ...(quoteServer ? {quoteServer} : {}),
     ...(webAuthForContractsEndpoint ? {webAuthForContractsEndpoint} : {}),

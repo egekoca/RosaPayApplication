@@ -38,7 +38,10 @@ test('offers the hardware-backed production wallet path in customer language', a
   expect(tree).toContain('LEMONADE');
   expect(tree).toContain('Create a new wallet');
   expect(tree).toContain('secure hardware');
-  expect(tree).not.toContain('recovery phrase');
+  // Both custody models are now offered, so someone who already has a Stellar
+  // wallet is not made to create a second one to get in.
+  expect(tree).toContain('recovery phrase');
+  expect(tree).toContain('I already have a wallet');
 
   // The screen used to offer "Create your wallet" and "Sign in with passkey"
   // side by side. Both did exactly the same thing, and neither told a customer
@@ -58,5 +61,19 @@ test('sends wallet creation to account setup', async () => {
   });
 
   await ReactTestRenderer.act(() => renderer.root.findByProps({testID: 'get-started'}).props.onPress());
-  expect(navigate).toHaveBeenCalledWith('CreateAccount');
+  expect(navigate).toHaveBeenCalledWith('CreateAccount', {intent: 'create'});
+});
+
+test('sends someone who already has a wallet to restore it instead', async () => {
+  const Screen = WelcomeScreen as unknown as React.ComponentType<{
+    navigation: {navigate: jest.Mock};
+  }>;
+  const navigate = jest.fn();
+  let renderer: ReactTestRenderer.ReactTestRenderer;
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(<Screen navigation={{navigate}} />);
+  });
+
+  await ReactTestRenderer.act(() => renderer.root.findByProps({testID: 'restore-wallet'}).props.onPress());
+  expect(navigate).toHaveBeenCalledWith('CreateAccount', {intent: 'import'});
 });

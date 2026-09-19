@@ -19,10 +19,15 @@ import {hasRestorableSession, useAppStore, type LocalReceipt} from '../state/app
 
 export type RootStackParams = {
   Welcome: undefined;
-  CreateAccount: undefined;
-  /** The words are passed, never stored: nothing writes them to disk. */
-  RecoveryPhrase: {phrase: string};
-  ImportWallet: undefined;
+  /** `import` skips the custody choice and goes on to ask for a phrase. */
+  CreateAccount: {intent: 'create' | 'import'} | undefined;
+  /**
+   * The words are passed, never stored: nothing writes them to disk. The name
+   * travels with them because the account is only recorded once a wallet
+   * actually exists — a failed setup must leave nothing behind.
+   */
+  RecoveryPhrase: {phrase: string; name: string; email?: string};
+  ImportWallet: {name: string; email?: string};
   Main: undefined;
   Scan: undefined;
   Confirm: {payload: SignedPaymentIntentV1};

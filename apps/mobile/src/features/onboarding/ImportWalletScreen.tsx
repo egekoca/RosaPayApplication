@@ -22,8 +22,10 @@ type Method = 'phrase' | 'secret';
  * valid address that simply is not theirs. Confirming it is the only moment
  * someone can catch that before they wonder where their money went.
  */
-export function ImportWalletScreen({navigation}: Props) {
+export function ImportWalletScreen({navigation, route}: Props) {
+  const {name, email} = route.params;
   const setWallet = useAppStore(state => state.setWallet);
+  const createAccount = useAppStore(state => state.createAccount);
   const [method, setMethod] = useState<Method>('phrase');
   const [phrase, setPhrase] = useState('');
   const [secret, setSecret] = useState('');
@@ -53,6 +55,9 @@ export function ImportWalletScreen({navigation}: Props) {
         return;
       }
       await saveSigningKey(derived.secret());
+      // Only now, with the key actually on the phone: a failed import must
+      // leave no account behind for someone to find on the next launch.
+      createAccount({name, ...(email ? {email} : {})});
       setWallet({address: derived.publicKey(), origin: 'imported'});
       navigation.replace('Main');
     } catch (failure) {

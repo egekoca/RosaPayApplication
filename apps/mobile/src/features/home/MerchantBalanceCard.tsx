@@ -4,7 +4,11 @@ import {CountUp, GoldCardSurface, LoadingDots, spacing, typography} from '@rosap
 
 type MerchantBalanceCardProps = {
   displayName: string;
+  /** What this business has been paid, which is not what the wallet holds. */
   total: number;
+  /** The wallet's own balance — the same money the Pay view shows. */
+  balance?: string;
+  balanceCurrency?: {amount: string; currency: string};
   requestCount: number;
   settledCount: number;
   loading?: boolean;
@@ -15,9 +19,21 @@ const CARD_RATIO = 53.98 / 85.6;
 const ink = '#1C1503';
 const inkSoft = 'rgba(28,21,3,0.62)';
 
+/**
+ * The business view of the one wallet this phone has.
+ *
+ * It used to lead with takings, in the same gold card and the same big number
+ * the Pay view uses for the balance. Switching to Get paid therefore appeared
+ * to empty the wallet, and the two views read as two accounts — which is the
+ * one thing this app is built not to be. So the headline is the balance, the
+ * same figure as the other side of the switch, and takings sit beneath it
+ * labelled as takings.
+ */
 export function MerchantBalanceCard({
   displayName,
   total,
+  balance,
+  balanceCurrency,
   requestCount,
   settledCount,
   loading = false,
@@ -46,9 +62,12 @@ export function MerchantBalanceCard({
           <Text style={styles.statusText}>{statusLabel}</Text>
         </View>
         <View style={styles.amountRow}>
-          <CountUp value={total} decimals={2} duration={620} style={styles.amount} />
+          <CountUp value={Number(balance ?? 0)} decimals={2} duration={620} style={styles.amount} />
           <Text style={styles.asset}>XLM</Text>
         </View>
+        <Text style={styles.legendLabel}>
+          {balanceCurrency ? `BALANCE  ≈ ${balanceCurrency.amount} ${balanceCurrency.currency}` : 'BALANCE'}
+        </Text>
       </View>
 
       <View style={styles.bottom}>
@@ -60,9 +79,9 @@ export function MerchantBalanceCard({
         </View>
         <View style={styles.metric}>
           <Text style={styles.metricValue}>
-            {settledCount}/{requestCount}
+            {total.toFixed(2)} XLM
           </Text>
-          <Text style={styles.legendLabel}>SETTLED</Text>
+          <Text style={styles.legendLabel}>TAKEN · {settledCount}/{requestCount}</Text>
         </View>
       </View>
       {loading ? <LoadingDots color={inkSoft} size={4} style={styles.loading} /> : null}

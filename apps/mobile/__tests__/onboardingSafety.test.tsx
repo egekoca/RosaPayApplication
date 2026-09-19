@@ -69,7 +69,12 @@ it('does not create a local account when secure wallet provisioning fails', asyn
   expect(JSON.stringify(renderer.toJSON())).toContain('The Testnet wallet could not be provisioned');
 });
 
-it('fills the merchant recipient with the production smart-wallet address', async () => {
+/**
+ * Getting paid is a capability of the account this phone already has, not a
+ * second account. Asking a merchant to supply an address made it look like one,
+ * and the answer was always the wallet already on the screen behind.
+ */
+it('does not ask a merchant for an address it already knows', async () => {
   await ReactTestRenderer.act(() => {
     useAppStore.setState({smartWallet});
   });
@@ -81,15 +86,35 @@ it('fills the merchant recipient with the production smart-wallet address', asyn
   });
   renderers.push(renderer);
 
-  expect(renderer.root.findByProps({testID: 'merchant-recipient'}).props.value).toBe(smartWallet.contractId);
+  expect(renderer.root.findAllByProps({testID: 'merchant-recipient'})).toHaveLength(0);
+  expect(JSON.stringify(renderer.toJSON())).toContain(smartWallet.contractId.slice(0, 8));
 
+  // A merchant who wants to be paid somewhere else still can, and the field
+  // opens already holding the address rather than empty.
   await ReactTestRenderer.act(() => {
-    renderer.root.findByProps({testID: 'merchant-recipient'}).props.onChangeText('');
-  });
-  await ReactTestRenderer.act(() => {
-    renderer.root.findByProps({testID: 'use-this-wallet'}).props.onPress();
+    renderer.root.findByProps({testID: 'change-recipient'}).props.onPress();
   });
 
   expect(renderer.root.findByProps({testID: 'merchant-recipient'}).props.value).toBe(smartWallet.contractId);
   expect(smartWallet.contractId).toMatch(/^C[A-Z2-7]{55}$/);
+});
+
+/** A phone whose account came from twelve words is paid into that account. */
+it('uses the recovery-phrase account when that is what this phone holds', async () => {
+  const address = 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57';
+  await ReactTestRenderer.act(() => {
+    useAppStore.setState({smartWallet: null, wallet: {address, origin: 'imported'}});
+  });
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <MerchantOnboardingScreen navigation={{replace: jest.fn()} as never} route={{} as never} />,
+    );
+  });
+  renderers.push(renderer);
+
+  await ReactTestRenderer.act(() => {
+    renderer.root.findByProps({testID: 'change-recipient'}).props.onPress();
+  });
+  expect(renderer.root.findByProps({testID: 'merchant-recipient'}).props.value).toBe(address);
 });

@@ -14,7 +14,6 @@ jest.mock('../src/api/deviceSession', () => ({
 }));
 
 declare global {
-  // eslint-disable-next-line no-var
   var __signerMock: {getIdentity: jest.Mock; createIdentity: jest.Mock; signDigest: jest.Mock};
 }
 

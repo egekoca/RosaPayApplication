@@ -5,6 +5,7 @@ import {
   createSettlementClient,
   settleSignedPayment,
   type SettlementPipelineProgress,
+  type SettlementPipelineSigner,
   type StellarConfig,
 } from '@rosapay/stellar';
 import type {Countersigner} from './countersignature';
@@ -64,11 +65,24 @@ export function createRemoteRelayerSigner(baseUrl: string, fetcher: typeof fetch
   };
 }
 
+/**
+ * The account paying, and how it proves it.
+ *
+ * The two are genuinely different signatures, not two ways of writing one. A
+ * contract account authorizes the whole entry, because the wallet contract is
+ * what the host asks; a classic account signs the hashed preimage the way any
+ * Stellar key does. The settlement pipeline has always accepted either — this
+ * is just the app finally saying which it has.
+ */
+export type SettlementCustomer =
+  | {kind: 'smart-wallet'; contractId: string; signer: HardwareDigestSigner}
+  | {kind: 'classic'; address: string; signer: SettlementPipelineSigner};
+
 export type TestnetSettlementInput = {
   payload: SignedPaymentIntentV1;
   config: StellarConfig;
-  /** The device-controlled smart wallet that pays. */
-  smartWallet: {contractId: string; signer: HardwareDigestSigner};
+  /** The account that pays, whichever kind this phone holds. */
+  customer: SettlementCustomer;
   relayer: RelayerIdentity;
   /** Produces the merchant's signature over a digest naming this exact payer. */
   countersign: Countersigner;
@@ -85,7 +99,8 @@ export type TestnetSettlementInput = {
  */
 export async function settleOnTestnet(input: TestnetSettlementInput) {
   const {intent} = input.payload;
-  const customerAddress = input.smartWallet.contractId;
+  const customerAddress =
+    input.customer.kind === 'smart-wallet' ? input.customer.contractId : input.customer.address;
 
   const envelope = buildSettlementEnvelope(intent, {
     customer: customerAddress,
@@ -105,12 +120,17 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
     customerAddress,
     digest: Uint8Array.from(digest),
   });
-  const customerAuthorizeEntry = createWalletAuthorizeEntry({
-    signer: input.smartWallet.signer,
-    networkPassphrase: input.config.networkPassphrase,
-    validUntilLedger: input.latestLedger + 120,
-    reason: `Approve ${intent.amount} ${intent.asset.code} to ${intent.merchantName}`,
-  });
+  const authorization =
+    input.customer.kind === 'smart-wallet'
+      ? {
+          customerAuthorizeEntry: createWalletAuthorizeEntry({
+            signer: input.customer.signer,
+            networkPassphrase: input.config.networkPassphrase,
+            validUntilLedger: input.latestLedger + 120,
+            reason: `Approve ${intent.amount} ${intent.asset.code} to ${intent.merchantName}`,
+          }),
+        }
+      : {customerSigner: input.customer.signer};
 
   return settleSignedPayment({
     payload: input.payload,
@@ -119,7 +139,7 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
     relayerAddress: input.relayer.address,
     latestLedger: input.latestLedger,
     merchantContractSignature,
-    customerAuthorizeEntry,
+    ...authorization,
     relayerSigner: input.relayerSigner,
     ...(input.onProgress ? {onProgress: input.onProgress} : {}),
   });

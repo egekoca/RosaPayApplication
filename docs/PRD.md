@@ -96,12 +96,14 @@ A technical evaluator who must be able to inspect the protocol, run the app, obs
 
 ### 8.1 Single account flow
 
-1. A new user selects `Create a new wallet`; a returning user is recognized from encrypted device state.
-2. Lumenade Pay creates or restores one device-controlled customer smart wallet.
-3. The default home view is `Pay`.
-4. The user may select `Get paid with this account`.
-5. Business onboarding adds a Merchant Profile to the same user account and defaults its receiving address to the existing smart wallet.
-6. The user can switch between `Pay` and `Get paid` from the app header without changing accounts or signing keys.
+1. A new user selects `Create a new wallet` or `I already have a wallet`; a returning user is recognized from encrypted device state.
+2. Creating asks how the key is held: in this phone's secure hardware, or from a twelve-word recovery phrase. Both produce one account and one wallet; neither is a default dressed up as advice.
+3. `I already have a wallet` imports an existing Stellar account from its recovery phrase.
+4. The account is recorded only once a wallet actually exists, so a failed setup leaves nothing behind.
+5. The default home view is `Pay`.
+6. The user may select `Get paid with this account`.
+7. Business onboarding asks only for the business name; payments arrive in the account the phone already has, and a merchant who wants a different address may still supply one.
+8. The user can switch between `Pay` and `Get paid` from the app header without changing accounts or signing keys. Both views show the same wallet balance; takings are shown as takings.
 
 There must be no separate customer and merchant passwords, no role-specific duplicate accounts, and no hidden role switch that changes signing keys.
 
@@ -126,6 +128,7 @@ All visible product copy is English. The following labels are the canonical star
 
 - `Welcome to Lumenade Pay`
 - `Create a new wallet`
+- `I already have a wallet`
 - `Your wallet is protected by your device`
 - `Continue`
 - `Use Face ID` / `Use Touch ID` / `Use device biometrics`
