@@ -1,5 +1,8 @@
 import React from 'react';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {useNavigation, type NavigationProp} from '@react-navigation/native';
+import {UserRound, WalletCards} from 'lucide-react-native';
 import {colors} from '@rosapay/ui';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 
@@ -14,6 +17,8 @@ import {ScanScreen} from '../features/payments/ScanScreen';
 import {PaymentConfirmationScreen} from '../features/payments/PaymentConfirmationScreen';
 import {ReceiptScreen} from '../features/payments/ReceiptScreen';
 import {DeveloperSettingsScreen} from '../features/settings/DeveloperSettingsScreen';
+import {ProfileScreen} from '../features/profile/ProfileScreen';
+import {useTranslate} from '../shared/i18n';
 import {MerchantOnboardingScreen} from '../features/merchant/MerchantOnboardingScreen';
 import {MerchantRequestScreen} from '../features/merchant/MerchantRequestScreen';
 import {hasRestorableSession, useAppStore, type LocalReceipt} from '../state/appStore';
@@ -43,6 +48,70 @@ export type RootStackParams = {
 
 
 const Stack = createNativeStackNavigator<RootStackParams>();
+const Tabs = createBottomTabNavigator();
+
+/**
+ * The two halves of the app: what your money is doing, and who you are.
+ *
+ * They were one scroll with a settings gear in a corner, which made the whole
+ * of the second half reachable only through an icon nobody goes looking for.
+ * A bar says both exist without anyone having to find out.
+ */
+/*
+ * Inside a tab a screen is handed the tab's own navigation, which knows nothing
+ * of Scan or Receipt. These reach past it to the stack the tabs sit in, so both
+ * screens keep the one navigator that can actually go where they point.
+ */
+function WalletTab() {
+  const navigation = useNavigation<NavigationProp<RootStackParams>>();
+  return <HomeScreen navigation={navigation as never} route={{key: 'wallet', name: 'Main'} as never} />;
+}
+
+function ProfileTab() {
+  const navigation = useNavigation<NavigationProp<RootStackParams>>();
+  return <ProfileScreen navigation={navigation as never} />;
+}
+
+// Hoisted so the tab bar is not handed a new component type on every render,
+// which would tear down and rebuild the icon each time the language changes.
+const walletIcon = ({color}: {color: string}) => <WalletCards color={color} size={22} />;
+const profileIcon = ({color}: {color: string}) => <UserRound color={color} size={22} />;
+
+function MainTabs() {
+  const t = useTranslate();
+  return (
+    <Tabs.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.goldBright,
+        tabBarInactiveTintColor: colors.inkFaint,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.lineSoft,
+          height: 88,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {fontSize: 11, fontWeight: '600'},
+      }}>
+      <Tabs.Screen
+        name="WalletTab"
+        component={WalletTab}
+        options={{
+          tabBarLabel: t('Wallet'),
+          tabBarIcon: walletIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="ProfileTab"
+        component={ProfileTab}
+        options={{
+          tabBarLabel: t('Profile'),
+          tabBarIcon: profileIcon,
+        }}
+      />
+    </Tabs.Navigator>
+  );
+}
 
 
 /**
@@ -53,6 +122,7 @@ const Stack = createNativeStackNavigator<RootStackParams>();
 export function RootNavigator() {
   // A returning session skips onboarding and lands where the user left off.
   const returning = useAppStore(hasRestorableSession);
+  const t = useTranslate();
 
   return (
     <Stack.Navigator
@@ -69,23 +139,23 @@ export function RootNavigator() {
         animationTypeForReplace: 'push',
       }}>
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{headerShown: false, animation: 'fade'}} />
-      <Stack.Screen name="CreateAccount" component={CreateAccountScreen} options={{title: 'Create account', headerBackTitle: 'Back'}} />
+      <Stack.Screen name="CreateAccount" component={CreateAccountScreen} options={{title: t('Set up your account'), headerBackTitle: t('Go back')}} />
       <Stack.Screen
         name="RecoveryPhrase"
         component={RecoveryPhraseScreen}
-        options={{title: 'Recovery phrase', headerBackTitle: 'Back'}}
+        options={{title: t('Recovery phrase'), headerBackTitle: t('Go back')}}
       />
       <Stack.Screen
         name="ImportWallet"
         component={ImportWalletScreen}
-        options={{title: 'Restore wallet', headerBackTitle: 'Back'}}
+        options={{title: t('Restore your wallet'), headerBackTitle: t('Go back')}}
       />
-      <Stack.Screen name="Main" component={HomeScreen} options={{headerShown: false, animation: 'fade'}} />
-      <Stack.Screen name="LiraDeposit" component={LiraDepositScreen} options={{title: 'Add lira', headerBackTitle: 'Back'}} />
-      <Stack.Screen name="Scan" component={ScanScreen} options={{title: 'Scan QR', animation: 'fade_from_bottom'}} />
-      <Stack.Screen name="Confirm" component={PaymentConfirmationScreen} options={{title: 'Review payment', animation: 'slide_from_bottom'}} />
-      <Stack.Screen name="Receipt" component={ReceiptScreen} options={{title: 'Receipt', headerBackVisible: false, animation: 'fade'}} />
-      <Stack.Screen name="DeveloperSettings" component={DeveloperSettingsScreen} options={{title: 'Developer settings'}} />
+      <Stack.Screen name="Main" component={MainTabs} options={{headerShown: false, animation: 'fade'}} />
+    <Stack.Screen name="LiraDeposit" component={LiraDepositScreen} options={{title: t('Add lira'), headerBackTitle: t('Go back')}} />
+      <Stack.Screen name="Scan" component={ScanScreen} options={{title: t('Scan QR'), animation: 'fade_from_bottom'}} />
+      <Stack.Screen name="Confirm" component={PaymentConfirmationScreen} options={{title: t('Review payment'), animation: 'slide_from_bottom'}} />
+      <Stack.Screen name="Receipt" component={ReceiptScreen} options={{title: t('Receipt'), headerBackVisible: false, animation: 'fade'}} />
+      <Stack.Screen name="DeveloperSettings" component={DeveloperSettingsScreen} options={{title: t('Developer settings')}} />
       <Stack.Screen
         name="MerchantOnboarding"
         component={MerchantOnboardingScreen}
@@ -94,7 +164,7 @@ export function RootNavigator() {
       <Stack.Screen
         name="MerchantRequest"
         component={MerchantRequestScreen}
-        options={{title: 'Payment request', animation: 'slide_from_right'}}
+        options={{title: t('Payment request'), animation: 'slide_from_right'}}
       />
       <Stack.Screen name="AnchorTransfer" component={AnchorTransferScreen} options={{title: 'Anchor transfer'}} />
     </Stack.Navigator>

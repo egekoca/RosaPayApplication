@@ -15,10 +15,12 @@ import type {SettlementPipelineProgress} from '@rosapay/stellar';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {settlePaymentIntent} from './settlementAdapter';
 import {describeSettlementError} from './settlementErrors';
+import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Confirm'>;
 
 export function PaymentConfirmationScreen({route, navigation}: Props) {
+  const t = useTranslate();
   const {payload} = route.params;
   const {intent} = payload;
   const {addReceipt} = useAppStore();
@@ -62,35 +64,35 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
   return (
     <>
     <Screen>
-      <AnimatedContent><View style={styles.header}><View><Text style={styles.eyebrow}>SECURE CHECKOUT</Text><SplitText delay={90} splitBy="word" style={styles.title} text="Review payment" /></View><View style={styles.pills}><StatusPill tone="success">TESTNET</StatusPill><StatusPill tone={verified ? 'success' : 'danger'}>{verified ? 'VERIFIED' : 'UNVERIFIED'}</StatusPill></View></View></AnimatedContent>
-      <AnimatedContent delay={90} scaleFrom={0.98}><SurfaceCard accent="amber" style={styles.merchantCard}><View style={styles.merchant}><View style={styles.initial}><Text style={styles.initialText}>{initialsOf(intent.merchantName)}</Text></View><View style={styles.merchantCopy}><Text style={styles.merchantName}>{intent.merchantName}</Text><View style={styles.verified}>{verified ? <BadgeCheck color={colors.success} size={16} /> : <ShieldAlert color={colors.danger} size={16} />}<Text style={[styles.verifiedText, !verified && styles.unverifiedText]}>{verified ? 'Signature matches this merchant key' : 'Signature does not match this merchant key'}</Text></View></View></View></SurfaceCard></AnimatedContent>
-      <AnimatedContent delay={150}><SurfaceCard style={styles.amountBlock}><Text style={styles.label}>YOU ARE PAYING</Text><Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.amount}>{exactAmount(intent.amount)} <Text style={styles.asset}>{intent.asset.code}</Text></Text><Text style={styles.reference}>{intent.reference}</Text></SurfaceCard></AnimatedContent>
+      <AnimatedContent><View style={styles.header}><View><Text style={styles.eyebrow}>{t('SECURE CHECKOUT')}</Text><SplitText delay={90} splitBy="word" style={styles.title} text={t('Review payment')} /></View><View style={styles.pills}><StatusPill tone="success">{t('TESTNET')}</StatusPill><StatusPill tone={verified ? 'success' : 'danger'}>{verified ? t('VERIFIED') : t('UNVERIFIED')}</StatusPill></View></View></AnimatedContent>
+      <AnimatedContent delay={90} scaleFrom={0.98}><SurfaceCard accent="amber" style={styles.merchantCard}><View style={styles.merchant}><View style={styles.initial}><Text style={styles.initialText}>{initialsOf(intent.merchantName)}</Text></View><View style={styles.merchantCopy}><Text style={styles.merchantName}>{intent.merchantName}</Text><View style={styles.verified}>{verified ? <BadgeCheck color={colors.success} size={16} /> : <ShieldAlert color={colors.danger} size={16} />}<Text style={[styles.verifiedText, !verified && styles.unverifiedText]}>{verified ? t('Signature matches this merchant key') : t('Signature does not match this merchant key')}</Text></View></View></View></SurfaceCard></AnimatedContent>
+      <AnimatedContent delay={150}><SurfaceCard style={styles.amountBlock}><Text style={styles.label}>{t('YOU ARE PAYING')}</Text><Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.amount}>{exactAmount(intent.amount)} <Text style={styles.asset}>{intent.asset.code}</Text></Text><Text style={styles.reference}>{intent.reference}</Text></SurfaceCard></AnimatedContent>
       <AnimatedContent delay={210}>
         <SurfaceCard padded={false} style={styles.details}>
-          <Detail label="Network" value={intent.network === 'testnet' ? 'Stellar Testnet' : 'Stellar Public'} />
-          <Detail label="Asset" value={intent.asset.type === 'native' ? 'Native XLM' : `${intent.asset.code} (${intent.asset.type.toUpperCase()})`} />
-          {issuer ? <Detail label="Issuer" value={issuer} mono selectable /> : null}
-          <Detail label="Expires" value={expiryLabel(remainingLedgers, intent.expiresAtLedger, stellarHealth.isError)} />
-          <Detail label="Recipient" value={intent.recipient} mono selectable last />
+          <Detail label={t('Network')} value={intent.network === 'testnet' ? 'Stellar Testnet' : 'Stellar Public'} />
+          <Detail label={t('Asset')} value={intent.asset.type === 'native' ? t('Native XLM') : `${intent.asset.code} (${intent.asset.type.toUpperCase()})`} />
+          {issuer ? <Detail label={t('Issuer')} value={issuer} mono selectable /> : null}
+          <Detail label={t('Expires')} value={expiryLabel(remainingLedgers, intent.expiresAtLedger, stellarHealth.isError, t)} />
+          <Detail label={t('Recipient')} value={intent.recipient} mono selectable last />
         </SurfaceCard>
       </AnimatedContent>
-      <Text style={styles.recipientHint}>Long-press the recipient or issuer to copy it.</Text>
+      <Text style={styles.recipientHint}>{t('Long-press the recipient or issuer to copy it.')}</Text>
       {mutation.isPending || mutation.isError ? (
-        <Stepper activeIndex={stageIndex(stage)} failed={mutation.isError} steps={settlementSteps} />
+        <Stepper activeIndex={stageIndex(stage)} failed={mutation.isError} steps={settlementSteps.map(step => ({...step, label: t(step.label)}))} />
       ) : (
-        <Pulse active={false} style={styles.security}><ShieldCheck color={blocked ? colors.inkMuted : colors.success} size={18} /><Text style={[styles.securityText, blocked && styles.securityTextBlocked]}>{blocked ? 'This request cannot be authorized.' : 'Your device will authorize this exact amount.'}</Text></Pulse>
+        <Pulse active={false} style={styles.security}><ShieldCheck color={blocked ? colors.inkMuted : colors.success} size={18} /><Text style={[styles.securityText, blocked && styles.securityTextBlocked]}>{blocked ? t('This request cannot be authorized.') : t('Your device will authorize this exact amount.')}</Text></Pulse>
       )}
-      {!verified && <Text style={styles.error}>The merchant signature failed verification. Ask for a new payment request.</Text>}
-      {verified && expired && <Text style={styles.error}>This request expired at ledger {intent.expiresAtLedger}. Ask for a new one.</Text>}
+      {!verified && <Text style={styles.error}>{t('The merchant signature failed verification. Ask for a new payment request.')}</Text>}
+      {verified && expired && <Text style={styles.error}>{`${t('This request expired at ledger')} ${intent.expiresAtLedger}. ${t('Ask for a new one.')}`}</Text>}
       {submittedHash ? (
-        <Text selectable style={styles.submitted}>Sent to Stellar: {submittedHash.slice(0, 16)}…</Text>
+        <Text selectable style={styles.submitted}>{t('Sent to Stellar:')} {submittedHash.slice(0, 16)}…</Text>
       ) : null}
-      {mutation.error ? <Text style={styles.error}>{describeSettlementError(mutation.error, intent.asset.code)}</Text> : null}
-      <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={() => mutation.mutate()} testID="approve-payment">{mutation.isPending ? stageLabel(stage) : 'Approve payment'}</Button>
+      {mutation.error ? <Text style={styles.error}>{t(describeSettlementError(mutation.error, intent.asset.code))}</Text> : null}
+      <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={() => mutation.mutate()} testID="approve-payment">{mutation.isPending ? t(stageLabel(stage)) : t('Approve payment')}</Button>
     </Screen>
     <LumenadeLoadingOverlay
-      detail={settlementDetail(stage)}
-      title={stageLabel(stage)}
+      detail={t(settlementDetail(stage))}
+      title={t(stageLabel(stage))}
       visible={mutation.isPending}
     />
     </>
@@ -149,11 +151,11 @@ function settlementDetail(stage: SettlementPipelineProgress['stage'] | undefined
   }
 }
 
-function expiryLabel(remainingLedgers: number | undefined, expiresAtLedger: number, unavailable: boolean): string {
-  if (unavailable) return `At ledger ${expiresAtLedger} (network unreachable)`;
-  if (remainingLedgers === undefined) return `At ledger ${expiresAtLedger}`;
-  if (remainingLedgers <= 0) return 'Expired';
-  return `${remainingLedgers} ledgers left (about ${Math.max(1, Math.round((remainingLedgers * 5) / 60))} min)`;
+function expiryLabel(remainingLedgers: number | undefined, expiresAtLedger: number, unavailable: boolean, t: (text: string) => string): string {
+  if (unavailable) return `${t('At ledger')} ${expiresAtLedger} (${t('network unreachable')})`;
+  if (remainingLedgers === undefined) return `${t('At ledger')} ${expiresAtLedger}`;
+  if (remainingLedgers <= 0) return t('Expired');
+  return `${remainingLedgers} ${t('ledgers left')} (${t('about')} ${Math.max(1, Math.round((remainingLedgers * 5) / 60))} ${t('min')})`;
 }
 
 function initialsOf(merchantName: string): string {

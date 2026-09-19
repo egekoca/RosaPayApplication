@@ -10,6 +10,7 @@ import {saveSigningKey} from '../wallet/keyVault';
 import {keypairFromRecoveryPhrase} from '../wallet/stellarKey';
 import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
+import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'RecoveryPhrase'>;
 
@@ -26,6 +27,7 @@ const CHECKS = 3;
  * not to make them type it twice.
  */
 export function RecoveryPhraseScreen({route, navigation}: Props) {
+  const t = useTranslate();
   const {phrase, name, email} = route.params;
   const setWallet = useAppStore(state => state.setWallet);
   const createAccount = useAppStore(state => state.createAccount);
@@ -43,7 +45,7 @@ export function RecoveryPhraseScreen({route, navigation}: Props) {
   async function finish() {
     const wrong = asked.filter(index => answers[index] !== words[index]);
     if (wrong.length > 0) {
-      setError('That is not the phrase on the last screen. Go back and check it again.');
+      setError(t('That is not the phrase on the last screen. Go back and check it again.'));
       setAnswers({});
       return;
     }
@@ -69,7 +71,7 @@ export function RecoveryPhraseScreen({route, navigation}: Props) {
       setWallet({address: keypair.publicKey(), origin: 'created'});
       navigation.replace('Main');
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The wallet could not be saved on this phone');
+      setError(failure instanceof Error ? failure.message : t('The wallet could not be saved on this phone'));
     } finally {
       setBusy(false);
     }
@@ -81,10 +83,9 @@ export function RecoveryPhraseScreen({route, navigation}: Props) {
         <AnimatedContent>
           <View style={styles.hero}>
             <View style={styles.icon}><KeyRound color={colors.amber} size={22} /></View>
-            <Text style={styles.title}>Your recovery phrase</Text>
+            <Text style={styles.title}>{t('Your recovery phrase')}</Text>
             <Text style={styles.subtitle}>
-              These twelve words are your wallet. Write them down on paper, in this order, and keep them somewhere only
-              you can reach.
+              {t('These twelve words are your wallet. Write them down on paper, in this order, and keep them somewhere only you can reach.')}
             </Text>
           </View>
         </AnimatedContent>
@@ -105,17 +106,14 @@ export function RecoveryPhraseScreen({route, navigation}: Props) {
             <View style={styles.warningRow}>
               <ShieldAlert color={colors.danger} size={20} />
               <Text style={styles.warningText}>
-                Anyone with these words can spend your money. Nobody at Lumenade Pay can see them, and nobody can give
-                them back to you if they are lost.
+                {t('Anyone with these words can spend your money. Nobody at Lumenade Pay can see them, and nobody can give them back to you if they are lost.')}
               </Text>
             </View>
           </SurfaceCard>
         </AnimatedContent>
 
         <AnimatedContent delay={230} distance={10}>
-          <Button onPress={() => setStage('confirm')} testID="phrase-written-down">
-            I have written them down
-          </Button>
+          <Button onPress={() => setStage('confirm')} testID="phrase-written-down">{t('I have written them down')}</Button>
         </AnimatedContent>
       </Screen>
     );
@@ -126,15 +124,15 @@ export function RecoveryPhraseScreen({route, navigation}: Props) {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <AnimatedContent>
           <View style={styles.hero}>
-            <Text style={styles.title}>Check your phrase</Text>
-            <Text style={styles.subtitle}>Tap the word that belongs in each place.</Text>
+            <Text style={styles.title}>{t('Check your phrase')}</Text>
+            <Text style={styles.subtitle}>{t('Tap the word that belongs in each place.')}</Text>
           </View>
         </AnimatedContent>
 
         {asked.map((index, position) => (
           <AnimatedContent delay={70 * (position + 1)} key={index}>
             <View style={styles.check}>
-              <Text style={styles.checkLabel}>Word {index + 1}</Text>
+              <Text style={styles.checkLabel}>{t('Word')} {index + 1}</Text>
               <View style={styles.choices}>
                 {options[index]!.map(option => {
                   const chosen = answers[index] === option;
@@ -162,12 +160,8 @@ export function RecoveryPhraseScreen({route, navigation}: Props) {
 
         <AnimatedContent delay={300} distance={10}>
           <View style={styles.actions}>
-            <Button disabled={!answered} loading={busy} onPress={() => void finish()} testID="phrase-confirm">
-              Create my wallet
-            </Button>
-            <Button onPress={() => {setAnswers({}); setError(undefined); setStage('read');}} tone="ghost">
-              Show the words again
-            </Button>
+            <Button disabled={!answered} loading={busy} onPress={() => void finish()} testID="phrase-confirm">{t('Create my wallet')}</Button>
+            <Button onPress={() => {setAnswers({}); setError(undefined); setStage('read');}} tone="ghost">{t('Show the words again')}</Button>
           </View>
         </AnimatedContent>
       </ScrollView>

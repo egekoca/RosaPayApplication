@@ -2,6 +2,7 @@ import {Check} from 'lucide-react-native';
 import {Modal, Pressable, StyleSheet, Text, View} from 'react-native';
 import {colors, radius, spacing, typography} from '@rosapay/ui';
 import {DISPLAY_CURRENCIES} from '../../shared/priceSource';
+import {useTranslate} from '../../shared/i18n';
 
 /**
  * Choosing the money a balance is read in.
@@ -27,12 +28,13 @@ export function CurrencyPicker({
   selected: string;
   visible: boolean;
 }) {
+  const t = useTranslate();
   return (
     <Modal animationType="fade" onRequestClose={onClose} statusBarTranslucent transparent visible={visible}>
       <Pressable accessibilityRole="button" onPress={onClose} style={styles.scrim} testID="currency-picker-scrim">
         {/* Stops a tap inside the sheet from closing it. */}
         <Pressable onPress={() => undefined} style={styles.sheet}>
-          <Text style={styles.title}>Show balance in</Text>
+          <Text style={styles.title}>{t('Show balance in')}</Text>
           {DISPLAY_CURRENCIES.map(currency => {
             const active = currency.code === selected;
             return (

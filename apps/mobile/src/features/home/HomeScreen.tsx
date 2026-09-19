@@ -1,5 +1,5 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ChevronRight, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, SlidersHorizontal, Store} from 'lucide-react-native';
+import {ChevronRight, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
 import {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
@@ -14,6 +14,7 @@ import {useBalanceValue} from '../../shared/useBalanceValue';
 import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
 import {useCurrentAccount} from '../wallet/currentAccount';
+import {useTranslate} from '../../shared/i18n';
 import {generateRecoveryPhrase} from '../wallet/stellarKey';
 import {CurrencyPicker} from './CurrencyPicker';
 import {greetingFor} from './greeting';
@@ -27,15 +28,18 @@ type Props = NativeStackScreenProps<RootStackParams, 'Main'>;
 
 export function HomeScreen({navigation}: Props) {
   const {mode, merchantProfile, account} = useAppStore();
+  const t = useTranslate();
   const merchantEnabled = merchantProfile !== null;
+  const greeting = greetingFor(account?.name);
+  const [greetingPart, ...greetingName] = greeting.split(', ');
   return (
     <Screen>
       <View style={styles.header}>
         <View style={styles.identity}>
           <LumenadeMark motion="float" size={38} />
-          <View><Text style={styles.eyebrow}>LUMENADE PAY</Text><Text style={styles.greeting} numberOfLines={1}>{greetingFor(account?.name)}</Text></View>
+          <View><Text style={styles.eyebrow}>{t('LUMENADE PAY')}</Text><Text style={styles.greeting} numberOfLines={1}>{`${t(greetingPart!)}${greetingName.length ? `, ${greetingName.join(', ')}` : ''}`}</Text></View>
         </View>
-        <Pressable accessibilityLabel="Developer settings" onPress={() => navigation.navigate('DeveloperSettings')} style={styles.iconButton} testID="open-developer-settings"><SlidersHorizontal color={colors.inkMuted} size={19} /></Pressable>
+
       </View>
       {merchantEnabled ? <ModeSwitcher /> : null}
       <AnimatedContent key={mode} delay={60} distance={14} scaleFrom={0.99} style={styles.modeStage}>
@@ -57,6 +61,7 @@ export function HomeScreen({navigation}: Props) {
  * bar is a promise of somewhere else to go, and there is nowhere else.
  */
 function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigation']; merchantEnabled: boolean}) {
+  const t = useTranslate();
   const account = useCurrentAccount();
   // The person's own record, which outlives whatever wallet it is attached to.
   const identity = useAppStore(state => state.account);
@@ -109,17 +114,16 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
         <AnimatedContent delay={70}>
           <View accessibilityRole="alert" style={styles.walletSetup}>
             <View style={styles.walletSetupCopy}>
-              <Text style={styles.walletSetupTitle}>Finish wallet setup</Text>
+              <Text style={styles.walletSetupTitle}>{t('Finish wallet setup')}</Text>
               <Text style={styles.walletSetupHint}>
-                This account has no wallet yet. Twelve words will make one, and they are what lets you add money in
-                lira.
+                {t('This account has no wallet yet. Twelve words will make one, and they are what lets you add money in lira.')}
               </Text>
             </View>
             <Button
               icon={<RefreshCw color={colors.black} size={18} />}
               onPress={finishWalletSetup}
               testID="finish-wallet-setup">
-              Create the wallet
+              {t('Create the wallet')}
             </Button>
           </View>
         </AnimatedContent>
@@ -136,8 +140,8 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
               <ScanLine color={colors.black} size={24} />
             </View>
             <View style={styles.scanCopy}>
-              <Text style={styles.scanTitle}>Scan to pay</Text>
-              <Text style={styles.scanHint}>Scan a code or hold phones together</Text>
+              <Text style={styles.scanTitle}>{t('Scan to pay')}</Text>
+              <Text style={styles.scanHint}>{t('Scan a code or hold phones together')}</Text>
             </View>
             <ChevronRight color={colors.inkMuted} size={19} />
           </Pressable>
@@ -168,8 +172,8 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
                 <Text style={styles.liraFlag}>🇹🇷</Text>
               </View>
               <View style={styles.scanCopy}>
-                <Text style={styles.liraTitle}>Türk Lirası ile para yükle</Text>
-                <Text style={styles.scanHint}>Banka havalesi · hesabınıza USDC olarak geçer</Text>
+                <Text style={styles.liraTitle}>{t('Türk Lirası ile para yükle')}</Text>
+                <Text style={styles.scanHint}>{t('Banka havalesi · hesabınıza USDC olarak geçer')}</Text>
               </View>
               <ChevronRight color={colors.inkMuted} size={19} />
             </Pressable>
@@ -191,7 +195,7 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
       */}
       {value.data && value.data.holdings.length > 0 ? (
         <AnimatedContent delay={140}>
-          <Text style={styles.listTitle}>Assets</Text>
+          <Text style={styles.listTitle}>{t('Assets')}</Text>
           <View style={styles.assetList}>
             {value.data.holdings.map(holding => (
               <View key={holding.code} style={styles.assetRow}>
@@ -218,11 +222,11 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
       ) : null}
 
       <AnimatedContent delay={160}>
-        <Text style={styles.listTitle}>Payments</Text>
+        <Text style={styles.listTitle}>{t('Payments')}</Text>
         {receipts.length === 0 ? (
           <View style={styles.emptyRow}>
-            <Text style={styles.emptyTitle}>No payments yet</Text>
-            <Text style={styles.emptyHint}>Your payment history will appear here.</Text>
+            <Text style={styles.emptyTitle}>{t('No payments yet')}</Text>
+            <Text style={styles.emptyHint}>{t('Your payment history will appear here.')}</Text>
           </View>
         ) : (
           <View style={styles.list}>
@@ -254,7 +258,7 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
             style={styles.merchantRow}
             testID="activate-merchant">
             <Store color={colors.amber} size={18} />
-            <Text style={styles.merchantText}>Get paid with this account</Text>
+            <Text style={styles.merchantText}>{t('Get paid with this account')}</Text>
             <ChevronRight color={colors.inkMuted} size={17} />
           </Pressable>
         </AnimatedContent>
@@ -264,6 +268,7 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
 }
 
 function MerchantHome({navigation}: {navigation: Props['navigation']}) {
+  const t = useTranslate();
   const receipts = useAppStore(state => state.receipts);
   // The same wallet the Pay view reads. One account, so one balance.
   const balance = useWalletBalance();
@@ -290,10 +295,10 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
           <View style={styles.modeIntroRow}>
             <View style={styles.modeIntroCopy}>
               <Text numberOfLines={1} style={styles.modeTitle}>
-                {merchantProfile?.displayName ?? 'Get paid'}
+                {merchantProfile?.displayName ?? t('Get paid')}
               </Text>
             </View>
-            <StatusPill tone={statusTone}>{payments.isError ? 'LOCAL' : payments.isPending ? 'SYNCING' : 'LIVE'}</StatusPill>
+            <StatusPill tone={statusTone}>{payments.isError ? t('LOCAL') : payments.isPending ? t('SYNCING') : t('LIVE')}</StatusPill>
           </View>
         </View>
       </AnimatedContent>
@@ -313,7 +318,7 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
 
       <AnimatedContent delay={140}>
         <Button icon={<QrCode color={colors.black} size={20} />} onPress={() => navigation.navigate('MerchantRequest')}>
-          {pendingRequest ? 'Open active request' : 'Create payment request'}
+          {pendingRequest ? t('Open active request') : t('Create payment request')}
         </Button>
       </AnimatedContent>
 
@@ -321,24 +326,24 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
         <View style={styles.merchantMeta}>
           <View style={styles.metaBlock}>
             <Text style={styles.metaValue}>{settled.length}</Text>
-            <Text style={styles.metaLabel}>SETTLED</Text>
+            <Text style={styles.metaLabel}>{t('SETTLED')}</Text>
           </View>
           <View style={styles.metaDivider} />
           <View style={styles.metaBlock}>
             <Text style={styles.metaValue}>{received.length - settled.length}</Text>
-            <Text style={styles.metaLabel}>OPEN</Text>
+            <Text style={styles.metaLabel}>{t('OPEN')}</Text>
           </View>
           <View style={styles.metaDivider} />
           <View style={styles.metaBlock}>
             <Text style={styles.metaValue}>{pendingRequest ? '1' : '0'}</Text>
-            <Text style={styles.metaLabel}>ACTIVE QR</Text>
+            <Text style={styles.metaLabel}>{t('ACTIVE QR')}</Text>
           </View>
         </View>
       </AnimatedContent>
 
       <AnimatedContent delay={230}>
         <>
-          <SectionTitle title="Business status" />
+          <SectionTitle title={t('Business status')} />
           <SurfaceCard padded={false} style={styles.statusCard}>
             <View style={styles.statusRow}>
               <View style={styles.capabilityIcon}>
@@ -346,16 +351,16 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
               </View>
               <View style={styles.activityCopy}>
                 <Text style={styles.activityTitle}>
-                  {merchantRegisteredOnChain ? 'Receiving address verified' : 'Verification in progress'}
+                  {merchantRegisteredOnChain ? t('Receiving address verified') : t('Verification in progress')}
                 </Text>
                 <Text style={styles.address}>
                   {merchantProfile?.recipient
                     ? `${merchantProfile.recipient.slice(0, 8)}...${merchantProfile.recipient.slice(-6)}`
-                    : 'No address on file'}
+                    : t('No address on file')}
                 </Text>
               </View>
               <StatusPill tone={merchantRegisteredOnChain ? 'success' : 'pending'}>
-                {merchantRegisteredOnChain ? 'READY' : 'ACTION'}
+                {merchantRegisteredOnChain ? t('READY') : t('ACTION')}
               </StatusPill>
             </View>
           </SurfaceCard>
@@ -364,15 +369,15 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
 
       <AnimatedContent delay={280}>
         <>
-          <SectionTitle title="Recent payments" />
+          <SectionTitle title={t('Recent payments')} />
           {received.length === 0 ? (
             <View style={styles.merchantEmptyRow}>
               <View style={styles.emptyIcon}>
                 <ReceiptText color={colors.goldBright} size={18} />
               </View>
               <View style={styles.emptyCopy}>
-                <Text style={styles.emptyTitle}>No payments yet</Text>
-                <Text style={styles.emptyHint}>Create a request and keep this screen open at the counter.</Text>
+                <Text style={styles.emptyTitle}>{t('No payments yet')}</Text>
+                <Text style={styles.emptyHint}>{t('Create a request and keep this screen open at the counter.')}</Text>
               </View>
             </View>
           ) : (
@@ -384,7 +389,7 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
                   </View>
                   <View style={styles.listCopy}>
                     <Text numberOfLines={1} style={styles.listName}>
-                      {'reference' in payment ? payment.reference : 'Payment received'}
+                      {'reference' in payment ? payment.reference : t('Payment received')}
                     </Text>
                     <Text style={styles.listWhen}>{new Date(payment.createdAt).toLocaleDateString()}</Text>
                   </View>

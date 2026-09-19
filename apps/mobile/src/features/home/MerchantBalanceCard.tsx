@@ -1,6 +1,7 @@
 import {StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import {Store} from 'lucide-react-native';
 import {CountUp, GoldCardSurface, LoadingDots, spacing, typography} from '@rosapay/ui';
+import {useTranslate} from '../../shared/i18n';
 
 type MerchantBalanceCardProps = {
   displayName: string;
@@ -39,6 +40,7 @@ export function MerchantBalanceCard({
   loading = false,
   error = false,
 }: MerchantBalanceCardProps) {
+  const t = useTranslate();
   const {width} = useWindowDimensions();
   const cardWidth = Math.min(width - spacing.xl * 2 - 14, 500);
   const cardHeight = Math.round(cardWidth * CARD_RATIO);
@@ -72,7 +74,7 @@ export function MerchantBalanceCard({
 
       <View style={styles.bottom}>
         <View style={styles.legend}>
-          <Text style={styles.legendLabel}>BUSINESS</Text>
+          <Text style={styles.legendLabel}>{t('BUSINESS')}</Text>
           <Text ellipsizeMode="tail" numberOfLines={1} style={styles.business}>
             {displayName.toUpperCase()}
           </Text>

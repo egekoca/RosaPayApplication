@@ -5,10 +5,12 @@ import {AnimatedList, colors, radius, spacing, StatusPill, SurfaceCard, typograp
 import {Screen} from '../../shared/Screen';
 import {displayAmount} from '../../shared/displayAmount';
 import {useAppStore} from '../../state/appStore';
+import {useTranslate} from '../../shared/i18n';
 
 type ActivityFilter = 'all' | 'settled' | 'demo';
 
 export function ActivityScreen() {
+  const t = useTranslate();
   const receipts = useAppStore(state => state.receipts);
   const {width} = useWindowDimensions();
   const [filter, setFilter] = useState<ActivityFilter>('all');
@@ -22,14 +24,14 @@ export function ActivityScreen() {
   const totalPaid = displayAmount(visible.reduce((sum, receipt) => sum + Number(receipt.amount), 0));
   return (
     <Screen>
-      <View style={styles.header}><View><Text style={styles.eyebrow}>ACCOUNT</Text><Text style={styles.title}>Activity</Text></View><Pressable
-        accessibilityLabel="Filter activity"
+      <View style={styles.header}><View><Text style={styles.eyebrow}>{t('ACCOUNT')}</Text><Text style={styles.title}>{t('Activity')}</Text></View><Pressable
+        accessibilityLabel={t('Filter activity')}
         onPress={() => setFilter(current => (current === 'all' ? 'settled' : current === 'settled' ? 'demo' : 'all'))}
         style={styles.filter}
         testID="cycle-activity-filter">
         <SlidersHorizontal color={colors.amber} size={18} />
       </Pressable></View>
-      <View style={styles.summary}><View><Text style={styles.summaryLabel}>{filter === 'all' ? 'TOTAL PAID' : filter === 'settled' ? 'PAID ON-CHAIN' : 'DEMO TOTAL'}</Text><Text style={styles.summaryValue}>{totalPaid} <Text style={styles.summaryAsset}>XLM</Text></Text></View><View style={styles.summaryDivider} /><View><Text style={styles.summaryLabel}>PAYMENTS</Text><Text style={styles.summaryValue}>{visible.length}</Text></View></View>
+      <View style={styles.summary}><View><Text style={styles.summaryLabel}>{filter === 'all' ? t('TOTAL PAID') : filter === 'settled' ? t('PAID ON-CHAIN') : t('DEMO TOTAL')}</Text><Text style={styles.summaryValue}>{totalPaid} <Text style={styles.summaryAsset}>XLM</Text></Text></View><View style={styles.summaryDivider} /><View><Text style={styles.summaryLabel}>{t('PAYMENTS')}</Text><Text style={styles.summaryValue}>{visible.length}</Text></View></View>
       <View style={styles.filters}>
         {(['all', 'settled', 'demo'] as const).map(option => (
           <Pressable
@@ -51,7 +53,7 @@ export function ActivityScreen() {
         </SurfaceCard>
       ) : (
         <AnimatedList style={styles.list}>{visible.map(receipt => (
-        <SurfaceCard key={receipt.intentId} padded={false} style={styles.item}><View style={[styles.itemInner, width < 380 && styles.itemInnerCompact]}><View style={styles.paymentIcon}><ReceiptText color={colors.success} size={17} /></View><View style={styles.copy}><Text style={styles.itemTitle}>{receipt.merchantName}</Text><Text style={styles.body}>{'Payment · Stellar Testnet'}</Text><Text style={styles.time}>{new Date(receipt.createdAt).toLocaleDateString()}</Text></View><View style={styles.amountBlock}><Text numberOfLines={1} style={styles.amount}>-{displayAmount(receipt.amount)}</Text><Text style={styles.asset}>{receipt.assetCode}</Text><StatusPill tone="success">CONFIRMED</StatusPill></View></View></SurfaceCard>
+        <SurfaceCard key={receipt.intentId} padded={false} style={styles.item}><View style={[styles.itemInner, width < 380 && styles.itemInnerCompact]}><View style={styles.paymentIcon}><ReceiptText color={colors.success} size={17} /></View><View style={styles.copy}><Text style={styles.itemTitle}>{receipt.merchantName}</Text><Text style={styles.body}>{t('Payment · Stellar Testnet')}</Text><Text style={styles.time}>{new Date(receipt.createdAt).toLocaleDateString()}</Text></View><View style={styles.amountBlock}><Text numberOfLines={1} style={styles.amount}>-{displayAmount(receipt.amount)}</Text><Text style={styles.asset}>{receipt.assetCode}</Text><StatusPill tone="success">{t('CONFIRMED')}</StatusPill></View></View></SurfaceCard>
         ))}</AnimatedList>
       )}
     </Screen>

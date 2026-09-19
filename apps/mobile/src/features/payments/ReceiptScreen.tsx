@@ -6,10 +6,12 @@ import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {shareValue} from '../../shared/shareAddress';
 import {displayAmount} from '../../shared/displayAmount';
+import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Receipt'>;
 
 export function ReceiptScreen({route, navigation}: Props) {
+  const t = useTranslate();
   const {receipt} = route.params;
   const {width} = useWindowDimensions();
   // A receipt only exists once the chain confirmed the payment.
@@ -17,19 +19,19 @@ export function ReceiptScreen({route, navigation}: Props) {
   return (
     <Screen contentStyle={styles.screen}>
       <AnimatedContent distance={8} scaleFrom={0.78} duration={560}><View style={styles.successIcon}><Check color={colors.black} size={32} strokeWidth={3} /></View></AnimatedContent>
-      <AnimatedContent delay={100}><View style={styles.center}><Text style={styles.eyebrow}>PAYMENT COMPLETE</Text><SplitText delay={140} splitBy="word" style={styles.title} text="Payment confirmed" /><Text style={styles.merchant}>{`Your payment to ${receipt.merchantName} was confirmed on Stellar.`}</Text></View></AnimatedContent>
-      <AnimatedContent delay={180} scaleFrom={0.98}><SurfaceCard accent="success" style={styles.amountCard}><Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.amount}>{displayAmount(receipt.amount)} <Text style={styles.asset}>{receipt.assetCode}</Text></Text><StatusPill tone="success">CONFIRMED</StatusPill></SurfaceCard></AnimatedContent>
+      <AnimatedContent delay={100}><View style={styles.center}><Text style={styles.eyebrow}>{t('PAYMENT COMPLETE')}</Text><SplitText delay={140} splitBy="word" style={styles.title} text={t('Payment confirmed')} /><Text style={styles.merchant}>{`${t('Your payment to')} ${receipt.merchantName} ${t('was confirmed on Stellar.')}`}</Text></View></AnimatedContent>
+      <AnimatedContent delay={180} scaleFrom={0.98}><SurfaceCard accent="success" style={styles.amountCard}><Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.amount}>{displayAmount(receipt.amount)} <Text style={styles.asset}>{receipt.assetCode}</Text></Text><StatusPill tone="success">{t('CONFIRMED')}</StatusPill></SurfaceCard></AnimatedContent>
       <AnimatedContent delay={240}>
         <SurfaceCard padded={false} style={styles.receipt}>
-          <Row label="Network" value={receipt.network === 'testnet' ? 'Stellar Testnet' : 'Stellar Public'} />
-          <Row label="Intent ID" value={`${receipt.intentId.slice(0, 12)}...`} mono />
-          <Row label="Transaction" value={`${receipt.transactionHash.slice(0, 16)}...`} mono />
-          {receipt.ledger !== undefined ? <Row label="Ledger" value={String(receipt.ledger)} mono /> : null}
-          {receipt.confirmedAt ? <Row label="Confirmed at" value={new Date(receipt.confirmedAt).toLocaleString()} /> : null}
-          <Row label="Status" value="Confirmed" success />
+          <Row label={t('Network')} value={receipt.network === 'testnet' ? 'Stellar Testnet' : 'Stellar Public'} />
+          <Row label={t('Intent ID')} value={`${receipt.intentId.slice(0, 12)}...`} mono />
+          <Row label={t('Transaction')} value={`${receipt.transactionHash.slice(0, 16)}...`} mono />
+          {receipt.ledger !== undefined ? <Row label={t('Ledger')} value={String(receipt.ledger)} mono /> : null}
+          {receipt.confirmedAt ? <Row label={t('Confirmed at')} value={new Date(receipt.confirmedAt).toLocaleString()} /> : null}
+          <Row label={t('Status')} value={t('Confirmed')} success />
         </SurfaceCard>
       </AnimatedContent>
-      <AnimatedContent delay={300} distance={8}><View style={[styles.actions, width < 380 && styles.actionsStacked]}><Pressable accessibilityRole="link" style={styles.action} onPress={() => Linking.openURL(`https://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`)}><ExternalLink color={colors.amber} size={18} /><Text style={styles.actionText}>View on Explorer</Text></Pressable><Pressable
+      <AnimatedContent delay={300} distance={8}><View style={[styles.actions, width < 380 && styles.actionsStacked]}><Pressable accessibilityRole="link" style={styles.action} onPress={() => Linking.openURL(`https://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`)}><ExternalLink color={colors.amber} size={18} /><Text style={styles.actionText}>{t('View on Explorer')}</Text></Pressable><Pressable
         accessibilityRole="button"
         onPress={() =>
           void shareValue(
@@ -39,9 +41,9 @@ export function ReceiptScreen({route, navigation}: Props) {
         }
         style={styles.action}
         testID="share-receipt">
-        <Share2 color={colors.amber} size={18} /><Text style={styles.actionText}>Share receipt</Text>
+        <Share2 color={colors.amber} size={18} /><Text style={styles.actionText}>{t('Share receipt')}</Text>
       </Pressable></View></AnimatedContent>
-      <AnimatedContent delay={360} distance={8}><Button onPress={() => navigation.popToTop()}>Done</Button></AnimatedContent>
+      <AnimatedContent delay={360} distance={8}><Button onPress={() => navigation.popToTop()}>{t('Done')}</Button></AnimatedContent>
     </Screen>
   );
 }

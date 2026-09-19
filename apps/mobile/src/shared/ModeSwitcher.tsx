@@ -2,8 +2,10 @@ import {QrCode, ScanLine} from 'lucide-react-native';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {colors, radius, spacing, typography} from '@rosapay/ui';
 import {useAppStore, type AppMode} from '../state/appStore';
+import {useTranslate} from './i18n';
 
 export function ModeSwitcher() {
+  const t = useTranslate();
   const {mode, merchantProfile, setMode} = useAppStore();
   const options: AppMode[] = ['customer', 'merchant'];
 
@@ -18,7 +20,7 @@ export function ModeSwitcher() {
           <Pressable
             accessibilityRole="tab"
             accessibilityState={{selected}}
-            accessibilityLabel={option === 'customer' ? 'Pay' : 'Get paid'}
+            accessibilityLabel={t(option === 'customer' ? 'Pay' : 'Get paid')}
             key={option}
             onPress={() => setMode(option)}
             style={[styles.option, selected && styles.selected]}
@@ -31,7 +33,7 @@ export function ModeSwitcher() {
               )}
             </View>
             <Text style={[styles.label, selected && styles.selectedLabel]}>
-              {option === 'customer' ? 'Pay' : 'Get paid'}
+              {t(option === 'customer' ? 'Pay' : 'Get paid')}
             </Text>
           </Pressable>
         );

@@ -6,10 +6,12 @@ import {AnimatedContent, Button, colors, radius, spacing, typography} from '@ros
 import type {RootStackParams} from '../../app/navigation';
 import {LumenadeMark, LumenadeWordmark} from '../../shared/LumenadeMark';
 import {Screen} from '../../shared/Screen';
+import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Welcome'>;
 
 export function WelcomeScreen({navigation}: Props) {
+  const t = useTranslate();
   const {width} = useWindowDimensions();
   const measure = Math.min(400, width - 48);
 
@@ -29,8 +31,8 @@ export function WelcomeScreen({navigation}: Props) {
 
       <AnimatedContent delay={90} distance={20} scaleFrom={0.98}>
         <View style={styles.hero}>
-          <Text style={[styles.title, {maxWidth: measure}]}>Pay by scanning.{'\n'}<Text style={styles.titleAccent}>Settle on Stellar.</Text></Text>
-          <Text style={[styles.subtitle, {maxWidth: measure}]}>One app for both sides of the counter. Your money moves on Stellar, and only this phone can approve it.</Text>
+          <Text style={[styles.title, {maxWidth: measure}]}>Pay by scanning.{'\n'}<Text style={styles.titleAccent}>{t('Settle on Stellar.')}</Text></Text>
+          <Text style={[styles.subtitle, {maxWidth: measure}]}>{t('One app for both sides of the counter. Your money moves on Stellar, and only this phone can approve it.')}</Text>
         </View>
       </AnimatedContent>
 
@@ -47,9 +49,7 @@ export function WelcomeScreen({navigation}: Props) {
           <Button
             icon={<ArrowRight color={colors.black} size={20} />}
             onPress={() => navigation.navigate('CreateAccount', {intent: 'create'})}
-            testID="get-started">
-            Create a new wallet
-          </Button>
+            testID="get-started">{t('Create a new wallet')}</Button>
           {/*
             Quiet rather than hidden. Most people arriving here have no Stellar
             account, so this is not the main road — but someone who does has one
@@ -59,11 +59,9 @@ export function WelcomeScreen({navigation}: Props) {
             accessibilityRole="button"
             onPress={() => navigation.navigate('CreateAccount', {intent: 'import'})}
             testID="restore-wallet">
-            <Text style={styles.restore}>I already have a wallet</Text>
+            <Text style={styles.restore}>{t('I already have a wallet')}</Text>
           </Pressable>
-          <Text style={styles.footnote}>
-            No password to remember. Twelve words are your wallet, and they are what lets you add money in lira.
-          </Text>
+          <Text style={styles.footnote}>{t('No password to remember. Twelve words are your wallet, and they are what lets you add money in lira.')}</Text>
         </View>
       </AnimatedContent>
     </Screen>

@@ -13,12 +13,14 @@ import {useAppStore} from '../../state/appStore';
 import {requestCameraPermission} from './cameraPermission';
 import {readPaymentQr} from './readPaymentQr';
 import {useNfcReader} from './useNfc';
+import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Scan'>;
 
 type CameraState = 'checking' | 'granted' | 'denied' | 'unavailable';
 
 export function ScanScreen({navigation}: Props) {
+  const t = useTranslate();
   const pendingRequest = useAppStore(state => state.pendingRequest);
   const stellarHealth = useStellarHealth();
   const [error, setError] = useState<string | undefined>();
@@ -110,34 +112,30 @@ export function ScanScreen({navigation}: Props) {
           {camera === 'granted' ? <ScanLine color={colors.amber} size={52} /> : null}
         </View>
         <Text style={styles.cameraText} pointerEvents="none">
-          {cameraMessage(camera, Boolean(pendingRequest))}
+          {t(cameraMessage(camera, Boolean(pendingRequest)))}
         </Text>
       </View>
 
       {nfc.supported && nfc.enabled ? (
         <View style={styles.nfcRow}>
           <Nfc color={colors.amber} size={18} />
-          <Text style={styles.nfcText}>You can also hold this phone against the merchant's</Text>
+          <Text style={styles.nfcText}>{t("You can also hold this phone against the merchant's")}</Text>
         </View>
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {camera === 'denied' ? (
-        <Button onPress={() => void Linking.openSettings()} testID="scan-open-settings">
-          Allow camera access
-        </Button>
+        <Button onPress={() => void Linking.openSettings()} testID="scan-open-settings">{t('Allow camera access')}</Button>
       ) : null}
 
       {pendingRequest ? (
         <Button
           tone={camera === 'unavailable' ? 'primary' : 'secondary'}
           onPress={scanOwnRequest}
-          testID="scan-own-request">
-          Scan this device's request
-        </Button>
+          testID="scan-own-request">{t("Scan this device's request")}</Button>
       ) : null}
-      <Text style={styles.fallback}>QR is the universal payment path on iOS and Android.</Text>
+      <Text style={styles.fallback}>{t('QR is the universal payment path on iOS and Android.')}</Text>
     </Screen>
   );
 }

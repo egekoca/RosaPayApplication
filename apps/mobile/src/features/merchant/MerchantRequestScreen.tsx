@@ -21,6 +21,7 @@ import {useRecipientCanReceive} from './useRecipientCanReceive';
 import {registerMerchantForTestnet} from './merchantRegistration';
 import {publishPaymentRequest, useRelayerIdentity, usePaymentRequestStatus} from './merchantRequestStatus';
 import {useMerchantCountersigning} from './merchantCountersigning';
+import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'MerchantRequest'>;
 
@@ -28,6 +29,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'MerchantRequest'>;
 const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
 export function MerchantRequestScreen({navigation}: Props) {
+  const t = useTranslate();
   const {
     merchantProfile,
     pendingRequest,
@@ -65,8 +67,8 @@ export function MerchantRequestScreen({navigation}: Props) {
   if (!merchantProfile) {
     return (
       <Screen contentStyle={styles.centered}>
-        <Text style={styles.subtitle}>Set up your business profile before creating a payment request.</Text>
-        <Button onPress={() => navigation.replace('MerchantOnboarding')}>Set up business</Button>
+        <Text style={styles.subtitle}>{t('Set up your business profile before creating a payment request.')}</Text>
+        <Button onPress={() => navigation.replace('MerchantOnboarding')}>{t('Set up business')}</Button>
       </Screen>
     );
   }
@@ -79,7 +81,7 @@ export function MerchantRequestScreen({navigation}: Props) {
       await registerMerchantForTestnet(merchantProfile);
       setMerchantRegisteredOnChain(true);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Testnet registration failed');
+      setError(failure instanceof Error ? failure.message : t('Testnet registration failed'));
     } finally {
       setRegistering(false);
     }
@@ -120,13 +122,13 @@ export function MerchantRequestScreen({navigation}: Props) {
       setPendingRequest(request);
       // Testnet payments settle against an intent the API already knows about.
       void publishPaymentRequest(request).catch(failure => {
-        setError(failure instanceof Error ? failure.message : 'The request could not be published to the API');
+        setError(failure instanceof Error ? failure.message : t('The request could not be published to the API'));
       });
     } catch (failure) {
       setError(
         failure instanceof MerchantProfileError || failure instanceof Error
           ? failure.message
-          : 'The payment request could not be created',
+          : t('The payment request could not be created'),
       );
     }
   };
@@ -137,9 +139,9 @@ export function MerchantRequestScreen({navigation}: Props) {
         <View style={styles.heading}>
           <View style={styles.merchantIcon}><Store color={colors.goldBright} size={22} /></View>
           <Text style={styles.eyebrow}>{merchantProfile.displayName.toUpperCase()}</Text>
-          <Text style={styles.title}>Payment request</Text>
+          <Text style={styles.title}>{t('Payment request')}</Text>
           <Text style={styles.subtitle}>
-            {pendingRequest ? 'Show this code to your customer' : 'Enter what the customer owes'}
+            {pendingRequest ? t('Show this code to your customer') : t('Enter what the customer owes')}
           </Text>
         </View>
       </AnimatedContent>
@@ -147,12 +149,10 @@ export function MerchantRequestScreen({navigation}: Props) {
       {!merchantRegisteredOnChain ? (
         <AnimatedContent delay={70}>
           <SurfaceCard accent="amber" style={styles.warning}>
-            <Text style={styles.warningTitle}>Not registered on Testnet</Text>
-            <Text style={styles.warningBody}>
-              The settlement contract only accepts requests from a registered merchant key.
-            </Text>
+            <Text style={styles.warningTitle}>{t('Not registered on Testnet')}</Text>
+            <Text style={styles.warningBody}>{t('The settlement contract only accepts requests from a registered merchant key.')}</Text>
             <Button loading={registering} tone="ghost" onPress={() => void registerOnChain()} testID="register-merchant">
-              {registering ? 'Registering' : 'Register this business'}
+              {registering ? t('Registering') : t('Register this business')}
             </Button>
           </SurfaceCard>
         </AnimatedContent>
@@ -173,7 +173,7 @@ export function MerchantRequestScreen({navigation}: Props) {
         <>
           <AnimatedContent delay={110} scaleFrom={0.985}>
             <SurfaceCard accent="amber" style={styles.form}>
-              <Text style={styles.fieldLabel}>PAID IN</Text>
+              <Text style={styles.fieldLabel}>{t('PAID IN')}</Text>
               <View style={styles.currencyRow}>
                 {payableAssets.map(option => (
                   <CurrencyPill
@@ -190,12 +190,12 @@ export function MerchantRequestScreen({navigation}: Props) {
               </View>
               <Text style={styles.assetNote}>
                 {canReceive.data === false
-                  ? `${merchantProfile.recipient.slice(0, 4)}…${merchantProfile.recipient.slice(-4)} has no ${payable.code} trustline, so a payment in it would not arrive. Add one, or receive into this phone instead.`
+                  ? `${merchantProfile.recipient.slice(0, 4)}…${merchantProfile.recipient.slice(-4)} ${t('has no')} ${payable.code} ${t('trustline, so a payment in it would not arrive. Add one, or receive into this phone instead.')}`
                   : payable.note}
               </Text>
 
               {currencies.data && currencies.data.length > 0 ? (
-                <Text style={styles.fieldLabel}>PRICED IN</Text>
+                <Text style={styles.fieldLabel}>{t('PRICED IN')}</Text>
               ) : null}
               {currencies.data && currencies.data.length > 0 ? (
                 <View style={styles.currencyRow}>
@@ -226,12 +226,12 @@ export function MerchantRequestScreen({navigation}: Props) {
               {currency ? (
                 <Text style={styles.conversion} testID="request-conversion">
                   {priced
-                    ? `Customer sends ${displayAmount(priced.assetAmount)} ${payable.code} · ${displayAmount(currency.perUnit)} ${currency.currency} per ${payable.code}`
-                    : `Rate ${displayAmount(currency.perUnit)} ${currency.currency} per ${payable.code}`}
+                    ? `${t('Customer sends')} ${displayAmount(priced.assetAmount)} ${payable.code} · ${displayAmount(currency.perUnit)} ${currency.currency} ${t('per')} ${payable.code}`
+                    : `${t('Rate')} ${displayAmount(currency.perUnit)} ${currency.currency} ${t('per')} ${payable.code}`}
                 </Text>
               ) : null}
               <TextField
-                label="REFERENCE"
+                label={t('REFERENCE')}
                 maxLength={120}
                 onChangeText={setReference}
                 placeholder="Table 08"
@@ -245,10 +245,10 @@ export function MerchantRequestScreen({navigation}: Props) {
               <View style={[styles.dot, stellarHealth.isError && styles.dotError]} />
               <Text style={styles.ledgerText}>
                 {stellarHealth.isPending
-                  ? 'Reading the Testnet ledger'
+                  ? t('Reading the Testnet ledger')
                   : stellarHealth.isError
-                    ? 'Testnet unavailable, so an expiry cannot be set'
-                    : `Expires about 10 minutes after ledger ${stellarHealth.data?.latestLedger}`}
+                    ? t('Testnet unavailable, so an expiry cannot be set')
+                    : `${t('Expires about 10 minutes after ledger')} ${stellarHealth.data?.latestLedger}`}
               </Text>
             </View>
           </AnimatedContent>
@@ -257,9 +257,7 @@ export function MerchantRequestScreen({navigation}: Props) {
             <Button
               disabled={canReceive.data === false}
               onPress={createRequest}
-              testID="create-request">
-              Create payment request
-            </Button>
+              testID="create-request">{t('Create payment request')}</Button>
           </AnimatedContent>
         </>
       )}
@@ -301,6 +299,7 @@ const FLAGS: Record<string, string | undefined> = {
 };
 
 function RequestStatus({intentId}: {intentId: string}) {
+  const t = useTranslate();
   const status = usePaymentRequestStatus(intentId);
   const settlement = status.data;
   const tone = settlement?.status === 'confirmed' ? 'success' : settlement?.status === 'failed' ? 'danger' : 'pending';
@@ -308,25 +307,25 @@ function RequestStatus({intentId}: {intentId: string}) {
   return (
     <SurfaceCard style={styles.statusCard}>
       <View style={styles.statusRow}>
-        <Text style={styles.statusLabel}>PAYMENT STATUS</Text>
-        <StatusPill tone={tone}>{(settlement?.status ?? (status.isPending ? 'checking' : 'unknown')).toUpperCase()}</StatusPill>
+        <Text style={styles.statusLabel}>{t('PAYMENT STATUS')}</Text>
+        <StatusPill tone={tone}>{statusLabel(settlement?.status ?? (status.isPending ? 'checking' : 'unknown'), t)}</StatusPill>
       </View>
       <Text style={styles.statusBody}>
         {settlement?.status === 'confirmed'
-          ? `Settled in ledger ${settlement.ledger} · ${settlement.transactionHash?.slice(0, 16)}…`
+          ? `${t('Settled in ledger')} ${settlement.ledger} · ${settlement.transactionHash?.slice(0, 16)}…`
           : settlement?.status === 'submitted'
-            ? 'Sent to Stellar, waiting for the ledger to confirm it.'
+            ? t('Sent to Stellar, waiting for the ledger to confirm it.')
             : settlement?.status === 'authorized'
-              ? 'The customer authorized this payment.'
+              ? t('The customer authorized this payment.')
               : settlement?.status === 'failed'
-                ? `Settlement failed: ${settlement.failureCode ?? 'unknown reason'}`
+                ? `${t('Settlement failed:')} ${settlement.failureCode ?? t('unknown reason')}`
                 : status.isError
-                  ? 'The API could not be reached, so the status is unknown here.'
-                  : 'Waiting for a customer to pay this request.'}
+                  ? t('The API could not be reached, so the status is unknown here.')
+                  : t('Waiting for a customer to pay this request.')}
       </Text>
       {status.isPending ? (
         <View style={styles.statusLoading}>
-          <Text style={styles.statusLoadingText}>Refreshing status...</Text>
+          <Text style={styles.statusLoadingText}>{t('Refreshing status...')}</Text>
           <LoadingDots color={colors.goldBright} size={4} />
         </View>
       ) : null}
@@ -349,6 +348,7 @@ function RequestCard({
   status?: ReactNode;
   settlementStatus?: string;
 }) {
+  const t = useTranslate();
   const remaining = latestLedger === undefined ? undefined : request.intent.expiresAtLedger - latestLedger;
   // Once a payment has moved, its outcome is what matters; the expiry window
   // only describes a request that is still waiting for a customer.
@@ -367,13 +367,13 @@ function RequestCard({
             <Text style={styles.reference}>{request.intent.reference}</Text>
           </View>
           <StatusPill tone={settled ? (settlementStatus === 'confirmed' ? 'success' : 'pending') : expired ? 'danger' : 'pending'}>
-            {settled ? settlementStatus!.replace(/_/g, ' ').toUpperCase() : expired ? 'EXPIRED' : 'PENDING'}
+            {settled ? statusLabel(settlementStatus!, t) : expired ? t('EXPIRED') : t('PENDING')}
           </StatusPill>
         </View>
         <Stepper
           activeIndex={settlementStatus === 'confirmed' ? 2 : 1}
           failed={settlementStatus === 'failed' || settlementStatus === 'rejected'}
-          steps={requestSteps}
+          steps={requestSteps.map(step => ({...step, label: t(step.label)}))}
         />
         <View style={styles.qr}>
           <QRCode value={encoded} size={214} color={colors.black} backgroundColor="#FFFFFF" />
@@ -381,25 +381,25 @@ function RequestCard({
         {nfc.canBroadcast && nfc.enabled && !settled && !expired ? (
           <View style={styles.nfcRow}>
             <Nfc color={colors.amber} size={18} />
-            <Text style={styles.nfcText}>Or let the customer tap their phone here</Text>
+            <Text style={styles.nfcText}>{t('Or let the customer tap their phone here')}</Text>
           </View>
         ) : null}
         <View style={styles.expiry}>
           <View style={[styles.dot, expired && styles.dotError, settled && styles.dotDone]} />
           <Text style={styles.expiryText}>
             {settled
-              ? 'A customer has paid this request'
+              ? t('A customer has paid this request')
               : remaining === undefined
-                ? `Expires at ledger ${request.intent.expiresAtLedger}`
+                ? `${t('Expires at ledger')} ${request.intent.expiresAtLedger}`
                 : expired
-                  ? 'This request has expired'
-                  : `${remaining} ledgers left (about ${Math.max(1, Math.round((remaining * 5) / 60))} min)`}
+                  ? t('This request has expired')
+                  : `${remaining} ${t('ledgers left')} (${t('about')} ${Math.max(1, Math.round((remaining * 5) / 60))} ${t('min')})`}
           </Text>
         </View>
       </SurfaceCard>
       {status}
-      <Button onPress={onPreview}>Preview customer view</Button>
-      <Button tone="ghost" onPress={onReset} testID="new-request">New request</Button>
+      <Button onPress={onPreview}>{t('Preview customer view')}</Button>
+      <Button tone="ghost" onPress={onReset} testID="new-request">{t('New request')}</Button>
     </>
   );
 }
@@ -409,6 +409,21 @@ const requestSteps = [
   {key: 'show', label: 'Show QR'},
   {key: 'paid', label: 'Paid'},
 ] as const;
+
+function statusLabel(status: string, t: (text: string) => string): string {
+  const key = status.replace(/_/g, ' ');
+  const labels: Record<string, string> = {
+    checking: t('Checking'),
+    unknown: t('Unknown'),
+    awaiting_approval: t('AWAITING APPROVAL'),
+    confirmed: t('CONFIRMED'),
+    submitted: t('SUBMITTED'),
+    authorized: t('AUTHORIZED'),
+    failed: t('FAILED'),
+    rejected: t('REJECTED'),
+  };
+  return labels[status] ?? key.toUpperCase();
+}
 
 const styles = StyleSheet.create({
   centered: {justifyContent: 'center'},

@@ -17,10 +17,12 @@ import {
 } from '../../state/persistence';
 import {fetchRelayerIdentity} from '../payments/testnetSettlement';
 import {useApiHealth} from '../merchant/merchantRequestStatus';
+import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'DeveloperSettings'>;
 
 export function DeveloperSettingsScreen(_props: Props) {
+  const t = useTranslate();
   const {
     merchantProfile,
     merchantRegisteredOnChain,
@@ -46,11 +48,11 @@ export function DeveloperSettingsScreen(_props: Props) {
       setApiError(
         isReachableFromDevice(normalized)
           ? undefined
-          : 'A phone cannot reach localhost on your computer; use its network address.',
+          : t('A phone cannot reach localhost on your computer; use its network address.'),
       );
       void relayer.refetch();
     } catch (error) {
-      setApiError(error instanceof Error ? error.message : 'That address could not be used');
+      setApiError(error instanceof Error ? error.message : t('That address could not be used'));
     }
   };
 
@@ -66,19 +68,19 @@ export function DeveloperSettingsScreen(_props: Props) {
   return (
     <Screen>
       <View style={styles.heading}>
-        <Text style={styles.title}>Developer settings</Text>
-        <Text style={styles.subtitle}>What this device is talking to, and the key it signs with.</Text>
+        <Text style={styles.title}>{t('Developer settings')}</Text>
+        <Text style={styles.subtitle}>{t('What this device is talking to, and the key it signs with.')}</Text>
       </View>
 
       <SurfaceCard padded={false} style={styles.statusCard}>
         <StatusRow
           label="Stellar RPC"
-          value={stellarHealth.isPending ? 'Checking' : stellarHealth.isError ? 'Unavailable' : `Ledger ${stellarHealth.data?.latestLedger}`}
+          value={stellarHealth.isPending ? t('Checking') : stellarHealth.isError ? t('Unavailable') : `Ledger ${stellarHealth.data?.latestLedger}`}
           ok={!stellarHealth.isError && !stellarHealth.isPending}
         />
         <StatusRow
           label="Relayer"
-          value={relayer.isPending ? 'Checking' : relayer.isError ? 'Not reachable' : shorten(relayer.data?.address)}
+          value={relayer.isPending ? t('Checking') : relayer.isError ? t('Not reachable') : shorten(relayer.data?.address)}
           ok={relayer.isSuccess}
         />
         <StatusRow
@@ -88,39 +90,39 @@ export function DeveloperSettingsScreen(_props: Props) {
         />
         <StatusRow label="API" value={apiBaseUrl.replace(/^https?:\/\//, '')} ok={relayer.isSuccess} />
         <StatusRow
-          label="API storage"
+          label={t('API storage')}
           value={
             health.isError
-              ? 'Not reachable'
+              ? t('Not reachable')
               : health.data?.storage === 'postgres'
-                ? 'PostgreSQL · records kept'
+                ? t('PostgreSQL · records kept')
                 : health.data
-                  ? 'In memory · lost on restart'
-                  : 'Checking'
+                  ? t('In memory · lost on restart')
+                  : t('Checking')
           }
           ok={health.data?.storage === 'postgres'}
         />
         <StatusRow
-          label="Session storage"
+          label={t('Session storage')}
           value={
             session.state === 'unavailable'
-              ? `Unavailable · ${session.detail?.slice(0, 28) ?? 'unknown'}`
+              ? `${t('Unavailable')} · ${session.detail?.slice(0, 28) ?? t('unknown')}`
               : session.state === 'unknown'
-                ? 'Not written yet'
+                ? t('Not written yet')
                 : session.state === 'restored'
-                  ? 'Restored'
-                  : 'Saved on this device'
+                  ? t('Restored')
+                  : t('Saved on this device')
           }
           ok={session.state === 'saved' || session.state === 'restored'}
         />
         <StatusRow
-          label="Device wallet"
-          value={wallet ? shorten(wallet.address) : 'No wallet on this device yet'}
+          label={t('Device wallet')}
+          value={wallet ? shorten(wallet.address) : t('No wallet on this device yet')}
           ok={Boolean(wallet)}
         />
         <StatusRow
-          label="Merchant on-chain"
-          value={!merchantProfile ? 'No profile' : merchantRegisteredOnChain ? 'Registered' : 'Not registered'}
+          label={t('Merchant on-chain')}
+          value={!merchantProfile ? t('No profile') : merchantRegisteredOnChain ? t('Registered') : t('Not registered')}
           ok={merchantRegisteredOnChain}
           last
         />
@@ -129,13 +131,11 @@ export function DeveloperSettingsScreen(_props: Props) {
       <SurfaceCard style={styles.card}>
         <View style={styles.toggleRow}>
           <View style={styles.toggleCopy}>
-            <Text style={styles.toggleTitle}>Ask for me when the app opens</Text>
-            <Text style={styles.toggleBody}>
-              Off by default. Paying always asks, whatever this says.
-            </Text>
+            <Text style={styles.toggleTitle}>{t('Ask for me when the app opens')}</Text>
+            <Text style={styles.toggleBody}>{t('Off by default. Paying always asks, whatever this says.')}</Text>
           </View>
           <Switch
-            accessibilityLabel="Ask for me when the app opens"
+            accessibilityLabel={t('Ask for me when the app opens')}
             onValueChange={setRequireUnlock}
             testID="require-unlock"
             thumbColor={colors.white}
@@ -146,10 +146,10 @@ export function DeveloperSettingsScreen(_props: Props) {
       </SurfaceCard>
 
       <SurfaceCard style={styles.card}>
-        <Text style={styles.label}>API ADDRESS</Text>
+        <Text style={styles.label}>{t('API ADDRESS')}</Text>
         <TextField
           autoCapitalize="none"
-          hint="On a phone, use your computer's network address, such as http://192.168.1.10:4100"
+          hint={t("On a phone, use your computer's network address, such as http://192.168.1.10:4100")}
           label=""
           onChangeText={value => {
             setApiDraft(value);
@@ -160,7 +160,7 @@ export function DeveloperSettingsScreen(_props: Props) {
           value={apiDraft}
           {...(apiError ? {error: apiError} : {})}
         />
-        <Button tone="ghost" onPress={saveApiBaseUrl} testID="save-api-base-url">Use this address</Button>
+        <Button tone="ghost" onPress={saveApiBaseUrl} testID="save-api-base-url">{t('Use this address')}</Button>
       </SurfaceCard>
 
     </Screen>

@@ -11,6 +11,7 @@ import {useAppStore} from '../../state/appStore';
 import {useCurrentAccount} from '../wallet/currentAccount';
 import {createMerchantProfile, MerchantProfileError} from './merchantProfile';
 import {registerMerchantForTestnet} from './merchantRegistration';
+import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'MerchantOnboarding'>;
 
@@ -18,6 +19,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'MerchantOnboarding'>;
 const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
 export function MerchantOnboardingScreen({navigation}: Props) {
+  const t = useTranslate();
   const {saveMerchantProfile, setMerchantRegisteredOnChain} = useAppStore();
   const account = useCurrentAccount();
   const [displayName, setDisplayName] = useState('');
@@ -39,7 +41,7 @@ export function MerchantOnboardingScreen({navigation}: Props) {
         setErrors({[error.field]: error.message});
         return;
       }
-      setErrors({general: error instanceof Error ? error.message : 'The merchant profile could not be created'});
+      setErrors({general: error instanceof Error ? error.message : t('The merchant profile could not be created')});
       return;
     }
 
@@ -56,7 +58,7 @@ export function MerchantOnboardingScreen({navigation}: Props) {
     } catch (error) {
       setErrors({
         general: `Profile saved, but Testnet registration failed: ${
-          error instanceof Error ? error.message : 'unknown error'
+          error instanceof Error ? error.message : t('unknown error')
         }. You can retry it from the payment request screen.`,
       });
     } finally {
@@ -70,15 +72,15 @@ export function MerchantOnboardingScreen({navigation}: Props) {
       <AnimatedContent>
         <View style={styles.heading}>
           <View style={styles.icon}><Store color={colors.goldBright} size={22} /></View>
-          <Text style={styles.eyebrow}>GET PAID</Text>
-          <Text style={styles.title}>Set up your business</Text>
-          <Text style={styles.subtitle}>Customers see this name. You are paid into the wallet you already have.</Text>
+          <Text style={styles.eyebrow}>{t('GET PAID')}</Text>
+          <Text style={styles.title}>{t('Set up your business')}</Text>
+          <Text style={styles.subtitle}>{t('Customers see this name. You are paid into the wallet you already have.')}</Text>
         </View>
       </AnimatedContent>
       <AnimatedContent delay={80} scaleFrom={0.985}>
         <SurfaceCard accent="amber" style={styles.form}>
           <TextField
-            label="BUSINESS NAME"
+            label={t('BUSINESS NAME')}
             maxLength={80}
             onChangeText={value => {
               setDisplayName(value);
@@ -97,17 +99,17 @@ export function MerchantOnboardingScreen({navigation}: Props) {
               testID="change-recipient">
               <Smartphone color={colors.goldBright} size={18} />
               <View style={styles.useWalletCopy}>
-                <Text style={styles.useWalletTitle}>Paid into this wallet</Text>
+                <Text style={styles.useWalletTitle}>{t('Paid into this wallet')}</Text>
                 <Text style={styles.useWalletBody}>
-                  {`${account.address.slice(0, 8)}…${account.address.slice(-6)} — the account this phone already uses. Tap to be paid somewhere else instead.`}
+                  {`${account.address.slice(0, 8)}…${account.address.slice(-6)} — ${t('The account this phone already uses. Tap to be paid somewhere else instead.')}`}
                 </Text>
               </View>
             </Pressable>
           ) : (
             <TextField
               autoCapitalize="characters"
-              hint="Stellar account or contract address that receives payments"
-              label="RECEIVING ADDRESS"
+              hint={t('Stellar account or contract address that receives payments')}
+              label={t('RECEIVING ADDRESS')}
               maxLength={56}
               mono
               multiline
@@ -126,13 +128,13 @@ export function MerchantOnboardingScreen({navigation}: Props) {
       <AnimatedContent delay={160}>
         <View style={styles.note}>
           <ShieldCheck color={colors.success} size={18} />
-          <Text style={styles.noteText}>The address is checked before it can ever appear on a payment request.</Text>
+          <Text style={styles.noteText}>{t('The address is checked before it can ever appear on a payment request.')}</Text>
         </View>
       </AnimatedContent>
       {errors.general ? <Text style={styles.error}>{errors.general}</Text> : null}
       <AnimatedContent delay={220}>
         <Button loading={registering} onPress={() => void submit()} testID="merchant-save-profile">
-          {registering ? 'Registering on Testnet' : 'Verify and continue'}
+          {registering ? t('Registering on Testnet') : t('Verify and continue')}
         </Button>
       </AnimatedContent>
     </Screen>

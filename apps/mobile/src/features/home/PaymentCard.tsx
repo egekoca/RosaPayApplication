@@ -4,6 +4,7 @@ import {CountUp, GoldCardSurface, spacing, typography} from '@rosapay/ui';
 import {AssetMark} from './AssetMark';
 import {displayAmount} from '../../shared/displayAmount';
 import {displayCurrencyMeta} from '../../shared/priceSource';
+import {useTranslate} from '../../shared/i18n';
 
 /** One state at a time, so the card never says two things at once. */
 export type PaymentCardState = 'no-wallet' | 'loading' | 'error' | 'ready';
@@ -51,6 +52,7 @@ const CARD_RATIO = 53.98 / 85.6;
  * light travels over metal as you turn it. Not a pulse, and not a glow.
  */
 export function PaymentCard({holdings, value, currency, address, state, onCopy, onChangeCurrency}: PaymentCardProps) {
+  const t = useTranslate();
   const {width} = useWindowDimensions();
   // Perspective widens the near edge, so the card is measured a little
   // narrower than its slot; without this the right edge runs off the screen.
@@ -145,7 +147,7 @@ export function PaymentCard({holdings, value, currency, address, state, onCopy, 
               {state === 'ready' ? null : <Text style={styles.legendValue}>{captions[state]}</Text>}
             </View>
             <Pressable
-              accessibilityLabel="Copy wallet address"
+              accessibilityLabel={t('Copy wallet address')}
               accessibilityRole="button"
               disabled={!address}
               onPress={onCopy}

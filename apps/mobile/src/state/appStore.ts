@@ -93,6 +93,8 @@ type AppState = {
    * which currency the app asks a quote server to price the wallet in.
    */
   displayCurrency: string;
+  /** The language the interface is read in. English until someone says otherwise. */
+  language: string;
   account: Account | null;
   /** True while a returning user has not yet proved they are the device owner. */
   locked: boolean;
@@ -122,6 +124,7 @@ type AppState = {
   setMode(mode: AppMode): void;
   setApiBaseUrl(url: string): void;
   setDisplayCurrency(currency: string): void;
+  setLanguage(language: string): void;
   saveMerchantProfile(profile: MerchantProfile): void;
   setMerchantRegisteredOnChain(registered: boolean): void;
   setSmartWallet(wallet: SmartWallet | null): void;
@@ -247,6 +250,7 @@ export const useAppStore = create<AppState>()(
       mode: 'customer',
       apiBaseUrl: defaultApiBaseUrl,
       displayCurrency: 'TRY',
+      language: 'en',
       merchantProfile: null,
       merchantRegisteredOnChain: false,
       smartWallet: null,
@@ -282,6 +286,7 @@ export const useAppStore = create<AppState>()(
       setMode: mode => set(state => (mode === 'merchant' && !state.merchantProfile ? state : {...state, mode})),
       setApiBaseUrl: apiBaseUrl => set({apiBaseUrl}),
       setDisplayCurrency: displayCurrency => set({displayCurrency}),
+      setLanguage: language => set({language}),
       saveMerchantProfile: profile =>
         set({merchantProfile: profile, mode: 'merchant', merchantRegisteredOnChain: false}),
       setMerchantRegisteredOnChain: merchantRegisteredOnChain => set({merchantRegisteredOnChain}),
@@ -322,6 +327,7 @@ export const useAppStore = create<AppState>()(
         mode: state.mode,
         apiBaseUrl: state.apiBaseUrl,
         displayCurrency: state.displayCurrency,
+        language: state.language,
         merchantProfile: state.merchantProfile,
         merchantRegisteredOnChain: state.merchantRegisteredOnChain,
         smartWallet: state.smartWallet,

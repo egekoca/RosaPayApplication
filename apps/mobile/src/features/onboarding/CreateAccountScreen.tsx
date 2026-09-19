@@ -6,6 +6,7 @@ import {AnimatedContent, Button, colors, radius, spacing, SurfaceCard, TextField
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {generateRecoveryPhrase} from '../wallet/stellarKey';
+import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'CreateAccount'>;
 
@@ -27,6 +28,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'CreateAccount'>;
  * away, and the payment path still follows whichever account exists.
  */
 export function CreateAccountScreen({navigation, route}: Props) {
+  const t = useTranslate();
   const importing = route.params?.intent === 'import';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -43,11 +45,11 @@ export function CreateAccountScreen({navigation, route}: Props) {
     setError(undefined);
 
     if (trimmedName.length < 2) {
-      setNameError('Please enter the name a merchant should see');
+      setNameError(t('Please enter the name a merchant should see'));
       return;
     }
     if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmedEmail)) {
-      setEmailError('That does not look like an email address');
+      setEmailError(t('That does not look like an email address'));
       return;
     }
 
@@ -66,7 +68,7 @@ export function CreateAccountScreen({navigation, route}: Props) {
       // person actually wrote it down.
       navigation.replace('RecoveryPhrase', {...identity, phrase: generateRecoveryPhrase()});
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Your account could not be created');
+      setError(failure instanceof Error ? failure.message : t('Your account could not be created'));
     } finally {
       setBusy(false);
     }
@@ -84,17 +86,15 @@ export function CreateAccountScreen({navigation, route}: Props) {
           automaticallyAdjustKeyboardInsets>
           <AnimatedContent>
             <View style={styles.hero}>
-              <Text style={styles.title}>{importing ? 'Restore your wallet' : 'Set up your account'}</Text>
-              <Text style={styles.subtitle}>
-                Your name is what a merchant sees on a receipt. Everything else stays on this phone.
-              </Text>
+              <Text style={styles.title}>{importing ? t('Restore your wallet') : t('Set up your account')}</Text>
+              <Text style={styles.subtitle}>{t('Your name is what a merchant sees on a receipt. Everything else stays on this phone.')}</Text>
             </View>
           </AnimatedContent>
 
           <AnimatedContent delay={90}>
             <View style={styles.fields}>
               <TextField
-                label="Your name"
+                label={t('Your name')}
                 value={name}
                 onChangeText={setName}
                 placeholder="Ege Koca"
@@ -104,14 +104,14 @@ export function CreateAccountScreen({navigation, route}: Props) {
                 testID="account-name"
               />
               <TextField
-                label="Email (optional)"
+                label={t('Email (optional)')}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
                 autoCapitalize="none"
                 keyboardType="email-address"
                 maxLength={120}
-                hint="Only used to send you a receipt. It is not a login."
+                hint={t('Only used to send you a receipt. It is not a login.')}
                 error={emailError}
                 testID="account-email"
               />
@@ -126,10 +126,9 @@ export function CreateAccountScreen({navigation, route}: Props) {
                     <KeyRound color={colors.amber} size={20} />
                   </View>
                   <View style={styles.explainerCopy}>
-                    <Text style={styles.explainerTitle}>Your existing wallet</Text>
+                    <Text style={styles.explainerTitle}>{t('Your existing wallet')}</Text>
                     <Text style={styles.explainerBody}>
-                      The next screen asks for your recovery phrase. It opens the same account you already use in
-                      another wallet, and the address is shown for you to check before anything is saved.
+                      {t('The next screen asks for your recovery phrase. It opens the same account you already use in another wallet, and the address is shown for you to check before anything is saved.')}
                     </Text>
                   </View>
                 </View>
@@ -143,11 +142,9 @@ export function CreateAccountScreen({navigation, route}: Props) {
                     <KeyRound color={colors.amber} size={20} />
                   </View>
                   <View style={styles.explainerCopy}>
-                    <Text style={styles.explainerTitle}>Twelve words are your wallet</Text>
+                    <Text style={styles.explainerTitle}>{t('Twelve words are your wallet')}</Text>
                     <Text style={styles.explainerBody}>
-                      The next screen shows them once. They open this same account in Lumenade Pay, Lobstr or
-                      Freighter, they are what lets you add money in lira, and they are the only way back if you lose
-                      this phone. Nobody can reissue them.
+                      {t('The next screen shows them once. They open this same account in Lumenade Pay, Lobstr or Freighter, they are what lets you add money in lira, and they are the only way back if you lose this phone. Nobody can reissue them.')}
                     </Text>
                   </View>
                 </View>
@@ -158,9 +155,7 @@ export function CreateAccountScreen({navigation, route}: Props) {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <AnimatedContent delay={260} distance={10}>
-            <Button loading={busy} onPress={() => void submit()} testID="create-account">
-              Continue
-            </Button>
+            <Button loading={busy} onPress={() => void submit()} testID="create-account">{t('Continue')}</Button>
           </AnimatedContent>
         </ScrollView>
       </KeyboardAvoidingView>
