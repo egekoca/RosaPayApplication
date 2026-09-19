@@ -46,6 +46,8 @@ const walletSchema = z.object({devicePublicKey: z.string().min(64).max(512)});
 
 export type BuildAppOptions = {
   repository?: IntentRepository;
+  /** Reported by health so a client can tell durable storage from memory. */
+  storage?: 'postgres' | 'memory';
   merchantProfiles?: MerchantProfileRepository;
   auth?: ApiAuthOptions;
   relayer?: RelayerService;
@@ -56,6 +58,7 @@ export type BuildAppOptions = {
 
 export function buildApp({
   repository = new InMemoryIntentRepository(),
+  storage = 'memory',
   merchantProfiles = new InMemoryMerchantProfileRepository(),
   auth,
   relayer,
@@ -91,7 +94,9 @@ export function buildApp({
     ...(process.env.STELLAR_ADMIN_SECRET ? {adminSecret: process.env.STELLAR_ADMIN_SECRET} : {}),
   });
 
-  app.get('/v1/health', async () => ({status: 'ok'}));
+  // The storage mode is part of health because in-memory data disappears on
+  // restart, and a client that records payments deserves to know that.
+  app.get('/v1/health', async () => ({status: 'ok', storage}));
   app.get('/v1/health/stellar', async (_request, reply) => {
     try {
       return await stellar.health();

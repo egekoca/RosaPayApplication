@@ -7,7 +7,10 @@ export const apiErrorResponseSchema = z.object({
   issues: z.unknown().optional(),
 });
 
-export const healthResponseSchema = z.object({status: z.literal('ok')});
+export const healthResponseSchema = z.object({
+  status: z.literal('ok'),
+  storage: z.enum(['postgres', 'memory']).optional(),
+});
 
 export const storedIntentSchema = z.object({
   payload: signedPaymentIntentV1Schema,

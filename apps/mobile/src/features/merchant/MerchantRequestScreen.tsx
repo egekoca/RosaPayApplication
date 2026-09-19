@@ -29,6 +29,9 @@ export function MerchantRequestScreen({navigation}: Props) {
     setMerchantRegisteredOnChain,
   } = useAppStore();
   const stellarHealth = useStellarHealth();
+  const settlement = usePaymentRequestStatus(
+    settlementMode === 'testnet' ? pendingRequest?.intent.intentId ?? '' : '',
+  );
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
   const [error, setError] = useState<string | undefined>();
@@ -110,6 +113,7 @@ export function MerchantRequestScreen({navigation}: Props) {
           latestLedger={stellarHealth.data?.latestLedger}
           onReset={() => setPendingRequest(null)}
           onPreview={() => navigation.navigate('Confirm', {payload: pendingRequest})}
+          settlementStatus={settlementMode === 'testnet' ? settlement.data?.status : undefined}
           status={settlementMode === 'testnet' ? <RequestStatus intentId={pendingRequest.intent.intentId} /> : null}
         />
       ) : (
@@ -185,15 +189,20 @@ function RequestCard({
   onReset,
   onPreview,
   status,
+  settlementStatus,
 }: {
   request: SignedPaymentIntentV1;
   latestLedger: number | undefined;
   onReset: () => void;
   onPreview: () => void;
   status?: ReactNode;
+  settlementStatus?: string;
 }) {
   const remaining = latestLedger === undefined ? undefined : request.intent.expiresAtLedger - latestLedger;
-  const expired = remaining !== undefined && remaining <= 0;
+  // Once a payment has moved, its outcome is what matters; the expiry window
+  // only describes a request that is still waiting for a customer.
+  const settled = settlementStatus !== undefined && settlementStatus !== 'awaiting_approval';
+  const expired = !settled && remaining !== undefined && remaining <= 0;
   return (
     <>
       <SurfaceCard style={styles.requestCard}>
@@ -202,19 +211,23 @@ function RequestCard({
             <Text style={styles.amount}>{request.intent.amount} <Text style={styles.asset}>{request.intent.asset.code}</Text></Text>
             <Text style={styles.reference}>{request.intent.reference}</Text>
           </View>
-          <StatusPill tone={expired ? 'danger' : 'pending'}>{expired ? 'EXPIRED' : 'PENDING'}</StatusPill>
+          <StatusPill tone={settled ? (settlementStatus === 'confirmed' ? 'success' : 'pending') : expired ? 'danger' : 'pending'}>
+            {settled ? settlementStatus!.replace(/_/g, ' ').toUpperCase() : expired ? 'EXPIRED' : 'PENDING'}
+          </StatusPill>
         </View>
         <View style={styles.qr}>
           <QRCode value={encodePaymentQr(request)} size={214} color={colors.black} backgroundColor="#FFFFFF" />
         </View>
         <View style={styles.expiry}>
-          <View style={[styles.dot, expired && styles.dotError]} />
+          <View style={[styles.dot, expired && styles.dotError, settled && styles.dotDone]} />
           <Text style={styles.expiryText}>
-            {remaining === undefined
-              ? `Expires at ledger ${request.intent.expiresAtLedger}`
-              : expired
-                ? 'This request has expired'
-                : `${remaining} ledgers left (about ${Math.max(1, Math.round((remaining * 5) / 60))} min)`}
+            {settled
+              ? 'A customer has paid this request'
+              : remaining === undefined
+                ? `Expires at ledger ${request.intent.expiresAtLedger}`
+                : expired
+                  ? 'This request has expired'
+                  : `${remaining} ledgers left (about ${Math.max(1, Math.round((remaining * 5) / 60))} min)`}
           </Text>
         </View>
       </SurfaceCard>
@@ -243,6 +256,7 @@ const styles = StyleSheet.create({
   ledgerRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
   dot: {backgroundColor: colors.amber, borderRadius: radius.round, height: 8, width: 8},
   dotError: {backgroundColor: colors.danger},
+  dotDone: {backgroundColor: colors.success},
   expiryText: {...typography.label, color: colors.inkMuted},
   ledgerText: {color: colors.inkMuted, flex: 1, fontSize: 12, lineHeight: 17},
   error: {...typography.label, color: colors.danger},

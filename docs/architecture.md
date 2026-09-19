@@ -242,6 +242,30 @@ Evidence is in `config/testnet-hardware-wallet-evidence.json`: the wallet is
 debited the amount and nothing else, the merchant is credited it, and the relayer
 pays the fee.
 
+## Where state lives
+
+Three places hold state, and they fail independently.
+
+- **Stellar** holds the payments themselves. Settled transactions, the settlement
+  contract and the wallets survive everything else being switched off.
+- **The API's database** holds orchestration: intents, settlements,
+  authorizations, merchant profiles, device wallets and the audit trail. It is
+  how a merchant sees a payment made from someone else's phone and how the worker
+  knows what to reconcile. Losing it does not lose money; it loses the record of
+  what the money was for.
+- **The device** holds the session: the hardware key, the smart wallet address,
+  the business profile, the open request and past receipts, in the platform's
+  encrypted store. It survives a restart and needs no server.
+
+Demo mode deliberately touches only the device — no API, no database, nothing on
+chain — so the app can be demonstrated with nothing else running. Testnet mode
+publishes the intent and reports each step, which is why the merchant screen can
+show a payment that this device did not make.
+
+Health reports whether the API is keeping records or holding them in memory, and
+developer settings shows it, because an API started without `DATABASE_URL` loses
+everything on restart and a merchant deserves to know that before relying on it.
+
 ## What the record keeps
 
 Every mutation appends an audit event: the intent that was created, who

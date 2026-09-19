@@ -28,6 +28,7 @@ export async function publishPaymentRequest(request: SignedPaymentIntentV1): Pro
 export function usePaymentRequestStatus(intentId: string) {
   return useQuery({
     queryKey: ['settlement', intentId],
+    enabled: intentId.length > 0,
     queryFn: () => apiClient().getSettlement(intentId),
     refetchInterval: 5_000,
     retry: false,
@@ -41,6 +42,17 @@ export function useMerchantPayments(merchantProfileId: string | undefined) {
     enabled: Boolean(merchantProfileId),
     queryFn: () => apiClient().listMerchantPayments(merchantProfileId!),
     refetchInterval: 15_000,
+    retry: false,
+  });
+}
+
+/** Whether the API is keeping records or holding them in memory. */
+export function useApiHealth() {
+  const apiBaseUrl = useAppStore(state => state.apiBaseUrl);
+  return useQuery({
+    queryKey: ['api-health', apiBaseUrl],
+    queryFn: () => apiClient().health(),
+    refetchInterval: 30_000,
     retry: false,
   });
 }

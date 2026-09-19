@@ -195,6 +195,12 @@ The owner of the project-local Testnet identities can also run the live XLM sett
 npm run testnet:smoke
 ```
 
+## Deploying
+
+The API and the worker are long-lived processes and the database is plain
+PostgreSQL; see [docs/deployment.md](docs/deployment.md) for what each one needs,
+why the backend is not a serverless deployment, and the checklist to go live.
+
 ## Stellar Agent Tooling
 
 This repository enables the Stellar Raven MCP server through

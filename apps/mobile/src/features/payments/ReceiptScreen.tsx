@@ -4,6 +4,7 @@ import {Linking, Pressable, StyleSheet, Text, useWindowDimensions, View} from 'r
 import {AnimatedContent, Button, colors, radius, spacing, SplitText, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
+import {shareValue} from '../../shared/shareAddress';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Receipt'>;
 
@@ -28,7 +29,20 @@ export function ReceiptScreen({route, navigation}: Props) {
           <Row label="Status" value={settled ? 'Confirmed' : 'Not settled on Stellar'} success={settled} />
         </SurfaceCard>
       </AnimatedContent>
-      <AnimatedContent delay={300} distance={8}><View style={[styles.actions, width < 380 && styles.actionsStacked]}>{settled ? <Pressable accessibilityRole="link" style={styles.action} onPress={() => Linking.openURL(`https://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`)}><ExternalLink color={colors.amber} size={18} /><Text style={styles.actionText}>View on Explorer</Text></Pressable> : null}<Pressable accessibilityRole="button" style={styles.action}><Share2 color={colors.amber} size={18} /><Text style={styles.actionText}>Share receipt</Text></Pressable></View></AnimatedContent>
+      <AnimatedContent delay={300} distance={8}><View style={[styles.actions, width < 380 && styles.actionsStacked]}>{settled ? <Pressable accessibilityRole="link" style={styles.action} onPress={() => Linking.openURL(`https://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`)}><ExternalLink color={colors.amber} size={18} /><Text style={styles.actionText}>View on Explorer</Text></Pressable> : null}<Pressable
+        accessibilityRole="button"
+        onPress={() =>
+          void shareValue(
+            'Rosa Pay receipt',
+            settled
+              ? `${receipt.amount} ${receipt.assetCode} to ${receipt.merchantName}\nhttps://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`
+              : `${receipt.amount} ${receipt.assetCode} to ${receipt.merchantName} (demo payment, not settled on Stellar)`,
+          )
+        }
+        style={styles.action}
+        testID="share-receipt">
+        <Share2 color={colors.amber} size={18} /><Text style={styles.actionText}>Share receipt</Text>
+      </Pressable></View></AnimatedContent>
       <AnimatedContent delay={360} distance={8}><Button onPress={() => navigation.popToTop()}>Done</Button></AnimatedContent>
     </Screen>
   );

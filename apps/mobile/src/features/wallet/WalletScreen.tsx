@@ -5,9 +5,15 @@ import {colors, radius, spacing, StatusPill, SurfaceCard, typography} from '@ros
 import {testnetDeployment} from '@rosapay/stellar';
 import {Screen} from '../../shared/Screen';
 import {useStellarHealth} from '../../shared/useStellarHealth';
+import {useWalletBalance} from '../../shared/useWalletBalance';
+import {shareValue} from '../../shared/shareAddress';
+import {useAppStore} from '../../state/appStore';
 
 export function WalletScreen() {
   const stellarHealth = useStellarHealth();
+  const smartWallet = useAppStore(state => state.smartWallet);
+  const balance = useWalletBalance();
+  const address = smartWallet?.contractId;
   const rpcStatus = stellarHealth.isPending ? 'CHECKING' : stellarHealth.isError ? 'OFFLINE' : 'LIVE';
   const contractId = testnetDeployment.settlementContractId;
   const shortContractId = `${contractId.slice(0, 10)}...${contractId.slice(-8)}`;
@@ -16,14 +22,41 @@ export function WalletScreen() {
       <View style={styles.header}><View><Text style={styles.eyebrow}>ACCOUNT</Text><Text style={styles.title}>Wallet</Text></View><StatusPill tone="success">PROTECTED</StatusPill></View>
       <SurfaceCard accent="amber" style={styles.addressCard}>
         <View style={styles.addressHeader}><Text style={styles.label}>STELLAR TESTNET</Text><View style={styles.network}><View style={styles.dot} /><Text style={styles.networkText}>Connected</Text></View></View>
-        <Text style={styles.address}>GDRX...N7KQ</Text>
-        <View style={styles.addressFooter}><Text style={styles.helper}>Your public wallet address</Text><Pressable accessibilityLabel="Copy wallet address" style={styles.copyButton}><Copy color={colors.amber} size={16} /><Text style={styles.copyText}>Copy</Text></Pressable></View>
+        <Text selectable style={styles.address}>
+          {address ? `${address.slice(0, 12)}...${address.slice(-8)}` : 'No wallet on this device yet'}
+        </Text>
+        <View style={styles.addressFooter}>
+          <Text style={styles.helper}>
+            {address
+              ? balance.data
+                ? `${balance.data} XLM held by this wallet`
+                : 'Your smart wallet address'
+              : 'Create the device payment key to get a wallet'}
+          </Text>
+          <Pressable
+            accessibilityLabel="Share wallet address"
+            disabled={!address}
+            onPress={() => address && void shareValue('My Rosa Pay wallet', address)}
+            style={styles.copyButton}
+            testID="share-address">
+            <Copy color={address ? colors.amber : colors.inkMuted} size={16} />
+            <Text style={styles.copyText}>Share</Text>
+          </Pressable>
+        </View>
       </SurfaceCard>
       <Text style={styles.sectionTitle}>Security</Text>
       <SurfaceCard padded={false} style={styles.securityCard}>
         <SecurityRow icon={<ShieldCheck color={colors.success} size={19} />} title="Device protected" body="Signing material never enters JavaScript." />
         <View style={styles.separator} />
-        <SecurityRow icon={<KeyRound color={colors.amber} size={19} />} title="Passkey signer" body="Biometric approval is required for each payment." />
+        <SecurityRow
+          icon={<KeyRound color={address ? colors.success : colors.inkMuted} size={19} />}
+          title={address ? 'Hardware signer' : 'No device key yet'}
+          body={
+            address
+              ? 'This wallet only moves with a key held in secure hardware, and only after you approve.'
+              : 'Create the device payment key in developer settings to hold funds on this device.'
+          }
+        />
       </SurfaceCard>
       <Text style={styles.sectionTitle}>Network connection</Text>
       <SurfaceCard padded={false} style={styles.networkCard}>

@@ -6,6 +6,7 @@ const host = process.env.API_HOST ?? '127.0.0.1';
 const runtime = createApiRuntime();
 const app = buildApp({
   repository: runtime.repository,
+  storage: runtime.storage,
   merchantProfiles: runtime.merchantProfiles,
   walletRepository: runtime.wallets,
   auditLog: runtime.auditLog,

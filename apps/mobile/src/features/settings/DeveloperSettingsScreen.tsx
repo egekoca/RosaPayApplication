@@ -16,6 +16,7 @@ import {
   type SessionStorageStatus,
 } from '../../state/persistence';
 import {fetchRelayerIdentity} from '../payments/testnetSettlement';
+import {useApiHealth} from '../merchant/merchantRequestStatus';
 import {
   createHardwareSigner,
   inspectHardwareSigner,
@@ -82,6 +83,8 @@ export function DeveloperSettingsScreen(_props: Props) {
       setApiError(error instanceof Error ? error.message : 'That address could not be used');
     }
   };
+
+  const health = useApiHealth();
 
   const relayer = useQuery({
     queryKey: ['relayer', apiBaseUrl],
@@ -151,6 +154,19 @@ export function DeveloperSettingsScreen(_props: Props) {
           ok={Boolean(relayer.data?.settlementContractId ?? config.settlementContractId)}
         />
         <StatusRow label="API" value={apiBaseUrl.replace(/^https?:\/\//, '')} ok={relayer.isSuccess} />
+        <StatusRow
+          label="API storage"
+          value={
+            health.isError
+              ? 'Not reachable'
+              : health.data?.storage === 'postgres'
+                ? 'PostgreSQL · records kept'
+                : health.data
+                  ? 'In memory · lost on restart'
+                  : 'Checking'
+          }
+          ok={health.data?.storage === 'postgres'}
+        />
         <StatusRow
           label="Session storage"
           value={

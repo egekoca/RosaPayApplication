@@ -11,6 +11,7 @@ import {useMerchantPayments} from '../merchant/merchantRequestStatus';
 import {Screen} from '../../shared/Screen';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useWalletBalance} from '../../shared/useWalletBalance';
+import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
 
 type Props = CompositeScreenProps<
@@ -62,13 +63,22 @@ function CustomerHome({navigation, merchantEnabled, isNarrow}: {navigation: Prop
                 ? 'Stellar could not be reached, so this balance may be stale.'
                 : 'Held by your device wallet on Stellar Testnet'}
         </Text>
-        <View style={styles.addressRow}><Text selectable style={styles.address}>{address ? `${address.slice(0, 8)}...${address.slice(-6)}` : 'No wallet yet'}</Text><Copy color={colors.amber} size={16} /></View>
+        <View style={styles.addressRow}>
+          <Text selectable style={styles.address}>{address ? `${address.slice(0, 8)}...${address.slice(-6)}` : 'No wallet yet'}</Text>
+          <Pressable
+            accessibilityLabel="Share wallet address"
+            disabled={!address}
+            onPress={() => address && void shareValue('My Rosa Pay wallet', address)}
+            testID="share-wallet-address">
+            <Copy color={address ? colors.amber : colors.inkMuted} size={16} />
+          </Pressable>
+        </View>
       </SurfaceCard></AnimatedContent>
       <View style={[styles.quickGrid, isNarrow && styles.quickGridStacked]}>
         <QuickAction stacked={isNarrow} icon={<ScanLine color={colors.amber} size={22} />} title="Scan to pay" hint="Use a merchant QR" onPress={() => navigation.navigate('Scan')} />
         <QuickAction stacked={isNarrow} disabled icon={<ArrowUpRight color={colors.inkMuted} size={22} />} title="Send" hint="Coming soon" />
       </View>
-      <SectionTitle title="Recent activity" action="View all" />
+      <SectionTitle title="Recent activity" action="View all" onAction={() => navigation.navigate('Activity')} />
       <SurfaceCard padded={false} style={styles.activityCard}>
         <View style={styles.activityRow}><View style={styles.activityIcon}><TrendingUp color={colors.success} size={18} /></View><View style={styles.activityCopy}><Text style={styles.activityTitle}>No payments yet</Text><Text style={styles.activityHint}>Your confirmed payments will appear here.</Text></View><ChevronRight color={colors.inkMuted} size={17} /></View>
       </SurfaceCard>
@@ -124,8 +134,17 @@ function QuickAction({icon, title, hint, onPress, disabled = false, stacked = fa
   return <PressScale disabled={disabled} onPress={onPress} style={[styles.quickAction, stacked && styles.quickActionStacked, disabled && styles.disabledAction]}><View style={styles.quickIcon}>{icon}</View><View style={styles.quickCopy}><Text style={styles.quickTitle}>{title}</Text><Text style={styles.quickHint}>{hint}</Text></View></PressScale>;
 }
 
-function SectionTitle({title, action}: {title: string; action?: string}) {
-  return <View style={styles.sectionTitle}><Text style={styles.sectionLabel}>{title}</Text>{action && <Text style={styles.sectionAction}>{action}</Text>}</View>;
+function SectionTitle({title, action, onAction}: {title: string; action?: string; onAction?: () => void}) {
+  return (
+    <View style={styles.sectionTitle}>
+      <Text style={styles.sectionLabel}>{title}</Text>
+      {action ? (
+        <Pressable accessibilityRole="button" onPress={onAction} testID="view-all-activity">
+          <Text style={styles.sectionAction}>{action}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

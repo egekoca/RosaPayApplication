@@ -26,12 +26,13 @@ function signedIntent(intentId = '01K36YB37NXM4X4TECF0VKP1M9') {
 }
 
 describe('API', () => {
-  it('reports service health', async () => {
+  it('reports service health and whether records are kept', async () => {
     const app = buildApp();
     apps.push(app);
     const response = await app.inject({method: 'GET', url: '/v1/health'});
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({status: 'ok'});
+    // Health names the storage mode, because in-memory records vanish on restart.
+    expect(response.json()).toEqual({status: 'ok', storage: 'memory'});
   });
 
   it('validates intent input before persistence', async () => {
@@ -163,5 +164,14 @@ describe('API', () => {
 
     expect(response.statusCode).toBe(401);
     expect(response.json()).toEqual({code: 'AUTHENTICATION_REQUIRED', message: 'An authenticated merchant session is required'});
+  });
+});
+
+describe('storage reporting', () => {
+  it('says when the API is keeping records durably', async () => {
+    const app = buildApp({storage: 'postgres'});
+    apps.push(app);
+    const response = await app.inject({method: 'GET', url: '/v1/health'});
+    expect(response.json()).toEqual({status: 'ok', storage: 'postgres'});
   });
 });

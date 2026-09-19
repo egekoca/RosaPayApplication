@@ -80,6 +80,18 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [ ] Record 100+ successful Testnet settlements and publish anonymized demo metrics.
 - [ ] Prepare the architecture diagram, three-minute demo script and failure-path demo.
 
+## Interface review
+
+- Every control on screen does something: the receipt and wallet addresses share
+  through the platform sheet, activity filters by all/on-chain/demo, and "View
+  all" opens the activity tab. React Native has no clipboard in core, so sharing
+  stands in for copying and long-press selection remains available.
+- The wallet screen shows the device's real smart wallet, its balance and whether
+  a hardware key exists, instead of a fixed address and an unconditional claim
+  that a passkey signer is present.
+- A merchant request shows its payment outcome once it has one; the expiry window
+  is only reported while a request is still waiting for a customer.
+
 ## Emulator verification notes
 
 - Android: Pixel 9 AVD (Android 16 / API 36), Metro on `127.0.0.1:8081`,
