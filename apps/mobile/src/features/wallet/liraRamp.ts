@@ -27,11 +27,48 @@ export class LiraRampError extends Error {
   override readonly name = 'LiraRampError';
 
   constructor(
-    readonly code: 'UNSUPPORTED_ACCOUNT' | 'ANCHOR_UNAVAILABLE' | 'TRUSTLINE_FAILED' | 'REFUSED',
+    readonly code:
+      | 'UNSUPPORTED_ACCOUNT'
+      | 'ANCHOR_UNAVAILABLE'
+      | 'TRUSTLINE_FAILED'
+      | 'INVALID_AMOUNT'
+      | 'REFUSED',
     message: string,
   ) {
     super(message);
   }
+}
+
+/**
+ * Whether this deployment's anchor is the sandbox, which is the only kind with
+ * a bank that can be told to pretend money arrived.
+ */
+export const IS_SANDBOX_ANCHOR = LIRA_ANCHOR_HOME_DOMAIN.includes('mock');
+
+/**
+ * Refuses an amount before anything else happens.
+ *
+ * The device prompt is the expensive step — it spends the customer's attention
+ * and their trust — so the number is checked before their finger is asked for.
+ * Sending an amount the wallet cannot cover meant a fingerprint, a sign-in, a
+ * withdrawal opened at the anchor, and only then "the network rejected the
+ * payment", which is true and tells nobody what went wrong.
+ */
+export function assertPayableAmount(
+  amount: string,
+  options: {available?: string; unit: string} = {unit: ''},
+): number {
+  const value = Number(amount);
+  if (!amount.trim() || !Number.isFinite(value) || value <= 0) {
+    throw new LiraRampError('INVALID_AMOUNT', 'Enter an amount greater than zero.');
+  }
+  if (options.available !== undefined && value > Number(options.available)) {
+    throw new LiraRampError(
+      'INVALID_AMOUNT',
+      `You hold ${options.available} ${options.unit}. Enter that or less.`,
+    );
+  }
+  return value;
 }
 
 /** What the customer has to do at their bank for the money to arrive. */
@@ -145,6 +182,7 @@ export async function startLiraDeposit(input: {
   amountTry: string;
   reason?: string;
 }): Promise<StartedLiraDeposit> {
+  assertPayableAmount(input.amountTry, {unit: 'TRY'});
   const anchor = await discover();
   const usdc = anchor.currencies.find(currency => currency.code === 'USDC');
   const transferServer = anchor.transferServerSep6;
@@ -328,8 +366,13 @@ export type StartedLiraWithdrawal = {
 export async function startLiraWithdrawal(input: {
   address: string;
   amountUsdc: string;
+  available?: string;
   reason?: string;
 }): Promise<StartedLiraWithdrawal> {
+  assertPayableAmount(input.amountUsdc, {
+    unit: 'USDC',
+    ...(input.available === undefined ? {} : {available: input.available}),
+  });
   const anchor = await discover();
   const usdc = anchor.currencies.find(currency => currency.code === 'USDC');
   const transferServer = anchor.transferServerSep6;

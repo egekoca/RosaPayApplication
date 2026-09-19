@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Without this the Keychain refuses every call with errSecMissingEntitlement,
+	  and this app keeps both the session and the wallet's signing key there. The
+	  app had no entitlements file at all, so on iOS it could not store a wallet
+	  and forgot everything it was told on relaunch.
+	-->
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.rosapay</string>
+	</array>
+</dict>
+</plist>

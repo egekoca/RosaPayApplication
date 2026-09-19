@@ -273,6 +273,7 @@
 					"-ObjC",
 					"-lc++",
 				);
+				CODE_SIGN_ENTITLEMENTS = RosaPay/RosaPay.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rosapay;
 				PRODUCT_NAME = RosaPay;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -302,6 +303,7 @@
 					"-ObjC",
 					"-lc++",
 				);
+				CODE_SIGN_ENTITLEMENTS = RosaPay/RosaPay.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rosapay;
 				PRODUCT_NAME = RosaPay;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

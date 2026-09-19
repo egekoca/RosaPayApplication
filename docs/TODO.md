@@ -32,6 +32,8 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [x] Implement wallet creation/restoration and recoverable failure states; the app provisions a device-controlled smart wallet, restores it with the session, reuses the hardware key after a failed provisioning attempt, and never creates a partial account.
 - [x] Delete the native iOS/Android device identity on sign-out and keep the account intact when secure deletion fails.
 - [~] Add device tests for cancellation, biometric failure and process death during authorization; developer settings run a real signature self-test and every failure maps to a typed signer error, while scripted cancellation and process-death cases remain.
+- [x] Give the iOS app a Keychain entitlement. It had no entitlements file at all, so every Keychain call failed with `errSecMissingEntitlement` — the session could not be written or read and no wallet key could be stored, which meant the iOS build forgot everything on relaunch and could not hold a wallet.
+- [ ] Drive the full iOS flow (create wallet, add lira, cash out) on a simulator or device. The Keychain fix is verified — the session persists and the errors are gone — but the screens after it have only been walked as far as the recovery-phrase check, because the simulator has no scriptable tap.
 - [ ] Validate the selected native passkey bridge on physical iOS and Android devices.
 
 ## P1 - Application and API Foundation

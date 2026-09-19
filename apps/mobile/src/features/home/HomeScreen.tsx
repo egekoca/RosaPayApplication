@@ -14,6 +14,7 @@ import {useBalanceValue} from '../../shared/useBalanceValue';
 import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
 import {useCurrentAccount} from '../wallet/currentAccount';
+import {generateRecoveryPhrase} from '../wallet/stellarKey';
 import {CurrencyPicker} from './CurrencyPicker';
 import {greetingFor} from './greeting';
 import {MerchantBalanceCard} from './MerchantBalanceCard';
@@ -21,7 +22,6 @@ import {PaymentCard} from './PaymentCard';
 import {AssetMark} from './AssetMark';
 import {payableAssetByCode} from '../payments/assets';
 import {currencySymbol} from '../../shared/priceSource';
-import {createHardwareSigner} from '../settings/hardwareSigner';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Main'>;
 
@@ -58,31 +58,30 @@ export function HomeScreen({navigation}: Props) {
  */
 function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigation']; merchantEnabled: boolean}) {
   const account = useCurrentAccount();
+  // The person's own record, which outlives whatever wallet it is attached to.
+  const identity = useAppStore(state => state.account);
   const receipts = useAppStore(state => state.receipts);
   const displayCurrency = useAppStore(state => state.displayCurrency);
   const setDisplayCurrency = useAppStore(state => state.setDisplayCurrency);
   // Opens the list rather than stepping to the next one. Cycling hid the
   // options and made reaching the fourth cost three rate lookups.
   const [pickingCurrency, setPickingCurrency] = useState(false);
-  const [setupBusy, setSetupBusy] = useState(false);
-  const [setupError, setSetupError] = useState<string>();
   const balance = useWalletBalance();
   const value = useBalanceValue(balance.data);
   const address = account?.address;
 
-  const finishWalletSetup = async () => {
-    setSetupBusy(true);
-    setSetupError(undefined);
-    try {
-      const result = await createHardwareSigner();
-      if (!result.walletContractId) {
-        throw new Error(result.detail ?? 'Your secure wallet could not be created');
-      }
-    } catch (failure) {
-      setSetupError(failure instanceof Error ? failure.message : 'Your secure wallet could not be created');
-    } finally {
-      setSetupBusy(false);
-    }
+  /*
+   * An account can outlive its wallet — a setup that failed part way, or a key
+   * the screen lock destroyed. It used to be offered a smart wallet here,
+   * which is now the one thing a new account never gets and the one wallet
+   * that cannot hold lira. It gets the same twelve words as everyone else.
+   */
+  const finishWalletSetup = () => {
+    navigation.replace('RecoveryPhrase', {
+      phrase: generateRecoveryPhrase(),
+      name: identity?.name ?? 'You',
+      ...(identity?.email ? {email: identity.email} : {}),
+    });
   };
 
   return (
@@ -112,16 +111,15 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
             <View style={styles.walletSetupCopy}>
               <Text style={styles.walletSetupTitle}>Finish wallet setup</Text>
               <Text style={styles.walletSetupHint}>
-                Connect this account to its device-protected Stellar wallet before paying or receiving money.
+                This account has no wallet yet. Twelve words will make one, and they are what lets you add money in
+                lira.
               </Text>
-              {setupError ? <Text style={styles.walletSetupError}>{setupError}</Text> : null}
             </View>
             <Button
               icon={<RefreshCw color={colors.black} size={18} />}
-              loading={setupBusy}
-              onPress={() => void finishWalletSetup()}
+              onPress={finishWalletSetup}
               testID="finish-wallet-setup">
-              Try again
+              Create the wallet
             </Button>
           </View>
         </AnimatedContent>
