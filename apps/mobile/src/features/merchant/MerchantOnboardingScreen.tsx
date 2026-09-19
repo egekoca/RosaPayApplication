@@ -19,7 +19,7 @@ const randomBytes = createRandomBytes({allowInsecureFallback: false});
 export function MerchantOnboardingScreen({navigation}: Props) {
   const {saveMerchantProfile, setMerchantRegisteredOnChain, smartWallet} = useAppStore();
   const [displayName, setDisplayName] = useState('');
-  const [recipient, setRecipient] = useState('');
+  const [recipient, setRecipient] = useState(smartWallet?.contractId ?? '');
   const [errors, setErrors] = useState<{displayName?: string; recipient?: string; general?: string}>({});
   const [registering, setRegistering] = useState(false);
 
@@ -42,21 +42,19 @@ export function MerchantOnboardingScreen({navigation}: Props) {
 
     // Testnet settlement is rejected until the contract knows this merchant key.
     let registered = false;
-    {
-      setRegistering(true);
-      try {
-        await registerMerchantForTestnet(profile);
-        setMerchantRegisteredOnChain(true);
-        registered = true;
-      } catch (error) {
-        setErrors({
-          general: `Profile saved, but Testnet registration failed: ${
-            error instanceof Error ? error.message : 'unknown error'
-          }. You can retry it from the payment request screen.`,
-        });
-      } finally {
-        setRegistering(false);
-      }
+    setRegistering(true);
+    try {
+      await registerMerchantForTestnet(profile);
+      setMerchantRegisteredOnChain(true);
+      registered = true;
+    } catch (error) {
+      setErrors({
+        general: `Profile saved, but Testnet registration failed: ${
+          error instanceof Error ? error.message : 'unknown error'
+        }. You can retry it from the payment request screen.`,
+      });
+    } finally {
+      setRegistering(false);
     }
     navigation.replace(registered ? 'Main' : 'MerchantRequest');
   };
@@ -66,7 +64,7 @@ export function MerchantOnboardingScreen({navigation}: Props) {
       <AnimatedContent>
         <View style={styles.heading}>
           <View style={styles.icon}><Store color={colors.goldBright} size={22} /></View>
-          <Text style={styles.eyebrow}>MERCHANT MODE</Text>
+          <Text style={styles.eyebrow}>GET PAID</Text>
           <Text style={styles.title}>Set up your business</Text>
           <Text style={styles.subtitle}>Customers see this name and pay the address you verify here.</Text>
         </View>
@@ -98,7 +96,7 @@ export function MerchantOnboardingScreen({navigation}: Props) {
               <View style={styles.useWalletCopy}>
                 <Text style={styles.useWalletTitle}>Get paid into this phone</Text>
                 <Text style={styles.useWalletBody}>
-                  Takes every asset without setting anything up, and the money is yours the moment it lands.
+                  Uses this phone's protected smart wallet as the verified settlement recipient.
                 </Text>
               </View>
             </Pressable>

@@ -7,6 +7,11 @@ const devicePublicKey = Buffer.concat([Buffer.from([4]), Buffer.alloc(64, 3)]).t
 jest.mock('../src/native/nativeSigner', () => ({
   createNativeRosaPaySigner: () => globalThis.__signerMock,
 }));
+// Provisioning now signs in first. That exchange has its own tests; here it
+// only has to succeed so the wallet behaviour underneath stays visible.
+jest.mock('../src/api/deviceSession', () => ({
+  ensureDeviceSession: jest.fn(async () => null),
+}));
 
 declare global {
   // eslint-disable-next-line no-var

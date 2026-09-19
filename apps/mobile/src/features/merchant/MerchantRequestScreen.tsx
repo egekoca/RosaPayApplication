@@ -8,6 +8,7 @@ import {encodePaymentQr, type SignedPaymentIntentV1} from '@rosapay/protocol';
 import type {CurrencyPrice} from '@rosapay/anchor';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
+import {displayAmount, exactAmount} from '../../shared/displayAmount';
 import {createRandomBytes} from '../../shared/randomBytes';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useCurrencyPrices} from '../../shared/useCurrencyPrices';
@@ -118,11 +119,9 @@ export function MerchantRequestScreen({navigation}: Props) {
       );
       setPendingRequest(request);
       // Testnet payments settle against an intent the API already knows about.
-      {
-        void publishPaymentRequest(request).catch(failure => {
-          setError(failure instanceof Error ? failure.message : 'The request could not be published to the API');
-        });
-      }
+      void publishPaymentRequest(request).catch(failure => {
+        setError(failure instanceof Error ? failure.message : 'The request could not be published to the API');
+      });
     } catch (failure) {
       setError(
         failure instanceof MerchantProfileError || failure instanceof Error
@@ -227,8 +226,8 @@ export function MerchantRequestScreen({navigation}: Props) {
               {currency ? (
                 <Text style={styles.conversion} testID="request-conversion">
                   {priced
-                    ? `Customer sends ${priced.assetAmount} ${payable.code} · ${currency.perUnit} ${currency.currency} per ${payable.code}`
-                    : `Rate ${currency.perUnit} ${currency.currency} per ${payable.code}, from the anchor`}
+                    ? `Customer sends ${displayAmount(priced.assetAmount)} ${payable.code} · ${displayAmount(currency.perUnit)} ${currency.currency} per ${payable.code}`
+                    : `Rate ${displayAmount(currency.perUnit)} ${currency.currency} per ${payable.code}, from the anchor`}
                 </Text>
               ) : null}
               <TextField
@@ -344,8 +343,8 @@ function RequestCard({
     <>
       <SurfaceCard style={styles.requestCard}>
         <View style={styles.requestHeader}>
-          <View>
-            <Text style={styles.amount}>{request.intent.amount} <Text style={styles.asset}>{request.intent.asset.code}</Text></Text>
+          <View style={styles.requestHeadline}>
+            <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={styles.amount}>{exactAmount(request.intent.amount)} <Text style={styles.asset}>{request.intent.asset.code}</Text></Text>
             <Text style={styles.reference}>{request.intent.reference}</Text>
           </View>
           <StatusPill tone={settled ? (settlementStatus === 'confirmed' ? 'success' : 'pending') : expired ? 'danger' : 'pending'}>
@@ -401,7 +400,8 @@ const styles = StyleSheet.create({
   subtitle: {color: colors.inkMuted, fontSize: 13, lineHeight: 19, textAlign: 'center'},
   form: {gap: spacing.lg},
   requestCard: {gap: spacing.lg, marginTop: spacing.sm},
-  requestHeader: {alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between'},
+  requestHeader: {alignItems: 'flex-start', flexDirection: 'row', gap: spacing.md, justifyContent: 'space-between'},
+  requestHeadline: {flexShrink: 1},
   amount: {color: colors.ink, fontSize: 28, fontWeight: '700'},
   currencyRow: {flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.xs},
   fieldLabel: {...typography.label, color: colors.inkMuted, marginBottom: spacing.xs},

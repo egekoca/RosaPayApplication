@@ -80,7 +80,7 @@ img { max-width: 100%; }
 .menu-button[aria-expanded="true"] span:last-child { transform: translateY(-4px) rotate(-45deg); }
 
 /* ---------- hero ---------- */
-.hero { border-bottom: 1px solid var(--rule-strong); overflow: hidden; padding-block: 120px 64px; }
+.hero { border-bottom: 1px solid var(--rule-strong); overflow: hidden; padding-block: 104px 32px; }
 .hero-grid { align-items: center; display: grid; gap: 24px; grid-template-columns: minmax(0, 0.94fr) minmax(420px, 1.06fr); min-height: min(680px, calc(100vh - 160px)); }
 .hero-copy { position: relative; z-index: 4; }
 .eyebrow {
@@ -701,6 +701,7 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 
 /* ---------- sections ---------- */
 .section { border-bottom: 1px solid var(--rule); padding-block: 96px; }
+#why { padding-top: 24px; }
 /* A numbered index entry, the way a printed section opens: the number and the
    label on one rule, the headline under it, hard left. */
 .section-heading { border-top: 1px solid var(--rule-strong); margin-bottom: 48px; padding-top: 18px; }
@@ -1210,10 +1211,12 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   .nav-links { background: #0c0c0b; border: 1px solid var(--line); border-radius: 18px; display: none; flex-direction: column; gap: 18px; left: 15px; padding: 24px; position: absolute; right: 15px; top: 72px; }
   .nav-links[data-open="true"] { animation: menu-in 260ms var(--ease); display: flex; }
   .pill { text-align: center; width: 100%; }
-  .hero { padding-block: 116px 20px; }
+  .hero { padding-block: 82px 12px; }
   .hero-grid { display: flex; flex-direction: column; gap: 10px; min-height: 0; text-align: center; }
   .eyebrow, .store-row, .live-proof { justify-content: center; }
-  .lede { font-size: 15px; margin-inline: auto; }
+  .eyebrow { margin-bottom: 18px; }
+  .lede { font-size: 15px; margin: 20px auto; }
+  .live-proof { margin-top: 18px; }
   .hero-title { font-size: clamp(54px, 16vw, 82px); }
   /* Smaller phones need less room; a fixed height would leave a hole under them. */
   .stage { height: auto; padding-block: 28px; width: 100%; }
@@ -1243,10 +1246,13 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 }
 
 @media (max-width: 440px) {
-  .store-row { flex-direction: column; width: min(100%, 240px); }
-  .store-button { justify-content: center; width: 100%; }
+  .store-row { flex-wrap: nowrap; gap: 8px; width: 100%; }
+  .store-button { flex: 1; gap: 7px; justify-content: center; min-width: 0; padding: 10px 8px; }
+  .store-button svg { height: 22px; width: 22px; }
+  .store-button small { font-size: 7px; }
+  .store-button strong { font-size: 13px; }
   .hero-copy .store-row { margin-inline: auto; }
-  .stage { padding-block: 20px; }
+  .stage { padding-block: 8px; }
   .phone-rail-one { height: 42px; top: 93px; }
   .phone-rail-two { height: 65px; top: 150px; }
   .island { height: 16px; top: 14px; width: 62px; }
@@ -1276,7 +1282,7 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
   [data-rise] { filter: none; opacity: 1; transform: none; }
 }
 

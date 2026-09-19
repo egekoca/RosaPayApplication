@@ -29,7 +29,8 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [~] Implement native iOS signer storage and user-presence authorization; the Secure Enclave module is implemented as a local pod and builds, while on-device verification remains.
 - [x] Implement native Android signer storage and user-presence authorization; a Keystore secp256r1 key signs only behind a device-credential prompt, verified on the Pixel 9 emulator against the exported public key.
 - [x] Register fail-closed `RosaPaySigner` modules on iOS and Android; both now generate a hardware secp256r1 key and sign a digest behind a user-presence prompt.
-- [x] Implement wallet creation/restoration and recoverable failure states; the app provisions a device-controlled smart wallet, restores it with the session, and every failure maps to a specific message.
+- [x] Implement wallet creation/restoration and recoverable failure states; the app provisions a device-controlled smart wallet, restores it with the session, reuses the hardware key after a failed provisioning attempt, and never creates a partial account.
+- [x] Delete the native iOS/Android device identity on sign-out and keep the account intact when secure deletion fails.
 - [~] Add device tests for cancellation, biometric failure and process death during authorization; developer settings run a real signature self-test and every failure maps to a typed signer error, while scripted cancellation and process-death cases remain.
 - [ ] Validate the selected native passkey bridge on physical iOS and Android devices.
 
@@ -39,14 +40,15 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [x] Add the React Native shell, navigation, design system, English copy and error boundary; motion primitives are React Native ports of React Bits components, screen transitions run on the native stack, and the home balance is the wallet's real on-chain balance rather than a fixture.
 - [x] Add Zustand capability/mode state, TanStack Query and structured redacted logging boundaries, with the session persisted in encrypted device storage.
 - [x] Add a runtime-validated mobile API client with stable error handling.
-- [~] Keep API intent creation/get and in-memory idempotency for local development.
-- [~] Add authenticated passkey session start/complete and `GET /v1/me`; the API now has a fail-closed auth resolver boundary and request IDs, while passkey session issuance remains.
-- [~] Enforce capability and resource ownership on every mutating endpoint; merchant intent creation now checks the authenticated merchant capability and owned profile when auth is required.
+- [x] Keep API intent creation/get idempotent in memory and PostgreSQL, with atomic initial settlement creation.
+- [x] Add authenticated device challenge/session issuance: single-use five-minute challenges prove possession of the wallet's P-256 key and issue 15-minute bearer sessions stored in the platform Keychain-backed state.
+- [x] Enforce capability and resource ownership on every mutating endpoint; capabilities and wallet ownership are resolved from repositories for every request rather than accepted from token roles.
+- [ ] Add `GET /v1/me` plus explicit server-side session revocation; current HMAC sessions expire after 15 minutes but cannot be revoked before expiry.
 - [x] Add PostgreSQL migrations and a durable repository adapter; `packages/postgres` wraps a transaction-capable `pg` pool, `createApiRuntime` selects it from `DATABASE_URL` (and refuses memory when `API_REQUIRE_DATABASE=true`), and `npm run db:migrate` applies checksum-guarded migrations.
 - [x] Complete the PRD data model: merchant keys (`002`), authorization records (`003`), device wallets (`004`) and audit events (`005`) all persist, with the audit trail refusing to store anything that names a secret.
 - [x] Add merchant profile create/get endpoints and receiving-address verification; creation is idempotent, checks the Stellar receiving address and signing key, and reads are ownership-guarded.
 - [x] Add authorization, submission, payment status and activity endpoints; authorize/submit record the payment, settlement and authorization are readable, `/history` returns a payment's audit trail and merchant profiles list their payments.
-- [~] Add read-only settlement status and a domain-guarded in-memory state service; authenticated mutation and durable persistence remain pending.
+- [x] Add authenticated settlement mutation and read routes backed by domain-guarded in-memory/PostgreSQL state; PostgreSQL updates use compare-and-set status conditions to reject concurrent overwrites.
 - [x] Add rate limits, request correlation IDs and relayer-safe structured logs; the endpoints that spend funds are rate limited per caller, every response carries a validated `x-request-id`, and the logger redacts authorization/signature fields.
 
 ## P1 - Customer and Merchant Flows
@@ -54,8 +56,8 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [x] QR encode/decode, signature validation, confirmation and local receipt flow now run on merchant-created, merchant-signed requests instead of fixtures.
 - [x] Integrate a real camera QR scanner with size limits and malformed-payload recovery; the customer screen runs the device camera, the decoder refuses anything over 4 kB and reports a corrupted scan as a retry rather than a parser error, and permission is asked with the platform's own API because the camera library's Android request never settles.
 - [x] Show full/copyable recipient details, non-native issuer, live expiry and verification state on confirmation; approval is blocked when the signature fails or the request has expired against the live ledger.
-- [~] Track pending, confirmed and failed settlement states without false success; the settlement stepper reports Prepare/Authorize/Submit/Confirm, the submitted hash is shown before confirmation, demo settlements are labelled `DEMO ONLY`, and every failure maps to a specific message. Cross-device status still needs the API endpoints.
-- [~] Include ledger, confirmation timestamp and a validated transaction hash in receipts; the Testnet path now records ledger and confirmation time, while hash re-validation against RPC remains.
+- [x] Track pending, confirmed and failed settlement states without false success; the settlement stepper reports Prepare/Authorize/Submit/Confirm, cross-device status comes from the API, demo settlements are labelled `DEMO ONLY`, and every failure maps to a specific message.
+- [x] Include ledger, confirmation timestamp and a validated transaction hash in receipts; only an RPC `SUCCESS` result with a final ledger may confirm a Testnet payment.
 - [x] Implement Merchant Profile onboarding instead of the current capability toggle; the business name and receiving address are verified before a profile exists.
 - [x] Create and sign payment intents from merchant data rather than a fixture; amounts are canonicalized, expiry comes from the live ledger and the customer verifies the merchant signature.
 - [x] Add merchant request status and receipt lookup; the request screen polls the API settlement, and the merchant home lists every request that merchant made with its outcome.
@@ -93,7 +95,7 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
   through the platform sheet, activity filters by all/on-chain/demo, and "View
   all" opens the activity tab. React Native has no clipboard in core, so sharing
   stands in for copying and long-press selection remains available.
-- Wallet and merchant mode now share one workspace, the same premium gold card
+- Pay and Get paid now share one workspace and the same device-controlled smart wallet; the switch changes the current task, not the account or signing key. The premium gold card
   treatment and an animated mode change. Merchant setup returns to that
   workspace after registration, where the next action is to create or reopen a
   payment request.
@@ -122,9 +124,9 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
   unset, and the worker logs `worker_idle` and exits instead of looping.
 - Mock receipts carry `settlementMode: 'mock'`, are shown as `DEMO ONLY` with a
   `demo:` reference instead of a hash, and expose no explorer link.
-- Merchant requests are signed on-device with a demo Ed25519 key because React
-  Native ships no CSPRNG and the native signer is not implemented yet. The
-  insecure randomness fallback is logged and refused outside mock mode.
+- Merchant RTP/1 requests use a separate on-device Ed25519 key generated from
+  the platform CSPRNG. The customer payment key remains non-exportable in native
+  secure storage, and insecure randomness is refused outside mock mode.
 
 ## Paying between two devices
 
@@ -213,7 +215,7 @@ What still stands between here and a store build:
 
 ## Next Execution Order
 
-1. Verify the NFC transport across two physical Android devices.
-2. Issue authenticated passkey sessions, then extend capability checks to every mutating endpoint.
-3. Produce signed release builds for both stores and deploy the API.
+1. Validate P-256 signing, key deletion, QR and NFC across physical iOS/Android devices.
+2. Add revocable API sessions and a shared production rate-limit store.
+3. Produce signed release builds for both stores and deploy the API/worker/PostgreSQL stack.
 4. Record 100+ successful Testnet settlements and publish anonymized demo metrics.

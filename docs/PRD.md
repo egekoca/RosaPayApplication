@@ -96,12 +96,12 @@ A technical evaluator who must be able to inspect the protocol, run the app, obs
 
 ### 8.1 Single account flow
 
-1. User selects `Create your wallet` or `Sign in with passkey`.
-2. Lumenade Pay creates or restores one customer smart wallet.
-3. The default home screen is Customer mode.
-4. The user may select `Activate Merchant Mode`.
-5. Merchant onboarding creates a Merchant Profile linked to the same user account.
-6. The user can switch between `Customer mode` and `Merchant mode` from the app header.
+1. A new user selects `Create a new wallet`; a returning user is recognized from encrypted device state.
+2. Lumenade Pay creates or restores one device-controlled customer smart wallet.
+3. The default home view is `Pay`.
+4. The user may select `Get paid with this account`.
+5. Business onboarding adds a Merchant Profile to the same user account and defaults its receiving address to the existing smart wallet.
+6. The user can switch between `Pay` and `Get paid` from the app header without changing accounts or signing keys.
 
 There must be no separate customer and merchant passwords, no role-specific duplicate accounts, and no hidden role switch that changes signing keys.
 
@@ -125,8 +125,7 @@ All visible product copy is English. The following labels are the canonical star
 ### 9.1 Entry and wallet setup
 
 - `Welcome to Lumenade Pay`
-- `Create your wallet`
-- `Sign in with passkey`
+- `Create a new wallet`
 - `Your wallet is protected by your device`
 - `Continue`
 - `Use Face ID` / `Use Touch ID` / `Use device biometrics`
@@ -148,7 +147,7 @@ Primary actions:
 - `Activity`
 - `Wallet`
 
-The home screen shows the selected network, wallet address in shortened form, balances, pending payment status, and the current mode switcher.
+The home screen shows the selected network, wallet address in shortened form, balances, pending payment status, and a `Pay / Get paid` capability switcher. Both views use the same account and smart wallet; activating `Get paid` adds a merchant profile rather than creating another wallet or login.
 
 ### 9.3 Customer payment confirmation
 

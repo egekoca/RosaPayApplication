@@ -7,6 +7,8 @@ import {HomeScreen} from '../features/home/HomeScreen';
 import {AnchorTransferScreen} from '../features/wallet/AnchorTransferScreen';
 import {WelcomeScreen} from '../features/onboarding/WelcomeScreen';
 import {CreateAccountScreen} from '../features/onboarding/CreateAccountScreen';
+import {RecoveryPhraseScreen} from '../features/onboarding/RecoveryPhraseScreen';
+import {ImportWalletScreen} from '../features/onboarding/ImportWalletScreen';
 import {ScanScreen} from '../features/payments/ScanScreen';
 import {PaymentConfirmationScreen} from '../features/payments/PaymentConfirmationScreen';
 import {ReceiptScreen} from '../features/payments/ReceiptScreen';
@@ -18,6 +20,9 @@ import {hasRestorableSession, useAppStore, type LocalReceipt} from '../state/app
 export type RootStackParams = {
   Welcome: undefined;
   CreateAccount: undefined;
+  /** The words are passed, never stored: nothing writes them to disk. */
+  RecoveryPhrase: {phrase: string};
+  ImportWallet: undefined;
   Main: undefined;
   Scan: undefined;
   Confirm: {payload: SignedPaymentIntentV1};
@@ -57,6 +62,16 @@ export function RootNavigator() {
       }}>
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{headerShown: false, animation: 'fade'}} />
       <Stack.Screen name="CreateAccount" component={CreateAccountScreen} options={{title: 'Create account', headerBackTitle: 'Back'}} />
+      <Stack.Screen
+        name="RecoveryPhrase"
+        component={RecoveryPhraseScreen}
+        options={{title: 'Recovery phrase', headerBackTitle: 'Back'}}
+      />
+      <Stack.Screen
+        name="ImportWallet"
+        component={ImportWalletScreen}
+        options={{title: 'Restore wallet', headerBackTitle: 'Back'}}
+      />
       <Stack.Screen name="Main" component={HomeScreen} options={{headerShown: false, animation: 'fade'}} />
       <Stack.Screen name="Scan" component={ScanScreen} options={{title: 'Scan QR', animation: 'fade_from_bottom'}} />
       <Stack.Screen name="Confirm" component={PaymentConfirmationScreen} options={{title: 'Review payment', animation: 'slide_from_bottom'}} />

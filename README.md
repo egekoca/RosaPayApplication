@@ -111,11 +111,11 @@ Start the API at `http://localhost:4100`:
 npm run api
 ```
 
-The emulator demo needs no database and no API: mobile settlement runs in `mock`
-Every payment settles on Stellar Testnet. The app needs the API and a
-configured relayer to pay; without them it reports the failure rather than
-recording anything locally.
-Android emulator, forward the port with `adb reverse tcp:4100 tcp:4100`.
+The emulator demo needs no database or API: mobile settlement runs in `mock`
+mode and labels receipts `DEMO ONLY`. Testnet mode always uses the API and a
+configured relayer; without them it reports the failure and never records a
+local success. On the Android emulator, forward the API port with
+`adb reverse tcp:4100 tcp:4100`.
 
 Set `DATABASE_URL` to use durable PostgreSQL storage instead, apply the
 migrations, then start the reconciliation worker:
@@ -126,9 +126,11 @@ npm run db:migrate
 npm run worker
 ```
 
-`API_REQUIRE_DATABASE=true` refuses to start on memory, and
-`API_AUTH_REQUIRED=true` rejects anonymous mutations. The worker only scans
-contract events once `WORKER_EVENT_START_LEDGER` is set; see `.env.example`.
+`API_REQUIRE_DATABASE=true` refuses to start on memory. With a 32-byte-or-longer
+`API_SESSION_SECRET`, the API verifies a single-use P-256 device challenge and
+issues a 15-minute bearer session; `API_AUTH_REQUIRED=true` then rejects every
+anonymous mutation. The worker only scans contract events once
+`WORKER_EVENT_START_LEDGER` is set; see `.env.example`.
 
 ### Real Testnet settlement from the app
 
@@ -165,8 +167,8 @@ select the RosaPay target, and under Signing & Capabilities pick your personal
 team; Xcode then provisions the device. A free signing identity expires after
 seven days, so the app has to be reinstalled after that, and the device has to
 trust the certificate under Settings → General → VPN & Device Management. The
-Secure Enclave and Face ID only exist on a real device, so this is also the only
-way to exercise the hardware signer for real.
+Face ID only exists on a real device, so this is also the only way to exercise
+the payment prompt for real.
 
 There is no `adb reverse` on iOS, so the phone reaches the API over the network:
 run it with `API_HOST=0.0.0.0 npm run api`, then set the address in the app's
@@ -182,8 +184,9 @@ It asserts on-chain that the relayer is the transaction source and fee payer,
 that the customer is debited the amount only, and writes the evidence to
 `config/testnet-relayed-evidence.json`.
 
-The smart wallet has its own proof, where a P-256 device key authorizes a wallet
-operation through `__check_auth`:
+The production smart wallet has its own proof, where a non-exportable P-256
+device key authorizes a wallet operation through `__check_auth` while a relayer
+pays the fee:
 
 ```bash
 npm run testnet:wallet
@@ -246,7 +249,9 @@ ROSAPAY_STELLAR_CONFIG_DIR=<optional-cli-config-dir> \
 ./scripts/deploy-testnet.sh
 ```
 
-The current integration uses a device-controlled smart wallet, generated-client
-simulation, authorization, relayer submission and final-status polling. The next
+The current integration uses the device-controlled `C...` smart wallet with
+generated-client simulation, hardware authorization, relayer submission and
+final-status polling. The recovery-phrase classic-account adapter is explicitly
+experimental and is never selected by the production payment path. The next
 public milestone is physical-device validation and a remotely hosted API/worker;
 QR remains mandatory on both platforms and Android NFC is an optional fast path.

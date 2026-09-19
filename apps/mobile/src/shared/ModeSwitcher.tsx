@@ -1,4 +1,4 @@
-import {Store, WalletCards} from 'lucide-react-native';
+import {QrCode, ScanLine} from 'lucide-react-native';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {colors, radius, spacing, typography} from '@rosapay/ui';
 import {useAppStore, type AppMode} from '../state/appStore';
@@ -18,19 +18,21 @@ export function ModeSwitcher() {
           <Pressable
             accessibilityRole="tab"
             accessibilityState={{selected}}
-            accessibilityLabel={option === 'customer' ? 'Wallet mode' : 'Merchant mode'}
+            accessibilityLabel={option === 'customer' ? 'Pay' : 'Get paid'}
             key={option}
             onPress={() => setMode(option)}
             style={[styles.option, selected && styles.selected]}
             testID={`mode-${option}`}>
             <View style={[styles.icon, selected && styles.selectedIcon]}>
               {option === 'customer' ? (
-                <WalletCards color={selected ? colors.goldBright : colors.inkMuted} size={17} />
+                <ScanLine color={selected ? colors.goldBright : colors.inkMuted} size={17} />
               ) : (
-                <Store color={selected ? colors.goldBright : colors.inkMuted} size={17} />
+                <QrCode color={selected ? colors.goldBright : colors.inkMuted} size={17} />
               )}
             </View>
-            <Text style={[styles.label, selected && styles.selectedLabel]}>{option === 'customer' ? 'Wallet' : 'Merchant'}</Text>
+            <Text style={[styles.label, selected && styles.selectedLabel]}>
+              {option === 'customer' ? 'Pay' : 'Get paid'}
+            </Text>
           </Pressable>
         );
       })}

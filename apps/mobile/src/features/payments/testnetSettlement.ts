@@ -64,11 +64,6 @@ export function createRemoteRelayerSigner(baseUrl: string, fetcher: typeof fetch
   };
 }
 
-/**
- * Development customer wallet. The native signer is the real path; until it
- * exists this key stands in for it so the Testnet flow can be exercised, and it
- * is created from the same explicit randomness source as the merchant key.
- */
 export type TestnetSettlementInput = {
   payload: SignedPaymentIntentV1;
   config: StellarConfig;
@@ -110,9 +105,6 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
     customerAddress,
     digest: Uint8Array.from(digest),
   });
-  // The wallet authorizes the whole entry with the hardware key, because the
-  // generated client's `signAuthEntry` callback receives a preimage, which only
-  // fits a classic account.
   const customerAuthorizeEntry = createWalletAuthorizeEntry({
     signer: input.smartWallet.signer,
     networkPassphrase: input.config.networkPassphrase,

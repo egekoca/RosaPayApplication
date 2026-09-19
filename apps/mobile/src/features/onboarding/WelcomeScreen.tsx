@@ -48,10 +48,10 @@ export function WelcomeScreen({navigation}: Props) {
             icon={<ArrowRight color={colors.black} size={20} />}
             onPress={() => navigation.navigate('CreateAccount')}
             testID="get-started">
-            Get started
+            Create a new wallet
           </Button>
           <Text style={styles.footnote}>
-            Takes about a minute. No email or password — this phone is the account.
+            No password to remember. Your payment key stays in this phone's secure hardware.
           </Text>
         </View>
       </AnimatedContent>

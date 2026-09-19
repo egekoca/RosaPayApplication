@@ -33,7 +33,7 @@ function request(merchant: ReturnType<typeof profile>) {
 
 describe('mobile settlement adapter', () => {
   afterEach(() => {
-    useAppStore.setState({merchantProfile: null, smartWallet: null});
+    useAppStore.setState({merchantProfile: null, wallet: null});
   });
 
   it('reports a missing relayer instead of settling silently', async () => {

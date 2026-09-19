@@ -2,6 +2,7 @@ import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-nati
 import {Copy, WalletCards} from 'lucide-react-native';
 import {CountUp, GoldCardSurface, spacing, typography} from '@rosapay/ui';
 import {AssetMark} from './AssetMark';
+import {displayAmount} from '../../shared/displayAmount';
 
 /** One state at a time, so the card never says two things at once. */
 export type PaymentCardState = 'no-wallet' | 'loading' | 'error' | 'ready';
@@ -22,7 +23,7 @@ export type PaymentCardProps = {
  * point in capitals. A sentence does not; these are labels.
  */
 const captions: Record<PaymentCardState, string> = {
-  'no-wallet': 'NOT YET CREATED',
+  'no-wallet': 'SETUP REQUIRED',
   loading: 'READING',
   error: 'RECONNECTING',
   ready: 'AVAILABLE',
@@ -83,7 +84,7 @@ export function PaymentCard({holdings, value, address, state, onCopy}: PaymentCa
                   <View key={holding.code} style={styles.restItem}>
                     <AssetMark code={holding.code} size={14} />
                     <Text style={styles.restText}>
-                      {Number(holding.amount).toFixed(2)} {holding.code}
+                      {displayAmount(holding.amount)} {holding.code}
                     </Text>
                   </View>
                 ))}

@@ -51,7 +51,7 @@ export function AnchorTransferScreen({route}: Props) {
 
   async function start() {
     if (!smartWallet) {
-      setError('Create the device-protected smart wallet before connecting an anchor.');
+      setError('Set up your wallet before connecting an anchor.');
       return;
     }
     if (conflictingSaved) {
@@ -140,11 +140,11 @@ export function AnchorTransferScreen({route}: Props) {
         </SurfaceCard>
       ) : (
         <SurfaceCard style={styles.explainer}>
-          <Text style={styles.cardTitle}>{isDeposit ? 'Funds land in the smart wallet' : 'The smart wallet remains the source'}</Text>
+          <Text style={styles.cardTitle}>{isDeposit ? 'Funds land in your wallet' : 'Your wallet is the source'}</Text>
           <Text style={styles.body}>
             {isDeposit
-              ? 'SEP-45 authenticates the C-account directly, so Lumenade Pay does not create a classic holding account or a trustline sweep.'
-              : 'The anchor collects the withdrawal details. If it requests an on-chain transfer, Lumenade Pay will keep the transfer action-required until that smart-wallet payment is approved.'}
+              ? 'SEP-10 authenticates your own Stellar account, so the anchor pays it directly with no holding account in between.'
+              : 'The anchor collects the withdrawal details. If it requests an on-chain transfer, Lumenade Pay keeps the transfer action-required until you approve that payment.'}
           </Text>
         </SurfaceCard>
       )}

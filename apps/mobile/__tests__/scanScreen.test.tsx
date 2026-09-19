@@ -43,11 +43,11 @@ function navigation(): Navigation {
 async function renderScanner(nav: Navigation) {
   const Screen = ScanScreen as unknown as React.ComponentType<{navigation: Navigation}>;
   let renderer!: ReactTestRenderer.ReactTestRenderer;
-  await ReactTestRenderer.act(() => {
+  await ReactTestRenderer.act(async () => {
     renderer = ReactTestRenderer.create(<Screen navigation={nav} />);
+    await Promise.resolve();
+    await Promise.resolve();
   });
-  // Let the camera-permission promise settle before the test drives the camera.
-  await ReactTestRenderer.act(async () => {});
   activeRenderers.add(renderer);
   return renderer;
 }
@@ -104,15 +104,15 @@ describe('the scanner', () => {
   });
 });
 
-describe('what the scanner offers when there is nothing to scan', () => {
-  afterEach(() => {
-    activeRenderers.forEach(renderer => {
-      ReactTestRenderer.act(() => renderer.unmount());
-    });
-    activeRenderers.clear();
-    useAppStore.setState({pendingRequest: null});
+afterEach(() => {
+  ReactTestRenderer.act(() => {
+    activeRenderers.forEach(renderer => renderer.unmount());
   });
+  activeRenderers.clear();
+  useAppStore.setState({pendingRequest: null});
+});
 
+describe('what the scanner offers when there is nothing to scan', () => {
   it('offers no payment at all when this device has not made one', async () => {
     useAppStore.setState({pendingRequest: null});
 

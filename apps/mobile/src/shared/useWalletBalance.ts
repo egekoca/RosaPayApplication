@@ -32,17 +32,28 @@ export function useWalletBalance() {
     retry: 1,
     queryFn: async (): Promise<Holding[]> => {
       const config = createStellarConfig('testnet');
+      /*
+       * A failed read is not a zero balance.
+       *
+       * This used to catch and substitute '0', on the reasoning that a missing
+       * trustline reads as a failure and honestly means "none of this". But the
+       * customer's wallet is a contract, and a contract needs no trustline —
+       * every asset answers, with zero when it has never been paid. So the only
+       * thing a failure here can mean is that the ledger could not be reached,
+       * and calling that zero told someone holding USDC that they held none.
+       *
+       * Letting it throw puts the card in its reconnecting state, which is the
+       * true thing to say, and the query retries on its own.
+       */
       const balances = await Promise.all(
-        payableAssets.map(async entry => {
-          // One asset failing to read must not blank the whole card; a missing
-          // trustline is the ordinary reason and it means "none of this".
-          const amount = await readAssetBalance(
+        payableAssets.map(async entry => ({
+          code: entry.code,
+          amount: await readAssetBalance(
             config,
             smartWallet!.contractId,
             contractIdOf(entry, config.networkPassphrase),
-          ).catch(() => '0');
-          return {code: entry.code, amount};
-        }),
+          ),
+        })),
       );
 
       const held = balances.filter(balance => Number(balance.amount) > 0);

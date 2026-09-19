@@ -33,7 +33,8 @@
     "testnet:offline": "tsx --env-file-if-exists=.env scripts/testnet-offline-customer.mts",
     "testnet:anchor": "tsx --env-file-if-exists=.env scripts/testnet-anchor.mts",
     "web": "npm run dev --workspace @lumenadepay/web",
-    "testnet:register-asset": "tsx --env-file-if-exists=.env scripts/testnet-register-asset.mts"
+    "testnet:register-asset": "tsx --env-file-if-exists=.env scripts/testnet-register-asset.mts",
+    "testnet:phrase-wallet": "tsx --env-file-if-exists=.env scripts/testnet-phrase-wallet.mts"
   },
   "devDependencies": {
     "@noble/curves": "^2.3.0",

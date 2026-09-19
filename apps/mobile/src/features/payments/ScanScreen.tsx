@@ -155,7 +155,7 @@ function cameraMessage(state: CameraState, hasOwnRequest: boolean): string {
       // request below whether or not one existed.
       return hasOwnRequest
         ? 'No camera on this device — use the request below'
-        : 'No camera on this device. Make a request in merchant mode to try a payment here.';
+        : 'No camera on this device. Make a request in Get paid to try a payment here.';
   }
 }
 

@@ -24,7 +24,7 @@ export function DeveloperSettingsScreen(_props: Props) {
   const {
     merchantProfile,
     merchantRegisteredOnChain,
-    smartWallet,
+    wallet,
     apiBaseUrl,
     setApiBaseUrl,
     requireUnlock,
@@ -115,8 +115,8 @@ export function DeveloperSettingsScreen(_props: Props) {
         />
         <StatusRow
           label="Device wallet"
-          value={smartWallet ? shorten(smartWallet.contractId) : 'Created with the device key'}
-          ok={Boolean(smartWallet)}
+          value={wallet ? shorten(wallet.address) : 'No wallet on this device yet'}
+          ok={Boolean(wallet)}
         />
         <StatusRow
           label="Merchant on-chain"

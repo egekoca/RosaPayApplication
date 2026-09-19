@@ -1,4 +1,15 @@
 #![no_std]
+//! The wallet every account gets. Still the production custody path.
+//!
+//! Creating an account deploys one of these and funds it, and its only signer is
+//! a secp256r1 key minted in the phone's secure element — non-exportable, so
+//! there is nothing to phish and nothing to paste into a fake app. The recovery
+//! signer and `rotate` are what a customer has instead of a phrase.
+//!
+//! A classic phrase-derived account is being explored alongside it, so that a
+//! customer could bring a wallet they already have. That path is experimental
+//! and is not what `CreateAccountScreen` builds; see the `wallet` field in the
+//! app store, which says the same thing.
 
 use soroban_sdk::{
     auth::{Context, CustomAccountInterface},

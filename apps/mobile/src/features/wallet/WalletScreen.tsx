@@ -5,6 +5,8 @@ import type {ReactNode} from 'react';
 import {colors, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import {testnetDeployment} from '@rosapay/stellar';
 import {Screen} from '../../shared/Screen';
+import {displayAmount} from '../../shared/displayAmount';
+import type {Holding} from '../../shared/useWalletBalance';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useWalletBalance} from '../../shared/useWalletBalance';
 import {shareValue} from '../../shared/shareAddress';
@@ -21,11 +23,24 @@ export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {})
   const lock = useAppStore(state => state.lock);
   const signOut = useAppStore(state => state.signOut);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const balance = useWalletBalance();
   const address = smartWallet?.contractId;
   const rpcStatus = stellarHealth.isPending ? 'CHECKING' : stellarHealth.isError ? 'OFFLINE' : 'LIVE';
   const contractId = testnetDeployment.settlementContractId;
   const shortContractId = `${contractId.slice(0, 10)}...${contractId.slice(-8)}`;
+  async function eraseAccount() {
+    if (!confirmingSignOut) {
+      setConfirmingSignOut(true);
+      return;
+    }
+    setSignOutError(null);
+    try {
+      await signOut();
+    } catch (error) {
+      setSignOutError(error instanceof Error ? error.message : 'This device could not erase the payment key.');
+    }
+  }
   return (
     <Screen>
       <View style={styles.header}><View><Text style={styles.eyebrow}>ACCOUNT</Text><Text style={styles.title}>Wallet</Text></View><StatusPill tone="success">PROTECTED</StatusPill></View>
@@ -53,7 +68,7 @@ export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {})
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={() => (confirmingSignOut ? signOut() : setConfirmingSignOut(true))}
+              onPress={eraseAccount}
               style={styles.accountAction}
               testID="wallet-sign-out">
               <LogOut color={confirmingSignOut ? colors.danger : colors.inkMuted} size={16} />
@@ -68,6 +83,7 @@ export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {})
               stays on Stellar.
             </Text>
           ) : null}
+          {signOutError ? <Text accessibilityRole="alert" style={styles.signOutError}>{signOutError}</Text> : null}
         </SurfaceCard>
       ) : null}
       <SurfaceCard accent="amber" style={styles.addressCard}>
@@ -78,9 +94,7 @@ export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {})
         <View style={styles.addressFooter}>
           <Text style={styles.helper}>
             {address
-              ? balance.data
-                ? `${balance.data} XLM held by this wallet`
-                : 'Your smart wallet address'
+              ? heldLabel(balance.data) ?? 'Your smart wallet address'
               : 'Create the device payment key to get a wallet'}
           </Text>
           <Pressable
@@ -124,16 +138,25 @@ export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {})
       </SurfaceCard>
       <Text style={styles.sectionTitle}>Security</Text>
       <SurfaceCard padded={false} style={styles.securityCard}>
-        <SecurityRow satisfied icon={<ShieldCheck color={colors.success} size={19} />} title="Device protected" body="Signing material never enters JavaScript." />
+        <SecurityRow
+          satisfied={Boolean(address)}
+          icon={<ShieldCheck color={address ? colors.success : colors.inkMuted} size={19} />}
+          title={address ? 'Asked for at every payment' : 'No wallet on this phone yet'}
+          body={
+            address
+              ? 'Your key is kept behind your face or fingerprint, and nothing is signed until you approve it.'
+              : 'Create a wallet to protect payments with this device.'
+          }
+        />
         <View style={styles.separator} />
         <SecurityRow
           satisfied={Boolean(address)}
           icon={<KeyRound color={address ? colors.success : colors.inkMuted} size={19} />}
-          title={address ? 'Hardware signer' : 'No device key yet'}
+          title={address ? 'Non-exportable device key' : 'No device key yet'}
           body={
             address
-              ? 'This wallet only moves with a key held in secure hardware, and only after you approve.'
-              : 'Create the device payment key in developer settings to hold funds on this device.'
+              ? 'Signing material stays in secure hardware. JavaScript receives only the public key and an opaque signature result.'
+              : 'The payment key will be generated in secure hardware and cannot be exported by the app.'
           }
         />
       </SurfaceCard>
@@ -171,6 +194,17 @@ function SecurityRow({satisfied, icon, title, body}: {satisfied: boolean; icon: 
   );
 }
 
+/**
+ * What the wallet holds, in one line.
+ *
+ * The balance query answers with one entry per payable asset, so the lumens
+ * have to be picked out by name rather than assumed to be the only one.
+ */
+function heldLabel(holdings: Holding[] | undefined): string | undefined {
+  const lumens = holdings?.find(holding => holding.code === 'XLM');
+  return lumens ? `${displayAmount(lumens.amount)} XLM held by this wallet` : undefined;
+}
+
 const styles = StyleSheet.create({
   header: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
   eyebrow: {...typography.label, color: colors.amber, fontSize: 10, letterSpacing: 1.2},
@@ -187,6 +221,7 @@ const styles = StyleSheet.create({
   signOutText: {color: colors.inkMuted},
   signOutConfirm: {color: colors.danger},
   signOutWarning: {color: colors.inkFaint, fontSize: 12, lineHeight: 18},
+  signOutError: {color: colors.danger, fontSize: 12, lineHeight: 18},
   addressCard: {gap: spacing.sm},
   addressHeader: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
   label: {...typography.label, color: colors.amber, fontSize: 11, letterSpacing: 1},

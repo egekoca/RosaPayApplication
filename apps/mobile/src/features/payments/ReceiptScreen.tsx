@@ -5,6 +5,7 @@ import {AnimatedContent, Button, colors, radius, spacing, SplitText, StatusPill,
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {shareValue} from '../../shared/shareAddress';
+import {displayAmount} from '../../shared/displayAmount';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Receipt'>;
 
@@ -17,7 +18,7 @@ export function ReceiptScreen({route, navigation}: Props) {
     <Screen contentStyle={styles.screen}>
       <AnimatedContent distance={8} scaleFrom={0.78} duration={560}><View style={styles.successIcon}><Check color={colors.black} size={32} strokeWidth={3} /></View></AnimatedContent>
       <AnimatedContent delay={100}><View style={styles.center}><Text style={styles.eyebrow}>PAYMENT COMPLETE</Text><SplitText delay={140} splitBy="word" style={styles.title} text="Payment confirmed" /><Text style={styles.merchant}>{`Your payment to ${receipt.merchantName} was confirmed on Stellar.`}</Text></View></AnimatedContent>
-      <AnimatedContent delay={180} scaleFrom={0.98}><SurfaceCard accent="success" style={styles.amountCard}><Text style={styles.amount}>{receipt.amount} <Text style={styles.asset}>{receipt.assetCode}</Text></Text><StatusPill tone="success">CONFIRMED</StatusPill></SurfaceCard></AnimatedContent>
+      <AnimatedContent delay={180} scaleFrom={0.98}><SurfaceCard accent="success" style={styles.amountCard}><Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.amount}>{displayAmount(receipt.amount)} <Text style={styles.asset}>{receipt.assetCode}</Text></Text><StatusPill tone="success">CONFIRMED</StatusPill></SurfaceCard></AnimatedContent>
       <AnimatedContent delay={240}>
         <SurfaceCard padded={false} style={styles.receipt}>
           <Row label="Network" value={receipt.network === 'testnet' ? 'Stellar Testnet' : 'Stellar Public'} />
@@ -33,7 +34,7 @@ export function ReceiptScreen({route, navigation}: Props) {
         onPress={() =>
           void shareValue(
             'Lumenade Pay receipt',
-            `${receipt.amount} ${receipt.assetCode} to ${receipt.merchantName}\nhttps://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`,
+            `${displayAmount(receipt.amount)} ${receipt.assetCode} to ${receipt.merchantName}\nhttps://stellar.expert/explorer/testnet/tx/${receipt.transactionHash}`,
           )
         }
         style={styles.action}
@@ -56,8 +57,8 @@ const styles = StyleSheet.create({
   eyebrow: {...typography.label, color: colors.success, fontSize: 10, letterSpacing: 1.1},
   title: {...typography.title, color: colors.ink, fontSize: 25, marginTop: spacing.xs},
   merchant: {color: colors.inkMuted, fontSize: 13, textAlign: 'center'},
-  amountCard: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
-  amount: {color: colors.ink, fontSize: 28, fontWeight: '700'},
+  amountCard: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, justifyContent: 'space-between'},
+  amount: {color: colors.ink, flexShrink: 1, fontSize: 28, fontWeight: '700'},
   asset: {color: colors.amber, fontSize: 15},
   receipt: {overflow: 'hidden'},
   row: {alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', minHeight: 52, paddingHorizontal: spacing.lg},

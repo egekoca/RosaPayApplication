@@ -11,7 +11,7 @@ React Native app (iOS + Android)
   -> application/domain packages
   -> protocol package (pure RTP/1 validation and canonical hashes)
   -> Stellar adapter (RPC, address and merchant signature verification)
-  -> SecureSigner port (native Swift/Kotlin implementation pending)
+  -> SecureSigner port (native Swift/Kotlin P-256 implementations)
 
 Fastify API -> repository port -> PostgreSQL adapter (production) / in-memory adapter (local)
 Worker -> Stellar RPC health/indexing boundary
@@ -28,17 +28,17 @@ The repository uses npm workspaces. Dependencies point inward: screens depend on
 - `packages/domain`: payment state machine. It accepts events and returns explicit next states; it has no network or UI side effects.
 - `packages/stellar`: Stellar RPC configuration, generated settlement client, RTP/1 settlement mapping, StrKey validation and merchant signature verification.
 - `packages/postgres`: the driver-neutral PostgreSQL port plus the pooled, transaction-capable adapter shared by the API and the worker.
-- `packages/secure-signer`: the only signing port exposed to TypeScript. The first implementation is an injected bridge; production adapters will be Swift/Kotlin backed.
+- `packages/secure-signer`: the only signing port exposed to TypeScript. Production adapters are Swift/Kotlin backed and return only public keys and signatures.
 - `packages/ui`: platform-neutral design tokens and small presentational components.
-- `apps/mobile`: navigation, screen orchestration, runtime-validated API/query boundaries, capability switching and the mocked QR vertical slice.
+- `apps/mobile`: navigation, screen orchestration, device sessions, runtime-validated API/query boundaries, capability switching and mock/Testnet payment modes.
 - `apps/api`: Fastify transport, request validation, idempotency and repository ports.
 - `apps/worker`: background RPC health, submitted-settlement confirmation and contract-event reconciliation boundary. Event data is treated as an audit/recovery signal and must match the submitted transaction plus an RPC `SUCCESS` receipt before state changes; cursor persistence is exposed as a port with a PostgreSQL adapter and a scheduled runtime, while durable event indexing, retries and notifications remain later phases.
 - `contracts/settlement`: Soroban settlement policy and on-chain replay protection.
 
 The API settlement record follows the domain state machine: `awaiting_approval`
 can become `authorized`, then `submitted`, and only an RPC-verified receipt may
-become `confirmed`. The current API exposes a read-only settlement status route;
-mutation and persistence will move behind authenticated relayer/worker ports.
+become `confirmed`. Authenticated routes record authorization and submission,
+while the worker owns confirmation after polling the final RPC result.
 `StellarRpcClient.confirmTransaction` is the shared RPC guard for that receipt:
 it rejects malformed hashes, `NOT_FOUND`, `FAILED`, and incomplete success
 responses rather than allowing submission acceptance to masquerade as payment.
@@ -59,11 +59,16 @@ pool on `SIGINT`/`SIGTERM` after Fastify drains. Schema changes are applied by
 its own transaction and records a checksum, so an already-applied migration that
 was edited fails closed instead of diverging between environments.
 
-API mutation auth is explicit: `API_AUTH_REQUIRED=true` makes the resolver
-fail closed, and merchant intent creation requires both the merchant capability
-and ownership of the referenced profile. Local emulator mode leaves this boundary
-optional until passkey session issuance is wired. Every request also receives a
-validated `x-request-id` response header for correlation without logging secrets.
+API mutation auth is explicit. The app asks for a single-use random challenge,
+signs it with the same non-exportable P-256 key that controls its smart wallet,
+and receives a 15-minute HMAC-authenticated bearer session. Android SPKI and iOS
+raw-point public keys are canonicalized to the wallet contract's 65-byte signer
+representation. The resolver derives customer/merchant capabilities and wallet
+ownership from PostgreSQL on every request; it never trusts a role supplied by
+the client. `API_AUTH_REQUIRED=true` fails startup without a 32-byte-or-longer
+`API_SESSION_SECRET` and rejects anonymous mutations. Local emulator mode may
+leave auth disabled explicitly. Every request also receives a validated
+`x-request-id` response header, and authorization/signature fields are redacted.
 
 Event pagination follows Stellar RPC's two modes: the first page uses a ledger
 range, and later pages use only the returned cursor. The worker persists the
@@ -94,11 +99,11 @@ explicit decision rather than a hidden default.
 The mobile merchant flow signs each request with `signMerchantIntent`, and the
 customer path re-verifies that signature at scan time and again on the
 confirmation screen, where approval is blocked if verification fails or the
-request has expired against the live ledger. Until the native signer exists, the
-merchant key is a demo Ed25519 key generated on device: React Native ships no
-`crypto.getRandomValues`, so the insecure fallback is logged and refused outside
-mock mode, and demo receipts are labelled `DEMO ONLY` with no explorer link so a
-local demo can never read as an on-chain settlement.
+request has expired against the live ledger. The RTP/1 merchant key is separate
+from the customer's hardware wallet key and is generated from the platform CSPRNG.
+The insecure randomness fallback is refused outside mock mode, and demo receipts
+are labelled `DEMO ONLY` with no explorer link so a local demo can never read as
+an on-chain settlement.
 
 ## Relayed settlement and the fee payer boundary
 
@@ -139,10 +144,11 @@ debited the amount and nothing more, and that the recipient receives it.
 
 ### Session persistence
 
-The app keeps its session in the platform's encrypted store (iOS Keychain,
-Android Keystore-backed storage) rather than plain app storage, because the
-session carries the development signer secrets alongside the merchant profile,
-demo wallet, open request and receipts. Secrets are byte arrays, so they are
+The app keeps its local state and short-lived API bearer session in the
+platform's encrypted store (iOS Keychain, Android Keystore-backed storage)
+rather than plain app storage. The state carries the development merchant signer
+alongside the merchant profile, smart wallet address, open request and receipts.
+Secrets are byte arrays, so they are
 written as hex and restored in place; receipts are capped so a long-lived session
 cannot outgrow the store. Reading it back is asynchronous, so the app renders a
 splash until hydration finishes and only then decides whether a returning user
@@ -189,7 +195,11 @@ and both the tests and the script normalize for.
 
 ## Signing and passkeys
 
-JavaScript never receives a private key. `SecureSigner` accepts an opaque authorization request and returns an opaque signature or a typed error. A production native adapter must keep the key in Secure Enclave/Keychain (iOS) or Android Keystore, require user presence for payment authorization, and expose only public-key metadata to JS.
+JavaScript never receives a private key. `SecureSigner` accepts an opaque
+authorization request and returns a signature or a typed error. The native
+adapters keep the key in Secure Enclave/Keychain (iOS) or Android Keystore,
+require user presence for payment authorization, and expose only public-key
+metadata to JavaScript.
 
 The platform modules implement exactly one signing operation: `signDigest`
 proves user presence and signs an opaque 32-byte digest with a hardware key.
@@ -211,7 +221,7 @@ settings exists to catch exactly that class of mistake, by verifying a real
 signature against the exported public key with the same curve math the contract
 uses.
 
-The account decision is recorded in [ADR 0001](adr/0001-passkey-account-and-native-signer.md): use a Smart Account Kit/OpenZeppelin context-rule-compatible Soroban account, but keep React Native integration provider-neutral through a native bridge. Browser IndexedDB/WebAuthn storage is not used in React Native. Recovery and signer rotation are intentionally single-device for the Testnet demo and gated for production by [ADR 0002](adr/0002-recovery-and-signer-rotation.md). The bridge exposes Stellar SDK-compatible `signAuthEntry` and `signTransaction` operations so the generated contract client can separate customer auth-entry signing from relayer fee-payer signing. The iOS and Android `RosaPaySigner` modules are now registered fail-closed; they return `UNAVAILABLE` until platform credential storage and user-presence signing are implemented.
+The account decision is recorded in [ADR 0001](adr/0001-passkey-account-and-native-signer.md): use a Smart Account Kit/OpenZeppelin context-rule-compatible Soroban account, but keep React Native integration provider-neutral through a native bridge. Browser IndexedDB/WebAuthn storage is not used in React Native. Recovery and signer rotation are intentionally single-device for the Testnet demo and gated for production by [ADR 0002](adr/0002-recovery-and-signer-rotation.md). The bridge exposes Stellar SDK-compatible `signAuthEntry` and `signTransaction` operations so the generated contract client can separate customer auth-entry signing from relayer fee-payer signing. The iOS and Android `RosaPaySigner` modules are registered fail-closed and delete the native identity during sign-out; the app keeps the account intact if key deletion fails.
 
 ### Paying from the smart wallet
 
@@ -368,7 +378,7 @@ The TypeScript settlement-envelope builder and generated contract binding now li
 - The generated binding comes from the optimized settlement WASM and exposes typed simulation, authorization and submission methods.
 - `packages/stellar/src/settlementPipeline.ts` codifies the write path: the generated client simulates first, the customer signer authorizes every non-invoker auth entry, the relayer signs the transaction envelope, and the receipt is accepted only after RPC reports `SUCCESS` with a ledger.
 - `packages/stellar/src/settlementService.ts` validates the QR/RTP payload and merchant signature before building the contract envelope. It requires a separate contract intent-digest signature, so the mobile QR signature cannot be accidentally reused as on-chain merchant authorization.
-- `apps/mobile/src/features/payments/settlementAdapter.ts` is the only mobile settlement entry point, and it has one path: the device's smart wallet pays, the relayer is the transaction source and fee payer, and the settlement contract decides whether the payment happened. There is no local mode to fall back to, so a payment either settles on Stellar or fails and says so.
+- `apps/mobile/src/features/payments/settlementAdapter.ts` is the only mobile settlement entry point. Testnet mode makes the device's smart wallet pay while the relayer remains transaction source and fee payer; mock mode is explicit and produces only `DEMO ONLY` receipts, never a transaction hash or explorer link.
 
 The envelope retains the RTP/1 hash for audit correlation, but does not reuse the QR signature. The merchant must sign the digest returned by the contract's `intent_digest` method, and the customer must separately authorize the exact `settle_payment` invocation.
 

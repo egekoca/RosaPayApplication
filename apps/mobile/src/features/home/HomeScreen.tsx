@@ -1,5 +1,6 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ChevronRight, QrCode, ReceiptText, ScanLine, ShieldCheck, SlidersHorizontal, Store} from 'lucide-react-native';
+import {ChevronRight, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, SlidersHorizontal, Store} from 'lucide-react-native';
+import {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
@@ -8,12 +9,14 @@ import {LumenadeMark} from '../../shared/LumenadeMark';
 import {useMerchantPayments} from '../merchant/merchantRequestStatus';
 import {Screen} from '../../shared/Screen';
 import {useWalletBalance} from '../../shared/useWalletBalance';
+import {displayAmount} from '../../shared/displayAmount';
 import {useBalanceValue} from '../../shared/useBalanceValue';
 import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
 import {greetingFor} from './greeting';
 import {MerchantBalanceCard} from './MerchantBalanceCard';
 import {PaymentCard} from './PaymentCard';
+import {createHardwareSigner} from '../settings/hardwareSigner';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Main'>;
 
@@ -51,9 +54,26 @@ export function HomeScreen({navigation}: Props) {
 function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigation']; merchantEnabled: boolean}) {
   const smartWallet = useAppStore(state => state.smartWallet);
   const receipts = useAppStore(state => state.receipts);
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupError, setSetupError] = useState<string>();
   const balance = useWalletBalance();
   const value = useBalanceValue(balance.data);
   const address = smartWallet?.contractId;
+
+  const finishWalletSetup = async () => {
+    setSetupBusy(true);
+    setSetupError(undefined);
+    try {
+      const result = await createHardwareSigner();
+      if (!result.walletContractId) {
+        throw new Error(result.detail ?? 'Your secure wallet could not be created');
+      }
+    } catch (failure) {
+      setSetupError(failure instanceof Error ? failure.message : 'Your secure wallet could not be created');
+    } finally {
+      setSetupBusy(false);
+    }
+  };
 
   return (
     <>
@@ -68,6 +88,27 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
           onCopy={() => address && void shareValue('My Lumenade Pay wallet', address)}
         />
       </AnimatedContent>
+
+      {!smartWallet ? (
+        <AnimatedContent delay={70}>
+          <View accessibilityRole="alert" style={styles.walletSetup}>
+            <View style={styles.walletSetupCopy}>
+              <Text style={styles.walletSetupTitle}>Finish wallet setup</Text>
+              <Text style={styles.walletSetupHint}>
+                Connect this account to its device-protected Stellar wallet before paying or receiving money.
+              </Text>
+              {setupError ? <Text style={styles.walletSetupError}>{setupError}</Text> : null}
+            </View>
+            <Button
+              icon={<RefreshCw color={colors.black} size={18} />}
+              loading={setupBusy}
+              onPress={() => void finishWalletSetup()}
+              testID="finish-wallet-setup">
+              Try again
+            </Button>
+          </View>
+        </AnimatedContent>
+      ) : null}
 
       <AnimatedContent delay={90}>
         <PressScale>
@@ -110,7 +151,7 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
                   <Text style={styles.listName} numberOfLines={1}>{receipt.merchantName}</Text>
                   <Text style={styles.listWhen}>{new Date(receipt.createdAt).toLocaleDateString()}</Text>
                 </View>
-                <Text style={styles.listAmount}>−{receipt.amount} {receipt.assetCode}</Text>
+                <Text numberOfLines={1} style={styles.listAmount}>−{displayAmount(receipt.amount)} {receipt.assetCode}</Text>
               </Pressable>
             ))}
           </View>
@@ -157,7 +198,7 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
           <View style={styles.modeIntroRow}>
             <View style={styles.modeIntroCopy}>
               <Text numberOfLines={1} style={styles.modeTitle}>
-                {merchantProfile?.displayName ?? 'Merchant workspace'}
+                {merchantProfile?.displayName ?? 'Get paid'}
               </Text>
             </View>
             <StatusPill tone={statusTone}>{payments.isError ? 'LOCAL' : payments.isPending ? 'SYNCING' : 'LIVE'}</StatusPill>
@@ -254,7 +295,7 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
                     <Text style={styles.listWhen}>{new Date(payment.createdAt).toLocaleDateString()}</Text>
                   </View>
                   <View style={styles.listAmountBlock}>
-                    <Text style={styles.listAmount}>+{payment.amount}</Text>
+                    <Text numberOfLines={1} style={styles.listAmount}>+{displayAmount(payment.amount)}</Text>
                     <Text style={styles.listAsset}>{payment.assetCode}</Text>
                   </View>
                 </View>
@@ -381,6 +422,19 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   merchantText: {...typography.label, color: colors.ink, flex: 1, fontSize: 14},
+
+  walletSetup: {
+    borderBottomColor: colors.lineSoft,
+    borderBottomWidth: 1,
+    borderTopColor: colors.lineSoft,
+    borderTopWidth: 1,
+    gap: spacing.md,
+    paddingVertical: spacing.lg,
+  },
+  walletSetupCopy: {gap: spacing.xs},
+  walletSetupTitle: {...typography.label, color: colors.ink, fontSize: 15},
+  walletSetupHint: {color: colors.inkMuted, fontSize: 13, lineHeight: 19},
+  walletSetupError: {...typography.label, color: colors.danger, fontSize: 12, lineHeight: 17},
 
   modeIntro: {},
   modeIntroRow: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},

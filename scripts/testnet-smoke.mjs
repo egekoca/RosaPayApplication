@@ -1,6 +1,7 @@
 import {spawnSync} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
 import {existsSync, readFileSync, writeFileSync} from 'node:fs';
+import {homedir} from 'node:os';
 
 import {getPublicKey, hashes, sign, utils} from '@noble/ed25519';
 import {sha512} from '@noble/hashes/sha2.js';
@@ -9,7 +10,9 @@ import {hash, Networks} from '@stellar/stellar-sdk';
 hashes.sha512 = sha512;
 
 const deployment = JSON.parse(readFileSync('config/testnet-deployment.json', 'utf8'));
-const configDir = process.env.ROSAPAY_STELLAR_CONFIG_DIR ?? '.stellar';
+// Stellar CLI 27 no longer discovers repository-local config implicitly.
+// Match its documented global default while preserving an explicit override.
+const configDir = process.env.ROSAPAY_STELLAR_CONFIG_DIR ?? `${homedir()}/.config/stellar`;
 const adminIdentity = process.env.ROSAPAY_ADMIN_IDENTITY ?? 'rosapay-testnet-deployer';
 const customerIdentity = process.env.ROSAPAY_CUSTOMER_IDENTITY ?? 'rosapay-testnet-customer';
 const evidencePath = process.env.ROSAPAY_SMOKE_EVIDENCE ?? 'config/testnet-smoke-evidence.json';
@@ -38,8 +41,10 @@ function invoke(source, functionName, args, {allowFailure = false, send = 'defau
     deployment.settlementContractId,
     '--source-account',
     source,
-    '--network',
-    deployment.network,
+    '--rpc-url',
+    deployment.rpcUrl,
+    '--network-passphrase',
+    deployment.networkPassphrase,
     `--send=${send}`,
     '--',
     functionName,

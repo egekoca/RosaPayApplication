@@ -6,7 +6,11 @@ import {TestnetSettlementError} from './testnetSettlement';
  * Turns settlement failures into something a payer can act on. Every branch says
  * what happened and what to do next; nothing is presented as a partial success.
  */
-export function describeSettlementError(error: unknown): string {
+/**
+ * @param assetCode what the payment was denominated in, so a shortfall names
+ *   the asset the customer is actually short of.
+ */
+export function describeSettlementError(error: unknown, assetCode = 'XLM'): string {
   if (error instanceof TestnetSettlementError) {
     switch (error.code) {
       case 'RELAYER_UNAVAILABLE':
@@ -57,7 +61,9 @@ export function describeSettlementError(error: unknown): string {
   // Network-level failures the Stellar dApp checklist calls out explicitly.
   const message = error instanceof Error ? error.message.toLowerCase() : '';
   if (message.includes('insufficient') || message.includes('underfunded')) {
-    return 'This wallet does not have enough XLM for the payment. Top it up and try again.';
+    // Named from the intent. This used to say XLM whatever was being paid,
+    // which sent a customer short of USDC off to top up the wrong asset.
+    return `This wallet does not have enough ${assetCode} for the payment. Top it up and try again.`;
   }
   if (message.includes('account not found') || message.includes('notfound')) {
     return 'This wallet is not funded on Stellar yet. Create or fund it from developer settings.';

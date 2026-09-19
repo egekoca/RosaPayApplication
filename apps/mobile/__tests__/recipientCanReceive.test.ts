@@ -1,12 +1,7 @@
 import {Asset} from '@stellar/stellar-sdk';
-import {canReceiveAsset, createStellarConfig, readAssetBalance} from '@rosapay/stellar';
+import {canReceiveAsset, createStellarConfig, type readAssetBalance} from '@rosapay/stellar';
 
-jest.mock('@rosapay/stellar', () => {
-  const actual = jest.requireActual('@rosapay/stellar');
-  return {...actual, readAssetBalance: jest.fn()};
-});
-
-const mockRead = readAssetBalance as jest.MockedFunction<typeof readAssetBalance>;
+const mockRead = jest.fn<ReturnType<typeof readAssetBalance>, Parameters<typeof readAssetBalance>>();
 const config = createStellarConfig('testnet');
 const usdc = new Asset('USDC', 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5').contractId(
   config.networkPassphrase,
@@ -20,7 +15,7 @@ describe('whether an address can be paid in an asset', () => {
     // the ordinary answer for one that has simply not been paid yet.
     mockRead.mockResolvedValue('0');
 
-    await expect(canReceiveAsset(config, 'CBI3H4ROVXGJG3BRPABD2TKSIME2VJCJTKEMOCJNF3BNHYJOBK6U57NS', usdc)).resolves.toBe(
+    await expect(canReceiveAsset(config, 'CBI3H4ROVXGJG3BRPABD2TKSIME2VJCJTKEMOCJNF3BNHYJOBK6U57NS', usdc, undefined, mockRead)).resolves.toBe(
       true,
     );
   });
@@ -30,7 +25,7 @@ describe('whether an address can be paid in an asset', () => {
     // call fails outright rather than returning zero.
     mockRead.mockRejectedValue(new Error('The balance could not be read'));
 
-    await expect(canReceiveAsset(config, 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57', usdc)).resolves.toBe(
+    await expect(canReceiveAsset(config, 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57', usdc, undefined, mockRead)).resolves.toBe(
       false,
     );
   });
@@ -40,7 +35,7 @@ describe('whether an address can be paid in an asset', () => {
     // cannot arrive costs them a sale with the customer already committed.
     mockRead.mockRejectedValue(new Error('fetch failed'));
 
-    await expect(canReceiveAsset(config, 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57', usdc)).resolves.toBe(
+    await expect(canReceiveAsset(config, 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57', usdc, undefined, mockRead)).resolves.toBe(
       false,
     );
   });

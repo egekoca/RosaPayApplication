@@ -37,14 +37,11 @@ export function CreateAccountScreen({navigation}: Props) {
 
     setBusy(true);
     try {
+      const signer = await createHardwareSigner();
+      if (!signer.walletContractId) {
+        throw new Error(signer.detail ?? 'Your secure wallet could not be created');
+      }
       createAccount({name: trimmedName, ...(trimmedEmail ? {email: trimmedEmail} : {})});
-      // The payment key is made now when the phone can make one, because doing
-      // it here is one fewer prompt later. A phone that cannot — no screen lock
-      // set, most often — still gets an account: signing up is not the moment
-      // that needs protecting, and being turned away at the front door with a
-      // keystore error is not something anyone can act on. The key is asked for
-      // again at the first payment, which is when it actually guards something.
-      await createHardwareSigner().catch(() => undefined);
       navigation.replace('Main');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Your account could not be created');
@@ -106,10 +103,10 @@ export function CreateAccountScreen({navigation}: Props) {
                   <Fingerprint color={colors.amber} size={20} />
                 </View>
                 <View style={styles.explainerCopy}>
-                  <Text style={styles.explainerTitle}>Your face or fingerprint signs payments</Text>
+                  <Text style={styles.explainerTitle}>Protected by this device</Text>
                   <Text style={styles.explainerBody}>
-                    A payment key is made inside this phone's secure hardware. It never leaves the device, and nothing
-                    can spend from it without you. Opening the app does not ask — paying does.
+                    A non-exportable payment key is created in the phone's secure hardware. Your face, fingerprint or
+                    device passcode is required whenever you approve a payment.
                   </Text>
                 </View>
               </View>

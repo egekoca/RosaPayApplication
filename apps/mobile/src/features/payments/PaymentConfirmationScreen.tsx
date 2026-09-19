@@ -7,6 +7,7 @@ import {AnimatedContent, Button, colors, Pulse, radius, spacing, SplitText, Stat
 import {verifyMerchantSignature} from '@rosapay/stellar/merchant-signature';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
+import {exactAmount} from '../../shared/displayAmount';
 import {LumenadeLoadingOverlay} from '../../shared/LumenadeMark';
 import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
@@ -63,7 +64,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
     <Screen>
       <AnimatedContent><View style={styles.header}><View><Text style={styles.eyebrow}>SECURE CHECKOUT</Text><SplitText delay={90} splitBy="word" style={styles.title} text="Review payment" /></View><View style={styles.pills}><StatusPill tone="success">TESTNET</StatusPill><StatusPill tone={verified ? 'success' : 'danger'}>{verified ? 'VERIFIED' : 'UNVERIFIED'}</StatusPill></View></View></AnimatedContent>
       <AnimatedContent delay={90} scaleFrom={0.98}><SurfaceCard accent="amber" style={styles.merchantCard}><View style={styles.merchant}><View style={styles.initial}><Text style={styles.initialText}>{initialsOf(intent.merchantName)}</Text></View><View style={styles.merchantCopy}><Text style={styles.merchantName}>{intent.merchantName}</Text><View style={styles.verified}>{verified ? <BadgeCheck color={colors.success} size={16} /> : <ShieldAlert color={colors.danger} size={16} />}<Text style={[styles.verifiedText, !verified && styles.unverifiedText]}>{verified ? 'Signature matches this merchant key' : 'Signature does not match this merchant key'}</Text></View></View></View></SurfaceCard></AnimatedContent>
-      <AnimatedContent delay={150}><SurfaceCard style={styles.amountBlock}><Text style={styles.label}>YOU ARE PAYING</Text><Text style={styles.amount}>{intent.amount} <Text style={styles.asset}>{intent.asset.code}</Text></Text><Text style={styles.reference}>{intent.reference}</Text></SurfaceCard></AnimatedContent>
+      <AnimatedContent delay={150}><SurfaceCard style={styles.amountBlock}><Text style={styles.label}>YOU ARE PAYING</Text><Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.amount}>{exactAmount(intent.amount)} <Text style={styles.asset}>{intent.asset.code}</Text></Text><Text style={styles.reference}>{intent.reference}</Text></SurfaceCard></AnimatedContent>
       <AnimatedContent delay={210}>
         <SurfaceCard padded={false} style={styles.details}>
           <Detail label="Network" value={intent.network === 'testnet' ? 'Stellar Testnet' : 'Stellar Public'} />
@@ -84,7 +85,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
       {submittedHash ? (
         <Text selectable style={styles.submitted}>Sent to Stellar: {submittedHash.slice(0, 16)}…</Text>
       ) : null}
-      {mutation.error ? <Text style={styles.error}>{describeSettlementError(mutation.error)}</Text> : null}
+      {mutation.error ? <Text style={styles.error}>{describeSettlementError(mutation.error, intent.asset.code)}</Text> : null}
       <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={() => mutation.mutate()} testID="approve-payment">{mutation.isPending ? stageLabel(stage) : 'Approve payment'}</Button>
     </Screen>
     <LumenadeLoadingOverlay
@@ -187,11 +188,11 @@ const styles = StyleSheet.create({
   merchantName: {...typography.title, color: colors.ink, fontSize: 17},
   verified: {alignItems: 'center', flexDirection: 'row', gap: spacing.xs},
   verifiedText: {...typography.label, color: colors.success, fontSize: 12},
-  amountBlock: {alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xl},
+  amountBlock: {alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.xl},
   label: {...typography.label, color: colors.amber, fontSize: 10, letterSpacing: 1.1},
-  amount: {color: colors.ink, fontSize: 40, fontWeight: '700', lineHeight: 48, marginTop: spacing.sm},
+  amount: {color: colors.ink, fontSize: 40, fontWeight: '700', lineHeight: 48, marginTop: spacing.sm, textAlign: 'center', width: '100%'},
   asset: {color: colors.amber, fontSize: 19},
-  reference: {color: colors.inkMuted, fontSize: 13},
+  reference: {color: colors.inkMuted, fontSize: 13, textAlign: 'center'},
   details: {overflow: 'hidden'},
   detailRow: {alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.md, justifyContent: 'space-between', minHeight: 50, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
   detailRowLast: {borderBottomWidth: 0},

@@ -3,6 +3,7 @@ import {useState} from 'react';
 import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import {AnimatedList, colors, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import {Screen} from '../../shared/Screen';
+import {displayAmount} from '../../shared/displayAmount';
 import {useAppStore} from '../../state/appStore';
 
 type ActivityFilter = 'all' | 'settled' | 'demo';
@@ -18,9 +19,7 @@ export function ActivityScreen() {
         ? receipts.filter(receipt => receipt.status === 'confirmed')
         : [];
   // The summary follows the filter, so the number always matches the list.
-  const totalPaid = visible
-    .reduce((sum, receipt) => sum + Number(receipt.amount), 0)
-    .toFixed(2);
+  const totalPaid = displayAmount(visible.reduce((sum, receipt) => sum + Number(receipt.amount), 0));
   return (
     <Screen>
       <View style={styles.header}><View><Text style={styles.eyebrow}>ACCOUNT</Text><Text style={styles.title}>Activity</Text></View><Pressable
@@ -52,7 +51,7 @@ export function ActivityScreen() {
         </SurfaceCard>
       ) : (
         <AnimatedList style={styles.list}>{visible.map(receipt => (
-        <SurfaceCard key={receipt.intentId} padded={false} style={styles.item}><View style={[styles.itemInner, width < 380 && styles.itemInnerCompact]}><View style={styles.paymentIcon}><ReceiptText color={colors.success} size={17} /></View><View style={styles.copy}><Text style={styles.itemTitle}>{receipt.merchantName}</Text><Text style={styles.body}>{'Payment · Stellar Testnet'}</Text><Text style={styles.time}>{new Date(receipt.createdAt).toLocaleDateString()}</Text></View><View style={styles.amountBlock}><Text style={styles.amount}>-{receipt.amount}</Text><Text style={styles.asset}>{receipt.assetCode}</Text><StatusPill tone="success">CONFIRMED</StatusPill></View></View></SurfaceCard>
+        <SurfaceCard key={receipt.intentId} padded={false} style={styles.item}><View style={[styles.itemInner, width < 380 && styles.itemInnerCompact]}><View style={styles.paymentIcon}><ReceiptText color={colors.success} size={17} /></View><View style={styles.copy}><Text style={styles.itemTitle}>{receipt.merchantName}</Text><Text style={styles.body}>{'Payment · Stellar Testnet'}</Text><Text style={styles.time}>{new Date(receipt.createdAt).toLocaleDateString()}</Text></View><View style={styles.amountBlock}><Text numberOfLines={1} style={styles.amount}>-{displayAmount(receipt.amount)}</Text><Text style={styles.asset}>{receipt.assetCode}</Text><StatusPill tone="success">CONFIRMED</StatusPill></View></View></SurfaceCard>
         ))}</AnimatedList>
       )}
     </Screen>

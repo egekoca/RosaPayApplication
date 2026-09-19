@@ -2,6 +2,7 @@ import {useQuery} from '@tanstack/react-query';
 import {assetCodeOf, discoverAnchor, readIndicativePrices} from '@rosapay/anchor';
 import {payableAssetByCode} from '../features/payments/assets';
 import type {Holding} from './useWalletBalance';
+import {displayAmount} from './displayAmount';
 
 /** The anchor Lumenade Pay asks for a rate. Configurable, never hardcoded deeper. */
 const PRICE_ANCHOR_DOMAIN = 'testanchor.stellar.org';
@@ -62,7 +63,7 @@ export function useBalanceValue(holdings: Holding[] | undefined) {
       }
 
       if (!currency || total <= 0) return null;
-      return {amount: total.toFixed(2), currency};
+      return {amount: displayAmount(total), currency};
     },
   });
 }

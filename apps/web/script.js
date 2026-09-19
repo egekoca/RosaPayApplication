@@ -73,7 +73,7 @@ if ('IntersectionObserver' in window) {
       entry.target.dataset.visible = 'true';
       observer.unobserve(entry.target);
     });
-  }, {threshold: 0.12, rootMargin: '0px 0px -6% 0px'});
+  }, {threshold: 0.12, rootMargin: '0px'});
   deferred.forEach(element => observer.observe(element));
 } else {
   deferred.forEach(element => { element.dataset.visible = 'true'; });

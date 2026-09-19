@@ -75,8 +75,9 @@ place, no exported shell variables to forget:
 
 ```
 cp .env.example .env
-# then fill in DATABASE_URL, STELLAR_SETTLEMENT_CONTRACT_ID,
-# STELLAR_RELAYER_SECRET and STELLAR_ADMIN_SECRET
+# then fill in DATABASE_URL, API_SESSION_SECRET,
+# STELLAR_SETTLEMENT_CONTRACT_ID, STELLAR_RELAYER_SECRET and
+# STELLAR_ADMIN_SECRET
 ```
 
 Without `STELLAR_RELAYER_SECRET` the API answers `RELAYER_DISABLED` and the app
@@ -92,9 +93,11 @@ would otherwise be preferred over the real key.
 
 ## Secrets
 
-`STELLAR_RELAYER_SECRET` and `STELLAR_ADMIN_SECRET` move real value: the relayer
-pays fees, and the admin registers merchants and funds new wallets. They belong
-in the platform's secret store, never in the repository or an image layer. The
+`API_SESSION_SECRET`, `STELLAR_RELAYER_SECRET` and `STELLAR_ADMIN_SECRET` belong
+in the platform secret store. The session secret must contain at least 32 random
+bytes and authenticates the API's 15-minute bearer sessions. The Stellar keys
+move real value: the relayer pays fees, and the admin registers merchants and
+funds new wallets. They never belong in the repository or an image layer. The
 API refuses to serve those endpoints when they are absent, so a deployment
 without them degrades to read-only rather than failing in an unclear way.
 
@@ -109,7 +112,8 @@ losing customer funds.
 - [ ] `npm run db:migrate` applied, and it reports no pending migrations on a
       second run
 - [ ] `API_REQUIRE_DATABASE=true` so the API refuses to start on memory
-- [ ] `API_AUTH_REQUIRED=true` once passkey sessions are issued
+- [ ] `API_SESSION_SECRET` is at least 32 random bytes and comes from the secret store
+- [ ] `API_AUTH_REQUIRED=true` so every mutation requires a device session
 - [ ] Relayer and admin secrets set from the secret store, and the relayer account
       funded
 - [ ] `STELLAR_WALLET_WASM_HASH` set to the uploaded wallet contract

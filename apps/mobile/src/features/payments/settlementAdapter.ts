@@ -54,9 +54,9 @@ function toLocalReceipt(
 }
 
 /**
- * Settles a payment on Stellar Testnet. There is one path: the device's smart
- * wallet pays, the relayer is the transaction source and pays the fee, and the
- * settlement contract decides whether it happened.
+ * Settles a payment on Stellar Testnet. The device's smart wallet pays, the
+ * relayer is the transaction source and pays the fee,
+ * and the settlement contract decides whether it happened.
  *
  * Nothing here can succeed without the chain, which is the point. A payment that
  * only looks settled is worse than one that plainly failed.
@@ -82,9 +82,6 @@ export async function settlePaymentIntent(
   const relayer = dependencies.relayer ?? (await fetchRelayerIdentity(baseUrl));
   const relayerSigner = dependencies.relayerSigner ?? createRemoteRelayerSigner(baseUrl);
 
-  // The wallet this device controls is the only thing that can pay. Without a
-  // hardware key there is no wallet, and the honest answer is to say so rather
-  // than to sign with something the customer never chose.
   const wallet = await ensureSmartWallet();
   const smartWallet = {
     contractId: wallet.contractId,
