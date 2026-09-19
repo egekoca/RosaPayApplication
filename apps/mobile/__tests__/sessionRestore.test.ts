@@ -2,17 +2,16 @@ import {hasRestorableSession} from '../src/state/appStore';
 
 describe('session restoration', () => {
   it('treats a wallet, a business profile or past receipts as a session to return to', () => {
-    expect(hasRestorableSession({customerWallet: null, merchantProfile: null, receipts: []})).toBe(false);
+    expect(hasRestorableSession({merchantProfile: null, receipts: []})).toBe(false);
     expect(
       hasRestorableSession({
-        customerWallet: {publicKey: 'GABC', seed: new Uint8Array(32), funded: true},
+        smartWallet: {contractId: 'CABC', devicePublicKey: 'key'},
         merchantProfile: null,
         receipts: [],
       }),
     ).toBe(true);
     expect(
       hasRestorableSession({
-        customerWallet: null,
         merchantProfile: null,
         receipts: [{intentId: 'a'} as never],
       }),
@@ -45,15 +44,5 @@ describe('unusable restored secrets', () => {
     expect(restored.mode).toBe('customer');
     expect(restored.merchantRegisteredOnChain).toBe(false);
     expect(restored.pendingRequest).toBeNull();
-  });
-
-  it('drops a demo wallet whose seed did not survive', () => {
-    const restored = dropUnusableSecrets({
-      customerWallet: {publicKey: 'GABC', seed: {0: 1}, funded: true},
-      merchantProfile: null,
-      receipts: [],
-    });
-
-    expect(restored.customerWallet).toBeNull();
   });
 });

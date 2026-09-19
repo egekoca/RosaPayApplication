@@ -54,7 +54,7 @@ export type SettlementPipelineInput = {
   client: SettlementPipelineClient;
   intent: ContractPaymentIntent;
   merchantSignature: Buffer;
-  customerSigner: SettlementPipelineSigner;
+  customerSigner?: SettlementPipelineSigner;
   /** Contract accounts authorize the whole entry rather than a preimage. */
   customerAuthorizeEntry?: WalletAuthorizeEntry;
   relayerSigner: SettlementRelayerSigner;
@@ -97,9 +97,15 @@ export async function settlePayment(input: SettlementPipelineInput): Promise<Set
   for (const address of requiredCustomerSigners) {
     // The generated client types only describe the classic-account path, so the
     // contract-account variant is passed through with an explicit cast.
+    if (!input.customerAuthorizeEntry && !input.customerSigner) {
+      throw new SettlementPipelineError(
+        'CUSTOMER_AUTH_REQUIRED',
+        'Settlement needs either a contract-account authorizer or a classic signer',
+      );
+    }
     const signOptions = input.customerAuthorizeEntry
       ? {address, authorizeEntry: input.customerAuthorizeEntry}
-      : {address, signAuthEntry: input.customerSigner.signAuthEntry};
+      : {address, signAuthEntry: input.customerSigner!.signAuthEntry};
     await transaction.signAuthEntries(signOptions as Parameters<typeof transaction.signAuthEntries>[0]);
   }
   if (input.customerAuthorizeEntry) {

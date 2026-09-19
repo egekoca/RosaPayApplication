@@ -51,7 +51,6 @@ describe('the account and its lock', () => {
           status: 'confirmed',
           transactionHash: 't',
           createdAt: '2026-08-24T00:00:00.000Z',
-          settlementMode: 'testnet',
         },
       ],
       merchantRegisteredOnChain: true,

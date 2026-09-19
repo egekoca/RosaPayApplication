@@ -6,17 +6,11 @@ import type {MerchantProfile} from '../features/merchant/merchantProfile';
 import {decodeSecrets, encodeSecrets, secureSessionStorage} from './persistence';
 import {defaultApiBaseUrl} from '../shared/apiConfig';
 
-export type SettlementMode = 'mock' | 'testnet';
 
 /**
  * Development customer wallet. It stands in for the native signer until the
  * platform modules exist, so it only ever holds Testnet demo funds.
  */
-export type DevelopmentCustomerWallet = {
-  publicKey: string;
-  seed: Uint8Array;
-  funded: boolean;
-};
 
 /** A smart wallet whose only signer is this device's hardware key. */
 export type SmartWallet = {
@@ -53,7 +47,6 @@ export type LocalReceipt = {
   transactionHash: string;
   createdAt: string;
   /** `mock` receipts are local demo state and have no Stellar transaction. */
-  settlementMode: 'mock' | 'testnet';
   ledger?: number;
   confirmedAt?: string;
 };
@@ -74,7 +67,6 @@ type AppState = {
   /** False until the stored session has been read back from secure storage. */
   hydrated: boolean;
   mode: AppMode;
-  settlementMode: SettlementMode;
   /** Where the Lumenade Pay API lives; a phone needs the development machine's address. */
   apiBaseUrl: string;
   account: Account | null;
@@ -82,7 +74,6 @@ type AppState = {
   locked: boolean;
   merchantProfile: MerchantProfile | null;
   merchantRegisteredOnChain: boolean;
-  customerWallet: DevelopmentCustomerWallet | null;
   smartWallet: SmartWallet | null;
   pendingAnchorTransfer: PendingAnchorTransfer | null;
   pendingRequest: SignedPaymentIntentV1 | null;
@@ -92,11 +83,9 @@ type AppState = {
   lock(): void;
   signOut(): void;
   setMode(mode: AppMode): void;
-  setSettlementMode(mode: SettlementMode): void;
   setApiBaseUrl(url: string): void;
   saveMerchantProfile(profile: MerchantProfile): void;
   setMerchantRegisteredOnChain(registered: boolean): void;
-  setCustomerWallet(wallet: DevelopmentCustomerWallet | null): void;
   setSmartWallet(wallet: SmartWallet | null): void;
   setPendingAnchorTransfer(transfer: PendingAnchorTransfer | null): void;
   setPendingRequest(request: SignedPaymentIntentV1 | null): void;
@@ -113,15 +102,12 @@ export function dropUnusableSecrets(state: Partial<AppState>): Partial<AppState>
     state.merchantProfile && isSigningKey(state.merchantProfile.developmentSigningSecret, 32)
       ? state.merchantProfile
       : null;
-  const customerWallet =
-    state.customerWallet && isSigningKey(state.customerWallet.seed, 32) ? state.customerWallet : null;
   const pendingAnchorTransfer = isPendingAnchorTransfer(state.pendingAnchorTransfer)
     ? state.pendingAnchorTransfer
     : null;
   return {
     ...state,
     merchantProfile,
-    customerWallet,
     pendingAnchorTransfer,
     // Without a profile there is no merchant mode to return to.
     ...(merchantProfile ? {} : {merchantRegisteredOnChain: false, pendingRequest: null, mode: 'customer' as const}),
@@ -149,22 +135,19 @@ function isSigningKey(value: unknown, length: number): boolean {
 
 /** True once a session exists that a returning user should come back to. */
 export function hasRestorableSession(
-  state: Pick<AppState, 'customerWallet' | 'merchantProfile' | 'receipts'> & {
+  state: Pick<AppState, 'merchantProfile' | 'receipts'> & {
     smartWallet?: SmartWallet | null;
     account?: Account | null;
   },
 ): boolean {
   return (
     (state.account ?? null) !== null ||
-    state.customerWallet !== null ||
     (state.smartWallet ?? null) !== null ||
     state.merchantProfile !== null ||
     state.receipts.length > 0
   );
 }
 
-const initialSettlementMode: SettlementMode =
-  process.env.ROSAPAY_SETTLEMENT_MODE === 'testnet' ? 'testnet' : 'mock';
 
 /** Receipts are kept bounded so a long-lived session cannot outgrow secure storage. */
 const MAX_PERSISTED_RECEIPTS = 25;
@@ -177,11 +160,9 @@ export const useAppStore = create<AppState>()(
       // A session with an account starts locked; rehydration decides.
       locked: false,
       mode: 'customer',
-      settlementMode: initialSettlementMode,
       apiBaseUrl: defaultApiBaseUrl,
       merchantProfile: null,
       merchantRegisteredOnChain: false,
-      customerWallet: null,
       smartWallet: null,
       pendingAnchorTransfer: null,
       pendingRequest: null,
@@ -197,19 +178,16 @@ export const useAppStore = create<AppState>()(
           mode: 'customer',
           merchantProfile: null,
           merchantRegisteredOnChain: false,
-          customerWallet: null,
-          smartWallet: null,
+              smartWallet: null,
           pendingAnchorTransfer: null,
           pendingRequest: null,
           receipts: [],
         }),
       setMode: mode => set(state => (mode === 'merchant' && !state.merchantProfile ? state : {...state, mode})),
-      setSettlementMode: settlementMode => set({settlementMode}),
       setApiBaseUrl: apiBaseUrl => set({apiBaseUrl}),
       saveMerchantProfile: profile =>
         set({merchantProfile: profile, mode: 'merchant', merchantRegisteredOnChain: false}),
       setMerchantRegisteredOnChain: merchantRegisteredOnChain => set({merchantRegisteredOnChain}),
-      setCustomerWallet: customerWallet => set({customerWallet}),
       setSmartWallet: smartWallet => set({smartWallet}),
       setPendingAnchorTransfer: pendingAnchorTransfer => set({pendingAnchorTransfer}),
       setPendingRequest: request => set({pendingRequest: request}),
@@ -237,11 +215,9 @@ export const useAppStore = create<AppState>()(
       partialize: state => ({
         account: state.account,
         mode: state.mode,
-        settlementMode: state.settlementMode,
         apiBaseUrl: state.apiBaseUrl,
         merchantProfile: state.merchantProfile,
         merchantRegisteredOnChain: state.merchantRegisteredOnChain,
-        customerWallet: state.customerWallet,
         smartWallet: state.smartWallet,
         pendingAnchorTransfer: state.pendingAnchorTransfer,
         pendingRequest: state.pendingRequest,

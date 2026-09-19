@@ -14,7 +14,7 @@ export function describeSettlementError(error: unknown): string {
       case 'MERCHANT_KEY_UNAVAILABLE':
         return 'This request was created on another device, so its merchant signature cannot be produced here.';
       case 'CUSTOMER_ACCOUNT_UNAVAILABLE':
-        return 'The demo wallet could not be funded on Testnet. Try again from developer settings.';
+        return 'This device wallet could not be funded on Testnet. Try again in a moment.';
       default:
         return 'The payment could not be settled. No funds were moved.';
     }

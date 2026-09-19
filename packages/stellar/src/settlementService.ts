@@ -30,7 +30,12 @@ export type SettlementServiceInput = {
   relayerAddress: string;
   latestLedger: number;
   merchantContractSignature: Uint8Array;
-  customerSigner: SettlementPipelineSigner;
+  /**
+   * Signs the preimage the generated client hands back, which only a classic
+   * account can do. A contract account supplies `customerAuthorizeEntry`
+   * instead, so exactly one of the two is required.
+   */
+  customerSigner?: SettlementPipelineSigner;
   customerAuthorizeEntry?: SettlementServiceAuthorizeEntry;
   relayerSigner: SettlementRelayerSigner;
   client?: SettlementPipelineClient;

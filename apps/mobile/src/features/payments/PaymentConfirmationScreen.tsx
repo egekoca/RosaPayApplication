@@ -20,7 +20,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'Confirm'>;
 export function PaymentConfirmationScreen({route, navigation}: Props) {
   const {payload} = route.params;
   const {intent} = payload;
-  const {addReceipt, settlementMode} = useAppStore();
+  const {addReceipt} = useAppStore();
   const stellarHealth = useStellarHealth();
   const [stage, setStage] = useState<SettlementPipelineProgress['stage'] | undefined>();
   const [submittedHash, setSubmittedHash] = useState<string | undefined>();
@@ -61,7 +61,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
   return (
     <>
     <Screen>
-      <AnimatedContent><View style={styles.header}><View><Text style={styles.eyebrow}>SECURE CHECKOUT</Text><SplitText delay={90} splitBy="word" style={styles.title} text="Review payment" /></View><View style={styles.pills}><StatusPill tone={settlementMode === 'testnet' ? 'success' : 'pending'}>{settlementMode === 'testnet' ? 'TESTNET' : 'DEMO'}</StatusPill><StatusPill tone={verified ? 'success' : 'danger'}>{verified ? 'VERIFIED' : 'UNVERIFIED'}</StatusPill></View></View></AnimatedContent>
+      <AnimatedContent><View style={styles.header}><View><Text style={styles.eyebrow}>SECURE CHECKOUT</Text><SplitText delay={90} splitBy="word" style={styles.title} text="Review payment" /></View><View style={styles.pills}><StatusPill tone="success">TESTNET</StatusPill><StatusPill tone={verified ? 'success' : 'danger'}>{verified ? 'VERIFIED' : 'UNVERIFIED'}</StatusPill></View></View></AnimatedContent>
       <AnimatedContent delay={90} scaleFrom={0.98}><SurfaceCard accent="amber" style={styles.merchantCard}><View style={styles.merchant}><View style={styles.initial}><Text style={styles.initialText}>{initialsOf(intent.merchantName)}</Text></View><View style={styles.merchantCopy}><Text style={styles.merchantName}>{intent.merchantName}</Text><View style={styles.verified}>{verified ? <BadgeCheck color={colors.success} size={16} /> : <ShieldAlert color={colors.danger} size={16} />}<Text style={[styles.verifiedText, !verified && styles.unverifiedText]}>{verified ? 'Signature matches this merchant key' : 'Signature does not match this merchant key'}</Text></View></View></View></SurfaceCard></AnimatedContent>
       <AnimatedContent delay={150}><SurfaceCard style={styles.amountBlock}><Text style={styles.label}>YOU ARE PAYING</Text><Text style={styles.amount}>{intent.amount} <Text style={styles.asset}>{intent.asset.code}</Text></Text><Text style={styles.reference}>{intent.reference}</Text></SurfaceCard></AnimatedContent>
       <AnimatedContent delay={210}>

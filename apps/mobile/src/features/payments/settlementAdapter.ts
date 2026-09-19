@@ -1,5 +1,3 @@
-import {Keypair} from '@stellar/stellar-sdk';
-import {Buffer} from 'buffer';
 import {hashPaymentIntent, type SignedPaymentIntentV1} from '@rosapay/protocol';
 import {SecureSignerError, type NativeSecureSigner} from '@rosapay/secure-signer';
 import {
@@ -8,37 +6,25 @@ import {
   type SettlementPipelineProgress,
   type StellarConfig,
 } from '@rosapay/stellar';
-import type {LocalReceipt, SettlementMode} from '../../state/appStore';
+import type {LocalReceipt} from '../../state/appStore';
 import {useAppStore} from '../../state/appStore';
 import {useAppStore as useStore} from '../../state/appStore';
-import {createRandomBytes} from '../../shared/randomBytes';
 import type {MerchantProfile} from '../merchant/merchantProfile';
 import {selectCountersigner, type Countersigner} from './countersignature';
 import {createLifecycleReporter} from './paymentLifecycle';
-import {createHardwareDigestSigner, ensureSmartWallet, SmartWalletError} from './smartWalletSettlement';
-import {settleMockPayment} from './mockSettlement';
+import {createHardwareDigestSigner, ensureSmartWallet} from './smartWalletSettlement';
 import {
-  createDevelopmentCustomerKeypair,
   createRemoteRelayerSigner,
   fetchRelayerIdentity,
-  fundTestnetAccount,
   settleOnTestnet,
   type RelayerIdentity,
 } from './testnetSettlement';
 
-export type MobileSettlementMode = SettlementMode;
-
-/** Build-time default; the developer settings screen can change it at runtime. */
-export const mobileSettlementMode: MobileSettlementMode =
-  process.env.ROSAPAY_SETTLEMENT_MODE === 'testnet' ? 'testnet' : 'mock';
-
 export type MobileSettlementDependencies = {
-  mode?: MobileSettlementMode;
   signer?: NativeSecureSigner;
   config?: StellarConfig;
   latestLedger?: number;
   merchantProfile?: MerchantProfile;
-  customer?: Keypair;
   relayer?: RelayerIdentity;
   relayerSigner?: {signTransaction(xdr: string): Promise<{signedTxXdr: string}>};
   countersign?: Countersigner;
@@ -62,42 +48,23 @@ function toLocalReceipt(
     status: 'confirmed',
     transactionHash,
     createdAt: new Date().toISOString(),
-    settlementMode: 'testnet',
     ...(ledger === undefined ? {} : {ledger}),
     confirmedAt: new Date().toISOString(),
   };
 }
 
 /**
- * Ensures a Testnet customer wallet exists. The native signer is the intended
- * path; while it reports UNAVAILABLE the development wallet stands in so the
- * relayed settlement flow can be exercised end to end.
+ * Settles a payment on Stellar Testnet. There is one path: the device's smart
+ * wallet pays, the relayer is the transaction source and pays the fee, and the
+ * settlement contract decides whether it happened.
+ *
+ * Nothing here can succeed without the chain, which is the point. A payment that
+ * only looks settled is worse than one that plainly failed.
  */
-export async function ensureCustomerWallet(): Promise<Keypair> {
-  const store = useAppStore.getState();
-  const existing = store.customerWallet;
-  if (existing) return Keypair.fromRawEd25519Seed(Buffer.from(existing.seed));
-
-  const keypair = createDevelopmentCustomerKeypair(createRandomBytes({allowInsecureFallback: true}));
-  store.setCustomerWallet({publicKey: keypair.publicKey(), seed: keypair.rawSecretKey(), funded: false});
-  return keypair;
-}
-
-async function ensureFunded(config: StellarConfig, keypair: Keypair): Promise<void> {
-  const store = useAppStore.getState();
-  if (store.customerWallet?.funded && store.customerWallet.publicKey === keypair.publicKey()) return;
-  await fundTestnetAccount(config, keypair.publicKey());
-  store.setCustomerWallet({publicKey: keypair.publicKey(), seed: keypair.rawSecretKey(), funded: true});
-}
-
-/** Keeps the emulator demo available while exposing the real relayed Testnet path. */
 export async function settlePaymentIntent(
   payload: SignedPaymentIntentV1,
   dependencies: MobileSettlementDependencies = {},
 ): Promise<LocalReceipt> {
-  const mode = dependencies.mode ?? useAppStore.getState().settlementMode;
-  if (mode === 'mock') return settleMockPayment(payload);
-
   const baseUrl = dependencies.baseUrl ?? useStore.getState().apiBaseUrl;
   const merchantProfile = dependencies.merchantProfile ?? useAppStore.getState().merchantProfile;
   // A payment between two phones is the normal case, and the customer's phone
@@ -115,22 +82,15 @@ export async function settlePaymentIntent(
   const relayer = dependencies.relayer ?? (await fetchRelayerIdentity(baseUrl));
   const relayerSigner = dependencies.relayerSigner ?? createRemoteRelayerSigner(baseUrl);
 
-  // The device's smart wallet pays when the hardware key exists; the demo
-  // account is the fallback while a device has no payment key yet.
-  let smartWallet: {contractId: string; signer: ReturnType<typeof createHardwareDigestSigner>} | undefined;
-  if (!dependencies.customer) {
-    try {
-      const wallet = await ensureSmartWallet();
-      smartWallet = {contractId: wallet.contractId, signer: createHardwareDigestSigner(wallet.devicePublicKey)};
-    } catch (error) {
-      if (!(error instanceof SmartWalletError && error.code === 'DEVICE_KEY_MISSING')) throw error;
-    }
-  }
+  // The wallet this device controls is the only thing that can pay. Without a
+  // hardware key there is no wallet, and the honest answer is to say so rather
+  // than to sign with something the customer never chose.
+  const wallet = await ensureSmartWallet();
+  const smartWallet = {
+    contractId: wallet.contractId,
+    signer: createHardwareDigestSigner(wallet.devicePublicKey),
+  };
 
-  const customer = dependencies.customer ?? (await ensureCustomerWallet());
-  if (!dependencies.customer && !smartWallet) await ensureFunded(config, customer);
-
-  // A native signer, once implemented, replaces the development wallet here.
   if (dependencies.signer) {
     const identity = await dependencies.signer.getIdentity();
     if (!identity?.publicKey) {
@@ -139,17 +99,15 @@ export async function settlePaymentIntent(
   }
 
   const latestLedger = dependencies.latestLedger ?? (await new StellarRpcClient(config).health()).latestLedger;
-  const authorizer = smartWallet?.contractId ?? customer.publicKey();
-  const reporter = createLifecycleReporter(payload.intent.intentId, authorizer);
+  const reporter = createLifecycleReporter(payload.intent.intentId, smartWallet.contractId);
   const receipt = await settleOnTestnet({
     payload,
     config,
     countersign,
-    customer,
     relayer,
     relayerSigner,
     latestLedger,
-    ...(smartWallet ? {smartWallet} : {}),
+    smartWallet,
     onProgress: progress => {
       dependencies.onProgress?.(progress);
       reporter.record(progress);

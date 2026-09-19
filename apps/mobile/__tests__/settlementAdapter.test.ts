@@ -35,24 +35,16 @@ function request(merchant: ReturnType<typeof profile>) {
 
 describe('mobile settlement adapter', () => {
   afterEach(() => {
-    useAppStore.setState({settlementMode: 'mock', merchantProfile: null, customerWallet: null});
-  });
-
-  it('keeps demo settlements local and labelled', async () => {
-    const merchant = profile();
-    const receipt = await settlePaymentIntent(request(merchant), {mode: 'mock'});
-
-    expect(receipt.settlementMode).toBe('mock');
-    expect(receipt.transactionHash.startsWith('demo:')).toBe(true);
+    useAppStore.setState({merchantProfile: null, smartWallet: null});
   });
 
   it('reports a missing relayer instead of settling silently', async () => {
     const merchant = profile();
+    // There is no local path left to fall back to, so an unreachable relayer has
+    // to surface as a failure rather than as a payment that looks fine.
     await expect(settlePaymentIntent(request(merchant), {
-      mode: 'testnet',
       merchantProfile: merchant,
       baseUrl: 'http://127.0.0.1:1',
-      customer: Keypair.fromRawEd25519Seed(Buffer.alloc(32, 1)),
       latestLedger: 1_500_000,
     })).rejects.toMatchObject({code: 'RELAYER_UNAVAILABLE'});
   });

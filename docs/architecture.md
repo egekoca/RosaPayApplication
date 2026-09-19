@@ -368,7 +368,7 @@ The TypeScript settlement-envelope builder and generated contract binding now li
 - The generated binding comes from the optimized settlement WASM and exposes typed simulation, authorization and submission methods.
 - `packages/stellar/src/settlementPipeline.ts` codifies the write path: the generated client simulates first, the customer signer authorizes every non-invoker auth entry, the relayer signs the transaction envelope, and the receipt is accepted only after RPC reports `SUCCESS` with a ledger.
 - `packages/stellar/src/settlementService.ts` validates the QR/RTP payload and merchant signature before building the contract envelope. It requires a separate contract intent-digest signature, so the mobile QR signature cannot be accidentally reused as on-chain merchant authorization.
-- `apps/mobile/src/features/payments/settlementAdapter.ts` is the only mobile settlement entry point. It keeps the local emulator demo behind `ROSAPAY_SETTLEMENT_MODE=mock` and exposes the real generated-client path only when `ROSAPAY_SETTLEMENT_MODE=testnet` plus native customer and relayer signing dependencies are present.
+- `apps/mobile/src/features/payments/settlementAdapter.ts` is the only mobile settlement entry point, and it has one path: the device's smart wallet pays, the relayer is the transaction source and fee payer, and the settlement contract decides whether the payment happened. There is no local mode to fall back to, so a payment either settles on Stellar or fails and says so.
 
 The envelope retains the RTP/1 hash for audit correlation, but does not reuse the QR signature. The merchant must sign the digest returned by the contract's `intent_digest` method, and the customer must separately authorize the exact `settle_payment` invocation.
 

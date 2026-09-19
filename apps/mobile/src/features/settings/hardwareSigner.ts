@@ -39,9 +39,6 @@ export async function createHardwareSigner(): Promise<HardwareSignerReport> {
 
   // Deploying the wallet takes two Testnet transactions, so it happens here
   // rather than in the middle of a payment.
-  if (useAppStore.getState().settlementMode !== 'testnet') {
-    return {state: 'created', publicKey};
-  }
   try {
     const wallet = await ensureSmartWallet();
     return {

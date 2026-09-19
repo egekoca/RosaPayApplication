@@ -112,8 +112,9 @@ npm run api
 ```
 
 The emulator demo needs no database and no API: mobile settlement runs in `mock`
-mode until `ROSAPAY_SETTLEMENT_MODE=testnet` is set, and the API and worker both
-default to in-memory state. If you do point the app at the local API from the
+Every payment settles on Stellar Testnet. The app needs the API and a
+configured relayer to pay; without them it reports the failure rather than
+recording anything locally.
 Android emulator, forward the port with `adb reverse tcp:4100 tcp:4100`.
 
 Set `DATABASE_URL` to use durable PostgreSQL storage instead, apply the

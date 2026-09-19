@@ -17,7 +17,7 @@ export type Countersigner = (input: CountersignatureInput) => Promise<Uint8Array
 
 /**
  * Signs on this device, for the case where the merchant and the customer are
- * the same phone — a single-device demo, and the merchant paying itself.
+ * the same phone, which is a merchant paying itself.
  */
 export function localCountersigner(profile: MerchantProfile): Countersigner {
   return async ({digest}) => signEd25519(digest, profile.developmentSigningSecret);
@@ -27,7 +27,7 @@ export function localCountersigner(profile: MerchantProfile): Countersigner {
  * Picks who produces the merchant's signature for this request.
  *
  * This device signs only when it is the merchant that made the request — a
- * single-device demo, or a merchant paying itself. Every other case is a
+ * merchant paying itself. Every other case is a
  * customer paying someone else's request, and the signing key is on the
  * merchant's phone, so it takes a round trip.
  */

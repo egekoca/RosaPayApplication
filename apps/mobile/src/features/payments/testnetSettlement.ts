@@ -1,8 +1,6 @@
-import {Keypair} from '@stellar/stellar-sdk';
-import {basicNodeSigner} from '@stellar/stellar-sdk/contract';
 import {createWalletAuthorizeEntry, type HardwareDigestSigner} from '@rosapay/stellar';
 import {Buffer} from 'buffer';
-import type {SignedPaymentIntentV1, RandomBytes} from '@rosapay/protocol';
+import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 import {
   buildSettlementEnvelope,
   createSettlementClient,
@@ -72,32 +70,11 @@ export function createRemoteRelayerSigner(baseUrl: string, fetcher: typeof fetch
  * exists this key stands in for it so the Testnet flow can be exercised, and it
  * is created from the same explicit randomness source as the merchant key.
  */
-export function createDevelopmentCustomerKeypair(randomBytes: RandomBytes): Keypair {
-  return Keypair.fromRawEd25519Seed(Buffer.from(randomBytes(32)));
-}
-
-/** Funds a brand new Testnet account so it can hold and send XLM. */
-export async function fundTestnetAccount(
-  config: StellarConfig,
-  address: string,
-  fetcher: typeof fetch = fetch,
-): Promise<void> {
-  if (!config.friendbotUrl) {
-    throw new TestnetSettlementError('CUSTOMER_ACCOUNT_UNAVAILABLE', 'This network has no friendbot to fund accounts');
-  }
-  const response = await fetcher(`${config.friendbotUrl}?addr=${encodeURIComponent(address)}`);
-  if (!response.ok && response.status !== 400) {
-    throw new TestnetSettlementError('CUSTOMER_ACCOUNT_UNAVAILABLE', 'The Testnet account could not be funded');
-  }
-}
-
 export type TestnetSettlementInput = {
   payload: SignedPaymentIntentV1;
   config: StellarConfig;
-  /** Classic demo account, used until the device controls a smart wallet. */
-  customer: Keypair;
-  /** The device-controlled smart wallet that pays, when one exists. */
-  smartWallet?: {contractId: string; signer: HardwareDigestSigner};
+  /** The device-controlled smart wallet that pays. */
+  smartWallet: {contractId: string; signer: HardwareDigestSigner};
   relayer: RelayerIdentity;
   /** Produces the merchant's signature over a digest naming this exact payer. */
   countersign: Countersigner;
@@ -114,7 +91,7 @@ export type TestnetSettlementInput = {
  */
 export async function settleOnTestnet(input: TestnetSettlementInput) {
   const {intent} = input.payload;
-  const customerAddress = input.smartWallet?.contractId ?? input.customer.publicKey();
+  const customerAddress = input.smartWallet.contractId;
 
   const envelope = buildSettlementEnvelope(intent, {
     customer: customerAddress,
@@ -134,17 +111,15 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
     customerAddress,
     digest: Uint8Array.from(digest),
   });
-  // A smart wallet authorizes the whole entry with the hardware key; a classic
-  // demo account signs the preimage the generated client hands it.
-  const customerAuthorizeEntry = input.smartWallet
-    ? createWalletAuthorizeEntry({
-        signer: input.smartWallet.signer,
-        networkPassphrase: input.config.networkPassphrase,
-        validUntilLedger: input.latestLedger + 120,
-        reason: `Approve ${intent.amount} ${intent.asset.code} to ${intent.merchantName}`,
-      })
-    : undefined;
-  const {signAuthEntry} = basicNodeSigner(input.customer, input.config.networkPassphrase);
+  // The wallet authorizes the whole entry with the hardware key, because the
+  // generated client's `signAuthEntry` callback receives a preimage, which only
+  // fits a classic account.
+  const customerAuthorizeEntry = createWalletAuthorizeEntry({
+    signer: input.smartWallet.signer,
+    networkPassphrase: input.config.networkPassphrase,
+    validUntilLedger: input.latestLedger + 120,
+    reason: `Approve ${intent.amount} ${intent.asset.code} to ${intent.merchantName}`,
+  });
 
   return settleSignedPayment({
     payload: input.payload,
@@ -153,8 +128,7 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
     relayerAddress: input.relayer.address,
     latestLedger: input.latestLedger,
     merchantContractSignature,
-    customerSigner: {signAuthEntry},
-    ...(customerAuthorizeEntry ? {customerAuthorizeEntry} : {}),
+    customerAuthorizeEntry,
     relayerSigner: input.relayerSigner,
     ...(input.onProgress ? {onProgress: input.onProgress} : {}),
   });

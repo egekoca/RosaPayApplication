@@ -10,7 +10,6 @@ import {Screen} from '../../shared/Screen';
 import {createRandomBytes} from '../../shared/randomBytes';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useAppStore} from '../../state/appStore';
-import {mobileSettlementMode} from '../payments/settlementAdapter';
 import {useNfcBroadcast} from '../payments/useNfc';
 import {createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
 import {registerMerchantForTestnet} from './merchantRegistration';
@@ -19,20 +18,20 @@ import {useMerchantCountersigning} from './merchantCountersigning';
 
 type Props = NativeStackScreenProps<RootStackParams, 'MerchantRequest'>;
 
-const randomBytes = createRandomBytes({allowInsecureFallback: mobileSettlementMode === 'mock'});
+// Nothing insecure may sign a real payment, so there is no fallback to allow.
+const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
 export function MerchantRequestScreen({navigation}: Props) {
   const {
     merchantProfile,
     pendingRequest,
     setPendingRequest,
-    settlementMode,
     merchantRegisteredOnChain,
     setMerchantRegisteredOnChain,
   } = useAppStore();
   const stellarHealth = useStellarHealth();
   const settlement = usePaymentRequestStatus(
-    settlementMode === 'testnet' ? pendingRequest?.intent.intentId ?? '' : '',
+    pendingRequest?.intent.intentId ?? '',
   );
   const relayer = useRelayerIdentity();
   // A customer on another phone cannot produce the merchant's signature, so this
@@ -42,7 +41,7 @@ export function MerchantRequestScreen({navigation}: Props) {
     profile: merchantProfile,
     relayerAddress: relayer.data?.address,
     settlementContractId: relayer.data?.settlementContractId,
-    enabled: settlementMode === 'testnet' && settlement.data?.status === 'awaiting_approval',
+    enabled: settlement.data?.status === 'awaiting_approval',
   });
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
@@ -82,7 +81,7 @@ export function MerchantRequestScreen({navigation}: Props) {
       );
       setPendingRequest(request);
       // Testnet payments settle against an intent the API already knows about.
-      if (settlementMode === 'testnet') {
+      {
         void publishPaymentRequest(request).catch(failure => {
           setError(failure instanceof Error ? failure.message : 'The request could not be published to the API');
         });
@@ -107,7 +106,7 @@ export function MerchantRequestScreen({navigation}: Props) {
         </Text>
       </View>
 
-      {settlementMode === 'testnet' && !merchantRegisteredOnChain ? (
+      {!merchantRegisteredOnChain ? (
         <SurfaceCard style={styles.warning}>
           <Text style={styles.warningTitle}>Not registered on Testnet</Text>
           <Text style={styles.warningBody}>
@@ -125,8 +124,8 @@ export function MerchantRequestScreen({navigation}: Props) {
           latestLedger={stellarHealth.data?.latestLedger}
           onReset={() => setPendingRequest(null)}
           onPreview={() => navigation.navigate('Confirm', {payload: pendingRequest})}
-          settlementStatus={settlementMode === 'testnet' ? settlement.data?.status : undefined}
-          status={settlementMode === 'testnet' ? <RequestStatus intentId={pendingRequest.intent.intentId} /> : null}
+          settlementStatus={settlement.data?.status}
+          status={<RequestStatus intentId={pendingRequest.intent.intentId} />}
         />
       ) : (
         <>

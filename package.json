@@ -31,7 +31,8 @@
     "testnet:demo-pair": "tsx --env-file-if-exists=.env scripts/testnet-demo-pair.mts",
     "testnet:two-device": "tsx --env-file-if-exists=.env scripts/testnet-two-device.mts",
     "testnet:offline": "tsx --env-file-if-exists=.env scripts/testnet-offline-customer.mts",
-    "testnet:anchor": "tsx --env-file-if-exists=.env scripts/testnet-anchor.mts"
+    "testnet:anchor": "tsx --env-file-if-exists=.env scripts/testnet-anchor.mts",
+    "web": "npm run dev --workspace @lumenadepay/web"
   },
   "devDependencies": {
     "@noble/curves": "^2.3.0",

@@ -8,16 +8,16 @@ import {Screen} from '../../shared/Screen';
 import {logger} from '../../shared/logger';
 import {createRandomBytes} from '../../shared/randomBytes';
 import {useAppStore} from '../../state/appStore';
-import {mobileSettlementMode} from '../payments/settlementAdapter';
 import {createMerchantProfile, MerchantProfileError} from './merchantProfile';
 import {registerMerchantForTestnet} from './merchantRegistration';
 
 type Props = NativeStackScreenProps<RootStackParams, 'MerchantOnboarding'>;
 
-const randomBytes = createRandomBytes({allowInsecureFallback: mobileSettlementMode === 'mock'});
+// Nothing insecure may sign a real payment, so there is no fallback to allow.
+const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
 export function MerchantOnboardingScreen({navigation}: Props) {
-  const {saveMerchantProfile, setMerchantRegisteredOnChain, settlementMode} = useAppStore();
+  const {saveMerchantProfile, setMerchantRegisteredOnChain} = useAppStore();
   const [displayName, setDisplayName] = useState('');
   const [recipient, setRecipient] = useState('');
   const [errors, setErrors] = useState<{displayName?: string; recipient?: string; general?: string}>({});
@@ -41,7 +41,7 @@ export function MerchantOnboardingScreen({navigation}: Props) {
     logger.info('merchant_profile_created', {merchantProfileId: profile.merchantProfileId});
 
     // Testnet settlement is rejected until the contract knows this merchant key.
-    if (settlementMode === 'testnet') {
+    {
       setRegistering(true);
       try {
         await registerMerchantForTestnet(profile);

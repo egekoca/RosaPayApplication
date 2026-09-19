@@ -9,11 +9,10 @@ import {useAppStore} from '../state/appStore';
  */
 export function useWalletBalance() {
   const smartWallet = useAppStore(state => state.smartWallet);
-  const settlementMode = useAppStore(state => state.settlementMode);
 
   return useQuery({
     queryKey: ['wallet-balance', smartWallet?.contractId],
-    enabled: settlementMode === 'testnet' && Boolean(smartWallet),
+    enabled: Boolean(smartWallet),
     queryFn: () => readNativeBalance(createStellarConfig('testnet'), smartWallet!.contractId),
     refetchInterval: 20_000,
     staleTime: 10_000,

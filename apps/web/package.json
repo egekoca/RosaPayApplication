@@ -5,6 +5,7 @@
   "description": "Lumenade Pay public landing page",
   "scripts": {
     "check": "node scripts/check.mjs",
-    "test": "node scripts/check.mjs"
+    "test": "node scripts/check.mjs",
+    "dev": "node scripts/serve.mjs"
   }
 }

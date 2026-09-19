@@ -15,8 +15,8 @@ export function ActivityScreen() {
     filter === 'all'
       ? true
       : filter === 'settled'
-        ? receipt.settlementMode === 'testnet'
-        : receipt.settlementMode === 'mock',
+        ? true
+        : false,
   );
   // The summary follows the filter, so the number always matches the list.
   const totalPaid = visible
@@ -53,7 +53,7 @@ export function ActivityScreen() {
         </SurfaceCard>
       ) : (
         <AnimatedList style={styles.list}>{visible.map(receipt => (
-        <SurfaceCard key={receipt.intentId} padded={false} style={styles.item}><View style={[styles.itemInner, width < 380 && styles.itemInnerCompact]}><View style={styles.paymentIcon}><ReceiptText color={colors.success} size={17} /></View><View style={styles.copy}><Text style={styles.itemTitle}>{receipt.merchantName}</Text><Text style={styles.body}>{receipt.settlementMode === 'testnet' ? 'Payment · Stellar Testnet' : 'Demo payment · not on-chain'}</Text><Text style={styles.time}>{new Date(receipt.createdAt).toLocaleDateString()}</Text></View><View style={styles.amountBlock}><Text style={styles.amount}>-{receipt.amount}</Text><Text style={styles.asset}>{receipt.assetCode}</Text><StatusPill tone={receipt.settlementMode === 'testnet' ? 'success' : 'pending'}>{receipt.settlementMode === 'testnet' ? 'CONFIRMED' : 'DEMO'}</StatusPill></View></View></SurfaceCard>
+        <SurfaceCard key={receipt.intentId} padded={false} style={styles.item}><View style={[styles.itemInner, width < 380 && styles.itemInnerCompact]}><View style={styles.paymentIcon}><ReceiptText color={colors.success} size={17} /></View><View style={styles.copy}><Text style={styles.itemTitle}>{receipt.merchantName}</Text><Text style={styles.body}>{'Payment · Stellar Testnet'}</Text><Text style={styles.time}>{new Date(receipt.createdAt).toLocaleDateString()}</Text></View><View style={styles.amountBlock}><Text style={styles.amount}>-{receipt.amount}</Text><Text style={styles.asset}>{receipt.assetCode}</Text><StatusPill tone="success">CONFIRMED</StatusPill></View></View></SurfaceCard>
         ))}</AnimatedList>
       )}
     </Screen>

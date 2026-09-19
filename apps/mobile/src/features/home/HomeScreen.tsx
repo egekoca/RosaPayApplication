@@ -23,7 +23,7 @@ type Props = CompositeScreenProps<
 
 export function HomeScreen({navigation}: Props) {
   const {width} = useWindowDimensions();
-  const {mode, merchantProfile, settlementMode, account} = useAppStore();
+  const {mode, merchantProfile, account} = useAppStore();
   const merchantEnabled = merchantProfile !== null;
   const stellarHealth = useStellarHealth();
   return (
@@ -35,7 +35,7 @@ export function HomeScreen({navigation}: Props) {
         </View>
         <Pressable accessibilityLabel="Developer settings" onPress={() => navigation.navigate('DeveloperSettings')} style={styles.iconButton} testID="open-developer-settings"><SlidersHorizontal color={colors.inkMuted} size={19} /></Pressable>
       </View>
-      <View style={styles.networkRow}><View style={styles.network}><View style={[styles.dot, stellarHealth.isError && styles.dotError]} /><Text style={styles.networkText}>{stellarHealth.isPending ? 'Checking Testnet' : stellarHealth.isError ? 'Testnet unavailable' : 'Stellar Testnet'}</Text><ChevronRight color={colors.inkMuted} size={15} /></View><StatusPill tone={settlementMode === 'testnet' ? 'success' : 'pending'}>{settlementMode === 'testnet' ? 'TESTNET' : 'DEMO MODE'}</StatusPill></View>
+      <View style={styles.networkRow}><View style={styles.network}><View style={[styles.dot, stellarHealth.isError && styles.dotError]} /><Text style={styles.networkText}>{stellarHealth.isPending ? 'Checking Testnet' : stellarHealth.isError ? 'Testnet unavailable' : 'Stellar Testnet'}</Text><ChevronRight color={colors.inkMuted} size={15} /></View><StatusPill tone="success">TESTNET</StatusPill></View>
       <ModeSwitcher />
       {mode === 'customer' ? (
         <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} isNarrow={width < 360} />
@@ -98,18 +98,17 @@ function CustomerHome({navigation, merchantEnabled, isNarrow}: {navigation: Prop
 function MerchantHome({navigation, recipient}: {navigation: Props['navigation']; recipient?: string}) {
   const receipts = useAppStore(state => state.receipts);
   const merchantProfile = useAppStore(state => state.merchantProfile);
-  const settlementMode = useAppStore(state => state.settlementMode);
-  const payments = useMerchantPayments(settlementMode === 'testnet' ? merchantProfile?.merchantProfileId : undefined);
+  const payments = useMerchantPayments(merchantProfile?.merchantProfileId);
 
   // On Testnet the API knows every request this merchant made, from any device;
-  // the demo mode only has what this device recorded.
+  // a device on its own only has what it recorded itself.
   const apiPayments = payments.data?.payments ?? [];
-  const useApi = settlementMode === 'testnet' && payments.isSuccess;
+  const useApi = payments.isSuccess;
   const localReceipts = receipts.filter(receipt => receipt.recipient === recipient);
   const received = useApi ? apiPayments : localReceipts;
   const settled = useApi
     ? apiPayments.filter(payment => payment.status === 'confirmed')
-    : localReceipts.filter(receipt => receipt.settlementMode === 'testnet');
+    : localReceipts;
   const total = settled.reduce((sum, payment) => sum + Number(payment.amount), 0);
   return (
     <>
@@ -117,7 +116,7 @@ function MerchantHome({navigation, recipient}: {navigation: Props['navigation'];
         <View style={styles.cardHeader}><Text style={styles.cardLabel}>{useApi ? 'RECEIVED' : 'RECORDED ON THIS DEVICE'}</Text><StatusPill tone={received.length > 0 ? 'success' : 'neutral'}>{received.length > 0 ? 'LIVE' : 'NO PAYMENTS'}</StatusPill></View>
         <View style={styles.balanceLine}><CountUp value={total} decimals={2} style={styles.merchantTotal} /><Text style={styles.balanceAsset}>XLM</Text></View>
         <Text style={styles.balanceValue}>
-          {payments.isError && settlementMode === 'testnet'
+          {payments.isError
             ? 'The API could not be reached, so this only counts this device.'
             : `${received.length} request${received.length === 1 ? '' : 's'} · ${settled.length} settled`}
         </Text>

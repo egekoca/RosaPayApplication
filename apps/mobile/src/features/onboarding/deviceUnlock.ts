@@ -3,10 +3,10 @@ import {Buffer} from 'buffer';
 import {derToCompactSignature, uncompressedPointFromSpki, SecureSignerError} from '@rosapay/secure-signer';
 import {createNativeRosaPaySigner} from '../../native/nativeSigner';
 import {createRandomBytes} from '../../shared/randomBytes';
-import {mobileSettlementMode} from '../payments/settlementAdapter';
 
 const signer = createNativeRosaPaySigner();
-const randomBytes = createRandomBytes({allowInsecureFallback: mobileSettlementMode === 'mock'});
+// An unlock challenge protects real money; it never falls back to weak randomness.
+const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
 export type UnlockResult =
   | {ok: true}

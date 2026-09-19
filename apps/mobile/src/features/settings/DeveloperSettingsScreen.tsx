@@ -9,7 +9,7 @@ import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {defaultApiBaseUrl, isReachableFromDevice, normalizeApiBaseUrl} from '../../shared/apiConfig';
 import {useStellarHealth} from '../../shared/useStellarHealth';
-import {useAppStore, type SettlementMode} from '../../state/appStore';
+import {useAppStore} from '../../state/appStore';
 import {
   getSessionStorageStatus,
   subscribeToSessionStorage,
@@ -23,20 +23,12 @@ import {
   verifyHardwareSigner,
   type HardwareSignerReport,
 } from './hardwareSigner';
-import {ensureCustomerWallet} from '../payments/settlementAdapter';
 
 type Props = NativeStackScreenProps<RootStackParams, 'DeveloperSettings'>;
 
-const modes: {value: SettlementMode; title: string; hint: string}[] = [
-  {value: 'mock', title: 'Demo', hint: 'Local only. Nothing is sent to Stellar.'},
-  {value: 'testnet', title: 'Testnet', hint: 'Real settlement through the relayer.'},
-];
 
 export function DeveloperSettingsScreen(_props: Props) {
   const {
-    settlementMode,
-    setSettlementMode,
-    customerWallet,
     merchantProfile,
     merchantRegisteredOnChain,
     smartWallet,
@@ -45,7 +37,6 @@ export function DeveloperSettingsScreen(_props: Props) {
   } = useAppStore();
   const stellarHealth = useStellarHealth();
   const config = createStellarConfig('testnet');
-  const [walletError, setWalletError] = useState<string | undefined>();
   const [session, setSession] = useState<SessionStorageStatus>(getSessionStorageStatus);
   const [apiDraft, setApiDraft] = useState(apiBaseUrl);
   const [apiError, setApiError] = useState<string | undefined>();
@@ -93,49 +84,12 @@ export function DeveloperSettingsScreen(_props: Props) {
     staleTime: 30_000,
   });
 
-  const createWallet = async () => {
-    setWalletError(undefined);
-    try {
-      await ensureCustomerWallet();
-    } catch (error) {
-      setWalletError(error instanceof Error ? error.message : 'The demo wallet could not be created');
-    }
-  };
-
   return (
     <Screen>
       <View style={styles.heading}>
         <Text style={styles.title}>Developer settings</Text>
-        <Text style={styles.subtitle}>Switch between the local demo and real Testnet settlement.</Text>
+        <Text style={styles.subtitle}>What this device is talking to, and the key it signs with.</Text>
       </View>
-
-      <SurfaceCard style={styles.card}>
-        <Text style={styles.label}>SETTLEMENT MODE</Text>
-        <View style={styles.modes}>
-          {modes.map(option => {
-            const selected = option.value === settlementMode;
-            return (
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{selected}}
-                key={option.value}
-                onPress={() => setSettlementMode(option.value)}
-                style={[styles.mode, selected && styles.modeSelected]}
-                testID={`settlement-mode-${option.value}`}>
-                <View style={styles.modeHeader}>
-                  {option.value === 'mock' ? (
-                    <FlaskConical color={selected ? colors.amber : colors.inkMuted} size={18} />
-                  ) : (
-                    <Radio color={selected ? colors.amber : colors.inkMuted} size={18} />
-                  )}
-                  <Text style={[styles.modeTitle, selected && styles.modeTitleSelected]}>{option.title}</Text>
-                </View>
-                <Text style={styles.modeHint}>{option.hint}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </SurfaceCard>
 
       <SurfaceCard padded={false} style={styles.statusCard}>
         <StatusRow
@@ -211,43 +165,6 @@ export function DeveloperSettingsScreen(_props: Props) {
         <Button tone="ghost" onPress={saveApiBaseUrl} testID="save-api-base-url">Use this address</Button>
       </SurfaceCard>
 
-      <SurfaceCard style={styles.card}>
-        <View style={styles.walletHeader}>
-          <Fingerprint color={colors.amber} size={18} />
-          <Text style={styles.label}>DEVICE PAYMENT KEY</Text>
-        </View>
-        <Text style={styles.walletValue}>
-          {hardware.publicKey ? `${shorten(hardware.publicKey)} · in secure hardware` : 'Not created on this device'}
-        </Text>
-        <Text style={styles.modeHint}>
-          {hardware.detail ?? 'A secp256r1 key that never leaves the device and signs only after you approve.'}
-        </Text>
-        <Button loading={hardwareBusy} tone="ghost" onPress={runHardware(createHardwareSigner)} testID="create-hardware-key">
-          {hardware.publicKey ? 'Replace device key' : 'Create device key'}
-        </Button>
-        <Button loading={hardwareBusy} tone="ghost" onPress={runHardware(verifyHardwareSigner)} testID="verify-hardware-key">
-          Test a signature
-        </Button>
-      </SurfaceCard>
-
-      <SurfaceCard style={styles.card}>
-        <View style={styles.walletHeader}>
-          <Wallet color={colors.amber} size={18} />
-          <Text style={styles.label}>DEMO CUSTOMER WALLET</Text>
-        </View>
-        <Text style={styles.walletValue}>
-          {customerWallet
-            ? `${shorten(customerWallet.publicKey)} · ${customerWallet.funded ? 'funded' : 'not funded yet'}`
-            : 'Not created yet'}
-        </Text>
-        <Text style={styles.modeHint}>
-          Stands in for the native signer until the platform modules exist. Testnet funds only.
-        </Text>
-        {walletError ? <Text style={styles.error}>{walletError}</Text> : null}
-        <Button tone="ghost" onPress={createWallet} testID="create-demo-wallet">
-          {customerWallet ? 'Recreate demo wallet' : 'Create demo wallet'}
-        </Button>
-      </SurfaceCard>
     </Screen>
   );
 }
