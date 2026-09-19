@@ -58,7 +58,7 @@
         <div class="shell hero-grid">
           <div class="hero-copy">
             <p class="eyebrow" data-rise style="--d: 40ms"><i></i> Built on Stellar</p>
-            <h1 class="hero-title">
+            <h1 class="hero-title" data-split>
               <span data-rise style="--d: 120ms">Scan.</span>
               <span data-rise style="--d: 200ms">Approve.</span>
               <em data-rise style="--d: 280ms">Settled.</em>
@@ -115,36 +115,64 @@
 
       <section class="section shell" id="why">
         <div class="section-heading centered" data-rise>
-          <span class="section-index">01 / WHY</span>
-          <h2>Crypto at the counter.<br /><em>Fixed.</em></h2>
+          <span class="section-index">Why</span>
+          <h2 data-split>Crypto at the counter.<br /><em>Fixed.</em></h2>
         </div>
-        <div class="compare">
-          <article class="compare-card compare-then" data-rise>
-            <p class="compare-label"><span class="badge bad"><svg class="i"><use href="#i-x" /></svg></span> TODAY</p>
-            <ul>
-              <li><svg class="i"><use href="#i-link" /></svg><span class="mono">GDVE…JCZA57</span></li>
-              <li><svg class="i"><use href="#i-key" /></svg><span>12-word phrase</span></li>
-              <li><svg class="i"><use href="#i-clock" /></svg><span>Wait. Refresh.</span></li>
-            </ul>
-          </article>
+        <ol class="swap">
+          <li class="swap-row" data-rise>
+            <div class="swap-then">
+              <span class="swap-tag">Today</span>
+              <p class="swap-head">Copy a 56-character address</p>
+              <p class="swap-note">One wrong character and the money is gone for good.</p>
+            </div>
+            <span class="swap-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
+            <div class="swap-now">
+              <span class="swap-icon"><svg class="i"><use href="#i-scan" /></svg></span>
+              <div>
+                <p class="swap-head">Scan the code, or tap the phone</p>
+                <p class="swap-note">Nothing to read out, nothing to type in.</p>
+              </div>
+            </div>
+          </li>
 
-          <div class="compare-arrow" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></div>
+          <li class="swap-row" data-rise style="--d: 90ms">
+            <div class="swap-then">
+              <span class="swap-tag">Today</span>
+              <p class="swap-head">Guard a 12-word phrase</p>
+              <p class="swap-note">Lose it and nobody — not even us — can give the funds back.</p>
+            </div>
+            <span class="swap-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
+            <div class="swap-now">
+              <span class="swap-icon"><svg class="i"><use href="#i-fingerprint" /></svg></span>
+              <div>
+                <p class="swap-head">Your face is the signature</p>
+                <p class="swap-note">The key stays in the phone, and only you release it.</p>
+              </div>
+            </div>
+          </li>
 
-          <article class="compare-card compare-now" data-rise style="--d: 120ms">
-            <p class="compare-label"><span class="badge good"><svg class="i"><use href="#i-check" /></svg></span> LUMENADE PAY</p>
-            <ul>
-              <li><svg class="i"><use href="#i-scan" /></svg><span>Scan or tap</span></li>
-              <li><svg class="i"><use href="#i-fingerprint" /></svg><span>Face ID</span></li>
-              <li><svg class="i"><use href="#i-bolt" /></svg><span>~5 seconds</span></li>
-            </ul>
-          </article>
-        </div>
+          <li class="swap-row" data-rise style="--d: 170ms">
+            <div class="swap-then">
+              <span class="swap-tag">Today</span>
+              <p class="swap-head">Hold coins just to pay the fee</p>
+              <p class="swap-note">Then wait at the counter, refreshing to see if it landed.</p>
+            </div>
+            <span class="swap-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
+            <div class="swap-now">
+              <span class="swap-icon"><svg class="i"><use href="#i-bolt" /></svg></span>
+              <div>
+                <p class="swap-head">Settled in about five seconds</p>
+                <p class="swap-note">Someone else pays the network fee, so you hold none for it.</p>
+              </div>
+            </div>
+          </li>
+        </ol>
       </section>
 
       <section class="section shell" id="pay">
         <div class="section-heading centered" data-rise>
-          <span class="section-index">02 / PAY</span>
-          <h2>Scan it. <em>Or tap it.</em></h2>
+          <span class="section-index">How you pay</span>
+          <h2 data-split>Scan it. <em>Or tap it.</em></h2>
         </div>
 
         <div class="pay-grid">
@@ -186,8 +214,8 @@
       <section class="section flow" id="flow">
         <div class="shell">
           <div class="section-heading centered" data-rise>
-            <span class="section-index">03 / FLOW</span>
-            <h2>One payment,<br /><em>three hands.</em></h2>
+            <span class="section-index">What happens</span>
+            <h2 data-split>One payment,<br /><em>three hands.</em></h2>
           </div>
           <ol class="flow-rail">
             <li class="flow-step" data-rise>
@@ -232,14 +260,14 @@
       <section class="section shell" id="proof">
         <div class="proof-card" data-rise>
           <div class="proof-copy">
-            <span class="section-index">04 / LIVE PROOF</span>
-            <h2>Not a mockup.<br /><em>On Testnet.</em></h2>
+            <span class="section-index">Live proof</span>
+            <h2 data-split>Not a mockup.<br /><em>On Testnet.</em></h2>
             <a href="https://stellar.expert/explorer/testnet/tx/c8414bdabd495b987a45588a09dc95ef3b4a821c39f08696895ea3720025a777" target="_blank" rel="noreferrer">Inspect settled payment <svg class="i"><use href="#i-arrow" /></svg></a>
           </div>
           <div class="ledger-card">
             <p class="ledger-top"><span><i aria-hidden="true"></i> STELLAR TESTNET</span><b>SUCCESS</b></p>
             <strong>12.50 <em>XLM</em></strong>
-            <dl><div><dt>Ledger</dt><dd>4,256,843</dd></div><div><dt>Contract</dt><dd>CBX7…ZFAQO</dd></div></dl>
+            <dl><div><dt>Ledger</dt><dd><span data-count-to="4256843">4,256,843</span></dd></div><div><dt>Contract</dt><dd>CBX7…ZFAQO</dd></div></dl>
             <a href="https://stellar.expert/explorer/testnet/contract/CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO" target="_blank" rel="noreferrer">View contract ↗</a>
             <span class="hidden-evidence">CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO</span>
           </div>

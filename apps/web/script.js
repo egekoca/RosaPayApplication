@@ -167,3 +167,100 @@ if (stage && phone && !reduceMotion) {
 
   setTarget();
 }
+
+/* ---------- headline reveal ---------- */
+/*
+ * React Bits' SplitText, ported the way this site is built. The library is
+ * React and these pages are static HTML, so the effect is reimplemented rather
+ * than imported — the same idea, none of the runtime.
+ *
+ * Words rather than characters: a payment headline should read as language on
+ * the way in, not assemble itself letter by letter.
+ */
+function splitIntoWords(element) {
+  const walk = node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const fragment = document.createDocumentFragment();
+      node.textContent.split(/(\s+)/).forEach(part => {
+        if (!part.trim()) {
+          fragment.appendChild(document.createTextNode(part));
+          return;
+        }
+        const word = document.createElement('span');
+        word.className = 'word';
+        word.textContent = part;
+        fragment.appendChild(word);
+      });
+      node.replaceWith(fragment);
+      return;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && node.tagName !== 'BR') {
+      [...node.childNodes].forEach(walk);
+    }
+  };
+  [...element.childNodes].forEach(walk);
+
+  element.querySelectorAll('.word').forEach((word, index) => {
+    word.style.setProperty('--word-delay', `${index * 42}ms`);
+  });
+}
+
+if (!reduceMotion) {
+  const headlines = document.querySelectorAll('[data-split]');
+  headlines.forEach(splitIntoWords);
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          entry.target.dataset.split = 'shown';
+          observer.unobserve(entry.target);
+        });
+      },
+      {threshold: 0.3},
+    );
+    headlines.forEach(headline => {
+      // The hero is already on screen; anything below waits its turn.
+      if (headline.closest('.hero')) headline.dataset.split = 'shown';
+      else observer.observe(headline);
+    });
+  } else {
+    headlines.forEach(headline => { headline.dataset.split = 'shown'; });
+  }
+}
+
+/* ---------- ledger figure ---------- */
+/* CountUp, same reasoning: the number is evidence, so it counts to the real
+   value and never past it. */
+function countUp(element) {
+  const target = Number(element.dataset.countTo);
+  if (!Number.isFinite(target)) return;
+
+  const duration = 1100;
+  const start = performance.now();
+  const format = new Intl.NumberFormat('en-US');
+
+  const step = now => {
+    const progress = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    element.textContent = format.format(Math.round(target * eased));
+    if (progress < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+const counters = [...document.querySelectorAll('[data-count-to]')];
+if (counters.length && !reduceMotion && 'IntersectionObserver' in window) {
+  const observer = new IntersectionObserver(
+    entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        countUp(entry.target);
+        observer.unobserve(entry.target);
+      });
+    },
+    {threshold: 0.6},
+  );
+  counters.forEach(counter => observer.observe(counter));
+}
