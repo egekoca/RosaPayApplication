@@ -15,4 +15,4 @@ cargo test --manifest-path contracts/Cargo.toml
 
 The committed TypeScript binding is generated from the optimized WASM with Stellar CLI 27.1.0 and exported through `packages/stellar`. Its source comment records the matching WASM hash. Regenerate it whenever the public contract spec changes, then run the repository typecheck because generated code must satisfy the monorepo's strict TypeScript settings.
 
-The current Testnet deployment is `CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO`. Public deployment metadata and the first native XLM settlement evidence are recorded in `config/`; signer identities remain outside version control.
+The current Testnet deployment is `CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO`. Public deployment metadata and the first native XLM settlement evidence are recorded in `config/`; signer identities remain outside version control.

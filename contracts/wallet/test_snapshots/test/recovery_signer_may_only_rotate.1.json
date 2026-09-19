@@ -32,13 +32,17 @@
                     "symbol": "Signer"
                   },
                   {
-                    "bytes": "041b40f530a12bbdfcccb2703f664c84a6386149042a2810c10a81c49fb72746c06488e27f6fa9f6c0e7e7c2e841b2e85021a7b3e955cf5e9a140530e6a4e08b55"
+                    "bytes": "046d88210233727d8bde547cbba7cf9ed5229f5412aa54a837265430c1fc328b96fd5f3363a4078d1eb2b184bee76b49af114024f626a9acd738d40b3551a5424d"
                   }
                 ]
               },
               "durability": "persistent",
               "val": {
-                "bool": true
+                "vec": [
+                  {
+                    "symbol": "Device"
+                  }
+                ]
               }
             }
           },
@@ -70,7 +74,28 @@
                         ]
                       },
                       "val": {
-                        "bytes": "0455db051fbfa255e8aa1f076ed6f06f9cebe5f9538739048c9850202916b3a6faf46378f5f5e25ee794b7985868271f11364c85feb5f50b2ef4b8a838ea1513d3"
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "kind"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "symbol": "Device"
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "public_key"
+                            },
+                            "val": {
+                              "bytes": "04e2cb28487b1c79b0b2e3b326f137593accb3458159bf779c867240521fa3414211ef1808949cc142c88b38e6b14766553d633477be1df9507cf7c4e1b639c0ab"
+                            }
+                          }
+                        ]
                       }
                     },
                     {

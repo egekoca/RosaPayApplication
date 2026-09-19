@@ -22,12 +22,14 @@ import {
   Operation,
   TransactionBuilder,
 } from '@stellar/stellar-sdk';
+import {writeFileSync} from 'node:fs';
 import {authenticate, discoverAnchor} from '@rosapay/anchor';
 
 const HOME_DOMAIN = process.env.ROSAPAY_TRY_ANCHOR ?? 'tr-mock-anchor.fly.dev';
 const HORIZON = 'https://horizon-testnet.stellar.org';
 const FRIENDBOT = 'https://friendbot.stellar.org';
 const AMOUNT_TRY = process.env.ROSAPAY_TRY_AMOUNT ?? '500';
+const evidencePath = process.env.ROSAPAY_TRY_RAMP_EVIDENCE ?? 'config/testnet-try-ramp-evidence.json';
 
 function log(step: string, detail: unknown) {
   console.log(`\n[${step}]`, typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2));
@@ -43,6 +45,15 @@ async function json(url: string, init?: RequestInit) {
     parsed = body;
   }
   if (!response.ok) {
+    // The anchor advertises `stellar:USDC:<issuer>` in its own /sep38/info and,
+    // as of 2026-09-07, refuses that exact string on the SEP-6 exchange
+    // endpoints. The spec-correct value is what is asked for first; this is the
+    // retry, narrow enough that a real unsupported asset still surfaces.
+    if (/unsupported (source|destination)_asset/i.test(body)) {
+      const relaxed = url.replace(/(source_asset|destination_asset)=stellar%3AUSDC%3A[A-Z0-9]+/i, '$1=USDC')
+        .replace(/(source_asset|destination_asset)=stellar:USDC:[A-Z0-9]+/, '$1=USDC');
+      if (relaxed !== url) return json(relaxed, init);
+    }
     throw new Error(`${url} answered ${response.status}: ${body.slice(0, 400)}`);
   }
   return parsed as Record<string, unknown>;
@@ -208,30 +219,43 @@ if (outStatus !== 'completed') {
   throw new Error(`The withdrawal ended as ${outStatus}: ${JSON.stringify(outTransaction).slice(0, 400)}`);
 }
 
-console.log(
-  `\n${JSON.stringify(
-    {
-      anchor: anchor.homeDomain,
-      customer: customer.publicKey(),
-      onRamp: {
-        soldTry: AMOUNT_TRY,
-        quotedPrice: quoted.price,
-        totalPrice: quoted.total_price,
-        expectedUsdc: quoted.buy_amount,
-        receivedUsdc: held.balance,
-        stellarTransaction: transaction.stellar_transaction_id ?? null,
-        status,
-      },
-      offRamp: {
-        soldUsdc: withdrawAmount,
-        paymentHash: paid.hash,
-        memo: memo ?? null,
-        receivedTry: outTransaction.amount_out ?? null,
-        fee: outTransaction.amount_fee ?? null,
-        status: outStatus,
-      },
-    },
-    null,
-    2,
-  )}`,
-);
+/**
+ * The fiat rail is the claim that is hardest to take on trust and the easiest
+ * to fake in a demo, so it gets the same treatment as every other one here: a
+ * file under `config/` naming the anchor, the rate it quoted, the on-chain
+ * transactions on both legs, and what the bank was told to pay out.
+ */
+const evidence = {
+  network: 'testnet',
+  anchor: anchor.homeDomain,
+  anchorSigningKey: anchor.signingKey,
+  transferServer,
+  asset: `USDC:${usdc.issuer}`,
+  customer: customer.publicKey(),
+  onRamp: {
+    soldTry: AMOUNT_TRY,
+    quotedPrice: quoted.price,
+    totalPrice: quoted.total_price,
+    expectedUsdc: quoted.buy_amount,
+    receivedUsdc: held.balance,
+    stellarTransaction: transaction.stellar_transaction_id ?? null,
+    status,
+  },
+  offRamp: {
+    soldUsdc: withdrawAmount,
+    paymentHash: paid.hash,
+    memo: memo ?? null,
+    receivedTry: outTransaction.amount_out ?? null,
+    fee: outTransaction.amount_fee ?? null,
+    status: outStatus,
+  },
+  standards: ['SEP-1', 'SEP-10', 'SEP-38', 'SEP-6'],
+  // No API key is involved. The anchor's partner API would work and is better
+  // documented, but a wallet that speaks it is welded to one company; this is
+  // the door every Stellar anchor offers.
+  authenticatedWith: 'SEP-10 challenge signed by the customer account',
+  ranAt: new Date().toISOString(),
+};
+
+writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+console.log(`\n${JSON.stringify(evidence, null, 2)}`);

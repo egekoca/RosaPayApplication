@@ -458,6 +458,14 @@ QR is the required common payment path and is the current vertical slice. Androi
 
 ## Delivery gates
 
-The repository has a mocked QR flow, live Testnet RPC health checks and a tested settlement contract deployed as `CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO`. The public deployment manifest records the admin address, deterministic native XLM SAC, WASM hash and transaction hashes; CLI identity material remains ignored under `.stellar/`.
+The repository has a mocked QR flow, live Testnet RPC health checks and a tested settlement contract deployed as `CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO`. The public deployment manifest records the admin address, deterministic native XLM SAC, WASM hash and transaction hashes; CLI identity material remains ignored under `.stellar/`.
+
+The contract has two settlement entry points. `settle_payment` moves the token
+the merchant named straight across. `settle_payment_with_swap` runs the same
+checks and then buys that exact amount through the Soroswap router - held in
+contract storage, not passed in - before making the identical transfer, so a
+customer holding none of the merchant's token can still pay. The funding path,
+ceiling and deadline sit outside the merchant's signature because they cannot
+change what the merchant receives. See [swap-funding.md](swap-funding.md).
 
 The live smoke suite registered an ephemeral merchant key, settled 0.1 XLM from a Friendbot-funded customer, checked the recipient balance delta and consumed state, then rejected replay, amount tampering, expiry, recipient substitution, unsupported asset, invalid amount, wrong network, wrong contract and fake merchant attempts. The mobile UI still uses the mock adapter until native customer authorization is available.

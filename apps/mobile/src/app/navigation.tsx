@@ -2,7 +2,7 @@ import React from 'react';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useNavigation, type NavigationProp} from '@react-navigation/native';
-import {UserRound, WalletCards} from 'lucide-react-native';
+import {BarChart3, UserRound, WalletCards} from 'lucide-react-native';
 import {colors} from '@rosapay/ui';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 
@@ -13,6 +13,7 @@ import {WelcomeScreen} from '../features/onboarding/WelcomeScreen';
 import {CreateAccountScreen} from '../features/onboarding/CreateAccountScreen';
 import {RecoveryPhraseScreen} from '../features/onboarding/RecoveryPhraseScreen';
 import {ImportWalletScreen} from '../features/onboarding/ImportWalletScreen';
+import {RecoverWalletScreen} from '../features/onboarding/RecoverWalletScreen';
 import {ScanScreen} from '../features/payments/ScanScreen';
 import {PaymentConfirmationScreen} from '../features/payments/PaymentConfirmationScreen';
 import {ReceiptScreen} from '../features/payments/ReceiptScreen';
@@ -22,6 +23,8 @@ import {useTranslate} from '../shared/i18n';
 import {MerchantOnboardingScreen} from '../features/merchant/MerchantOnboardingScreen';
 import {MerchantRequestScreen} from '../features/merchant/MerchantRequestScreen';
 import {hasRestorableSession, useAppStore, type LocalReceipt} from '../state/appStore';
+import type {PaymentTransport} from '../state/appStore';
+import {DashboardScreen} from '../features/dashboard/DashboardScreen';
 
 export type RootStackParams = {
   Welcome: undefined;
@@ -34,11 +37,13 @@ export type RootStackParams = {
    */
   RecoveryPhrase: {phrase: string; name: string; email?: string};
   ImportWallet: {name: string; email?: string};
+  /** A phone that has never seen the wallet, holding only the synced passkey. */
+  RecoverWallet: undefined;
   Main: undefined;
   /** Buying USDC with lira, through the anchor's SEP-6 door. */
   LiraDeposit: undefined;
   Scan: undefined;
-  Confirm: {payload: SignedPaymentIntentV1};
+  Confirm: {payload: SignedPaymentIntentV1; transport?: PaymentTransport};
   Receipt: {receipt: LocalReceipt};
   DeveloperSettings: undefined;
   MerchantOnboarding: undefined;
@@ -72,10 +77,15 @@ function ProfileTab() {
   return <ProfileScreen navigation={navigation as never} />;
 }
 
+function DashboardTab() {
+  return <DashboardScreen />;
+}
+
 // Hoisted so the tab bar is not handed a new component type on every render,
 // which would tear down and rebuild the icon each time the language changes.
 const walletIcon = ({color}: {color: string}) => <WalletCards color={color} size={22} />;
 const profileIcon = ({color}: {color: string}) => <UserRound color={color} size={22} />;
+const dashboardIcon = ({color}: {color: string}) => <BarChart3 color={color} size={22} />;
 
 function MainTabs() {
   const t = useTranslate();
@@ -99,6 +109,14 @@ function MainTabs() {
         options={{
           tabBarLabel: t('Wallet'),
           tabBarIcon: walletIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="DashboardTab"
+        component={DashboardTab}
+        options={{
+          tabBarLabel: t('Dashboard'),
+          tabBarIcon: dashboardIcon,
         }}
       />
       <Tabs.Screen
@@ -149,6 +167,11 @@ export function RootNavigator() {
         name="ImportWallet"
         component={ImportWalletScreen}
         options={{title: t('Restore your wallet'), headerBackTitle: t('Go back')}}
+      />
+      <Stack.Screen
+        name="RecoverWallet"
+        component={RecoverWalletScreen}
+        options={{title: t('Recover your wallet'), headerBackTitle: t('Go back')}}
       />
       <Stack.Screen name="Main" component={MainTabs} options={{headerShown: false, animation: 'fade'}} />
     <Stack.Screen name="LiraDeposit" component={LiraDepositScreen} options={{title: t('Add lira'), headerBackTitle: t('Go back')}} />

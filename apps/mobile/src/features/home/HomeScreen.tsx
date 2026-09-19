@@ -18,7 +18,6 @@ import {useTranslate} from '../../shared/i18n';
 import {generateRecoveryPhrase} from '../wallet/stellarKey';
 import {CurrencyPicker} from './CurrencyPicker';
 import {greetingFor} from './greeting';
-import {MerchantBalanceCard} from './MerchantBalanceCard';
 import {PaymentCard} from './PaymentCard';
 import {AssetMark} from './AssetMark';
 import {payableAssetByCode} from '../payments/assets';
@@ -172,8 +171,8 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
                 <Text style={styles.liraFlag}>🇹🇷</Text>
               </View>
               <View style={styles.scanCopy}>
-                <Text style={styles.liraTitle}>{t('Türk Lirası ile para yükle')}</Text>
-                <Text style={styles.scanHint}>{t('Banka havalesi · hesabınıza USDC olarak geçer')}</Text>
+                <Text style={styles.liraTitle}>{t('Add money with Turkish lira')}</Text>
+                <Text style={styles.scanHint}>{t('Bank transfer · receive USDC in your wallet')}</Text>
               </View>
               <ChevronRight color={colors.inkMuted} size={19} />
             </Pressable>
@@ -269,15 +268,18 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
 
 function MerchantHome({navigation}: {navigation: Props['navigation']}) {
   const t = useTranslate();
+  const account = useCurrentAccount();
   const receipts = useAppStore(state => state.receipts);
+  const displayCurrency = useAppStore(state => state.displayCurrency);
+  const setDisplayCurrency = useAppStore(state => state.setDisplayCurrency);
   // The same wallet the Pay view reads. One account, so one balance.
   const balance = useWalletBalance();
   const value = useBalanceValue(balance.data);
-  const nativeBalance = balance.data?.find(holding => holding.code === 'XLM')?.amount;
   const merchantProfile = useAppStore(state => state.merchantProfile);
   const merchantRegisteredOnChain = useAppStore(state => state.merchantRegisteredOnChain);
   const pendingRequest = useAppStore(state => state.pendingRequest);
   const payments = useMerchantPayments(merchantProfile?.merchantProfileId);
+  const [pickingCurrency, setPickingCurrency] = useState(false);
 
   // On Testnet the API knows every request this merchant made, from any device;
   // a device on its own only has what it recorded itself.
@@ -286,7 +288,6 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
   const localReceipts = receipts.filter(receipt => receipt.recipient === merchantProfile?.recipient);
   const received = useApi ? apiPayments : localReceipts;
   const settled = received.filter(payment => payment.status === 'confirmed');
-  const total = settled.reduce((sum, payment) => sum + Number(payment.amount), 0);
   const statusTone = payments.isError ? 'neutral' : payments.isPending ? 'pending' : 'success';
   return (
     <>
@@ -304,17 +305,25 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
       </AnimatedContent>
 
       <AnimatedContent delay={70} scaleFrom={0.985}>
-        <MerchantBalanceCard
-          displayName={merchantProfile?.displayName ?? 'Lumenade Pay'}
-          error={payments.isError}
-          loading={payments.isPending}
-          requestCount={received.length}
-          settledCount={settled.length}
-          total={total}
-          {...(nativeBalance === undefined ? {} : {balance: nativeBalance})}
-          {...(value.data ? {balanceCurrency: value.data} : {})}
+        <PaymentCard
+          holdings={balance.data ?? []}
+          currency={displayCurrency}
+          onChangeCurrency={() => setPickingCurrency(true)}
+          {...(value.data ? {value: value.data} : {})}
+          {...(account?.address === undefined ? {} : {address: account.address})}
+          state={
+            !account ? 'no-wallet' : balance.isPending ? 'loading' : balance.isError ? 'error' : 'ready'
+          }
+          onCopy={() => account?.address && void shareValue('My Lumenade Pay wallet', account.address)}
         />
       </AnimatedContent>
+
+      <CurrencyPicker
+        onClose={() => setPickingCurrency(false)}
+        onSelect={setDisplayCurrency}
+        selected={displayCurrency}
+        visible={pickingCurrency}
+      />
 
       <AnimatedContent delay={140}>
         <Button icon={<QrCode color={colors.black} size={20} />} onPress={() => navigation.navigate('MerchantRequest')}>

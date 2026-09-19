@@ -4,7 +4,7 @@ Lumenade Pay is a non-custodial Stellar payment app for iOS and Android, built w
 
 Website: [lumenade-pay.vercel.app](https://lumenade-pay.vercel.app)
 
-The product source of truth is [docs/PRD.md](docs/PRD.md), with implementation status tracked in [docs/TODO.md](docs/TODO.md). The implemented boundaries are documented in [architecture.md](docs/architecture.md), [rtp-1.md](docs/rtp-1.md), and [security-model.md](docs/security-model.md).
+The product source of truth is [docs/PRD.md](docs/PRD.md), with implementation status tracked in [docs/TODO.md](docs/TODO.md). The implemented boundaries are documented in [architecture.md](docs/architecture.md), [rtp-1.md](docs/rtp-1.md), [security-model.md](docs/security-model.md), [anchor-integration.md](docs/anchor-integration.md), [swap-funding.md](docs/swap-funding.md), and [passkeys.md](docs/passkeys.md). The architecture is drawn in [architecture-diagrams.md](docs/architecture-diagrams.md), and the skill files this was built with are recorded in [skills-used.md](docs/skills-used.md).
 
 ## Current Status
 
@@ -17,8 +17,10 @@ The foundation and first vertical slice are implemented:
 - Typed RTP/1-to-settlement envelope conversion and a Stellar CLI-generated contract client binding.
 - Fastify API boundary, idempotent intent service, database schema and worker foundation.
 - Soroban settlement contract with customer auth, merchant signatures, asset policy, expiry and replay protection.
+- Soroswap-funded settlement: a customer holding none of the token the merchant asked for pays anyway, because the contract buys the exact amount through the AMM in the same transaction.
+- A smart wallet that outlives the phone that made it: a Secure Enclave key signs payments, a passkey the platform syncs across the owner's devices is registered as the recovery signer, and a lost handset is rotated out from a new one.
 
-The settlement contract is deployed on Stellar Testnet as `CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO`. It uses the verified deterministic native XLM SAC `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`. The optimized WASM is 7,320 bytes (`SHA-256 22b1d0638f6128407579e3993386fde7b0a2ed13494cccb49a3c080ddfe0ac7e`); public deployment and smoke-test evidence live under `config/`.
+The settlement contract is deployed on Stellar Testnet as `CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO`. It uses the verified deterministic native XLM SAC `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` and routes funding swaps through the Soroswap router `CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD`. The WASM is 11,301 bytes (`SHA-256 b7fa54ae6f14cf76854977e4ba9d8e6da0957c4a5cb211a9c2f34d0f8ef85a4b`); public deployment and smoke-test evidence live under `config/`. The previous deployment was `CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO`, which has no funding-swap entry point.
 
 ## Product Terms
 
@@ -190,6 +192,35 @@ pays the fee:
 
 ```bash
 npm run testnet:wallet
+```
+
+The lira rail has one too. `npm run testnet:try-ramp` runs a full round trip
+against the anchor through the standards door only — SEP-1 discovery, SEP-10
+auth, SEP-38 for the rate, SEP-6 for the transfer, and no API key — buying USDC
+with lira and selling it back to an IBAN, and writes the result to
+`config/testnet-try-ramp-evidence.json`:
+
+```bash
+npm run testnet:try-ramp
+```
+
+The passkey and recovery paths have proofs that need no phone, because the
+platform half is the only part a simulator cannot stand in for:
+
+```bash
+npm run testnet:passkey     # a real WebAuthn assertion authorizes the wallet
+npm run testnet:recovery    # a lost phone is rotated out by the recovery passkey
+npm run testnet:bridge      # a smart wallet uses the lira ramp, both directions
+```
+
+The Soroswap funding path has a proof of its own. It settles a USDC-priced
+request from a smart wallet whose USDC balance is zero, and asserts on-chain
+that the merchant received the exact signed amount, that the customer kept no
+leftover balance, that the spend stayed under the ceiling the device signed for,
+and that the router really was inside the same transaction:
+
+```bash
+npm run testnet:swap
 ```
 
 ## Verify

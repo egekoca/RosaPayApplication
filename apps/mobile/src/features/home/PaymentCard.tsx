@@ -3,7 +3,7 @@ import {ChevronDown, Copy, WalletCards} from 'lucide-react-native';
 import {CountUp, GoldCardSurface, spacing, typography} from '@rosapay/ui';
 import {AssetMark} from './AssetMark';
 import {displayAmount} from '../../shared/displayAmount';
-import {displayCurrencyMeta} from '../../shared/priceSource';
+import {currencySymbol, displayCurrencyMeta} from '../../shared/priceSource';
 import {useTranslate} from '../../shared/i18n';
 
 /** One state at a time, so the card never says two things at once. */
@@ -118,7 +118,7 @@ export function PaymentCard({holdings, value, currency, address, state, onCopy, 
                   had just tapped it.
                 */}
                 <Text style={[styles.conversionValue, !value && styles.conversionPending]}>
-                  {value ? `≈ ${value.amount} ${value.currency}` : `≈ —  ${shownCurrency}`}
+                  {value ? `≈ ${currencySymbol(value.currency)}${value.amount} ${value.currency}` : `≈ —  ${currencySymbol(shownCurrency)}${shownCurrency}`}
                 </Text>
                 {onChangeCurrency ? <ChevronDown color={ink} size={17} strokeWidth={2.6} /> : null}
               </Pressable>

@@ -17,7 +17,14 @@
               "function_name": "add_signer",
               "args": [
                 {
-                  "bytes": "040ef2c2d03598b966e1958d2c48addea5bba45f4fbcd60a7940e3933cb2237398bc319b759225d14b89d6f4212737bd398b015d87c38b3a3f2fcc5b6ffbe8b594"
+                  "bytes": "0432ffca2c515f015b219c2fa7904f50dca7a547099ab1886e01e6406a7dc487cb0b6c9c0ab12c499fb2b3c558d85189851359d8f7b324856554d4ba039ae035ec"
+                },
+                {
+                  "vec": [
+                    {
+                      "symbol": "Passkey"
+                    }
+                  ]
                 }
               ]
             }
@@ -37,7 +44,7 @@
               "function_name": "remove_signer",
               "args": [
                 {
-                  "bytes": "040140e1f15e1342aeb154efeb8edb3966ce4d698feb04b3ad1207cc493a69c9742528c2ccb2d9f31ed9e616c70a829e1f312eb4dcb46e32de37c833b57b74a38c"
+                  "bytes": "048d9ad3e5a4413751375b736531c536d20afdfabd3dbc0f414341fa59df9e1f99b525b53e4bf6de6234022358e726f74d564f8c1ccc3f5e4e1afb535bd4e96f0a"
                 }
               ]
             }
@@ -71,13 +78,17 @@
                     "symbol": "Signer"
                   },
                   {
-                    "bytes": "040ef2c2d03598b966e1958d2c48addea5bba45f4fbcd60a7940e3933cb2237398bc319b759225d14b89d6f4212737bd398b015d87c38b3a3f2fcc5b6ffbe8b594"
+                    "bytes": "0432ffca2c515f015b219c2fa7904f50dca7a547099ab1886e01e6406a7dc487cb0b6c9c0ab12c499fb2b3c558d85189851359d8f7b324856554d4ba039ae035ec"
                   }
                 ]
               },
               "durability": "persistent",
               "val": {
-                "bool": true
+                "vec": [
+                  {
+                    "symbol": "Passkey"
+                  }
+                ]
               }
             }
           },

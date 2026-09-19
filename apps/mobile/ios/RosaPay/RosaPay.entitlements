@@ -12,5 +12,15 @@
 	<array>
 		<string>$(AppIdentifierPrefix)com.rosapay</string>
 	</array>
+	<!--
+	  Passkeys are scoped to a domain, not to an app. Without this the system
+	  refuses the prompt before the customer sees anything, and the domain must
+	  serve a matching apple-app-site-association naming this app - see
+	  apps/web/.well-known/, and docs/passkeys.md for what has to be filled in.
+	-->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:lumenade-pay.vercel.app</string>
+	</array>
 </dict>
 </plist>

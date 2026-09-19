@@ -1,0 +1,75 @@
+services:
+  - type: web
+    name: rosapay-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerCommand: npm run start --workspace @rosapay/api
+    healthCheckPath: /v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 10000
+      - key: API_AUTH_REQUIRED
+        value: "true"
+      - key: API_REQUIRE_DATABASE
+        value: "true"
+      - key: DATABASE_SSL
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: API_SESSION_SECRET
+        sync: false
+      - key: STELLAR_RELAYER_SECRET
+        sync: false
+      - key: STELLAR_ADMIN_SECRET
+        sync: false
+      - key: STELLAR_NETWORK
+        value: testnet
+      - key: STELLAR_RPC_URL
+        value: https://soroban-testnet.stellar.org
+      - key: STELLAR_HORIZON_URL
+        value: https://horizon-testnet.stellar.org
+      - key: STELLAR_SETTLEMENT_CONTRACT_ID
+        sync: false
+      - key: STELLAR_WALLET_WASM_HASH
+        sync: false
+      - key: DATABASE_MAX_CONNECTIONS
+        value: "3"
+      - key: DATABASE_STATEMENT_TIMEOUT_MS
+        value: "15000"
+
+  - type: worker
+    name: rosapay-worker
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerCommand: npm run start --workspace @rosapay/worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: "true"
+      - key: DATABASE_MAX_CONNECTIONS
+        value: "2"
+      - key: DATABASE_STATEMENT_TIMEOUT_MS
+        value: "15000"
+      - key: STELLAR_NETWORK
+        value: testnet
+      - key: STELLAR_RPC_URL
+        value: https://soroban-testnet.stellar.org
+      - key: STELLAR_SETTLEMENT_CONTRACT_ID
+        sync: false
+      - key: WORKER_INTERVAL_MS
+        value: "10000"
+
+# The database is intentionally external. Render's free web plan does not
+# include a durable PostgreSQL instance; use a free Supabase/Neon database and
+# provide its pooled/session connection string as DATABASE_URL in the dashboard.

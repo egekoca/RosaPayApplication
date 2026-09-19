@@ -1,9 +1,13 @@
 {
   "network": "testnet",
-  "walletContractId": "CCAATSIEXIHVMYK7B6WGAGAHSBA4CL24XWCJ6RFW4X7MB53ZN2UELNE7",
-  "wasmHash": "c64b1c1ef41592825963cf98baff0bd8a26858a4a9e9bdc9c04be8ff7c2eeba2",
+  "walletContractId": "CBNMQLAGSXWFFAMIJN5S54TE46BHAA4SY4DVY2RTZI2IJQW3ZVKTBBXU",
+  "wasmHash": "2c4d82af6757bb990ea1d8d69b8a9561aaf29f5279b34ffcb80dadd21d577165",
   "devicePublicKey": "046aba99dc31094fb0dfa577d0332f7f005965d770dc439f09a29e66520ad8fe26cfd29885dc091a2361a763ae9de90a3c712bdbecb9f483dc9add95fbaafe954b",
-  "recoverySigner": null,
-  "deployedAt": "2026-08-23T13:35:00Z",
-  "note": "Device private key is kept outside the repository in .stellar/wallet-device-key.json"
+  "deviceSignerKind": "Device",
+  "recoveryPublicKey": "040f3133d0491111f931af631b6ec37096a1c997aa55f5f878b63ada547140be612cf49ed82b05ec792fdd25cb8bbf31c0e667b7598d61cb727dbfffd20697d38f",
+  "recoverySignerKind": "Device",
+  "deployedAt": "2026-09-07T07:56:33.364Z",
+  "deploymentTransactionHash": "0f275e7c7b34b1b5c2c7fe27114c0f35a94c5973b43c74ee7ac5336c503c9f78",
+  "wasmUploadTransactionHash": "a9bda28a1ac49b29968f7657cda40adbefd04c0cf6a7b533e2e044429feaefcd",
+  "note": "Device and recovery private keys are kept outside the repository under .stellar/. On a phone the device signer is a Secure Enclave or Keystore key and the recovery signer is a platform-synced passkey; these local keys stand in for both."
 }

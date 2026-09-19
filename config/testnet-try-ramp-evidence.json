@@ -1,0 +1,33 @@
+{
+  "network": "testnet",
+  "anchor": "tr-mock-anchor.fly.dev",
+  "anchorSigningKey": "GDXYO6FJCNXZEWGXD54GT76FGFYLOLSOGSOJLNQ6WGHCGEQPO7NTE73M",
+  "transferServer": "https://tr-mock-anchor.fly.dev/sep6",
+  "asset": "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  "customer": "GDNEWC2T7Y6TREPNAUZBU4TXRS4GUEVUJAUMCI63AVCYLANU5IOJSFPZ",
+  "onRamp": {
+    "soldTry": "500",
+    "quotedPrice": "48.433144",
+    "totalPrice": "48.6753092",
+    "expectedUsdc": "10.2721484",
+    "receivedUsdc": "10.2721484",
+    "stellarTransaction": "aea02853f64aeea9841a6817a1c926401002999593d55dc89e79cccf0f704a8c",
+    "status": "completed"
+  },
+  "offRamp": {
+    "soldUsdc": "5.1360742",
+    "paymentHash": "d1a4534299c3944ede91c9c335e83eb2f030373049214df69c3e467ffd82544f",
+    "memo": "438883565149",
+    "receivedTry": "247.51",
+    "fee": "1.24",
+    "status": "completed"
+  },
+  "standards": [
+    "SEP-1",
+    "SEP-10",
+    "SEP-38",
+    "SEP-6"
+  ],
+  "authenticatedWith": "SEP-10 challenge signed by the customer account",
+  "ranAt": "2026-09-07T16:25:46.305Z"
+}

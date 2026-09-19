@@ -4,6 +4,7 @@ import {
   buildSettlementEnvelope,
   createSettlementClient,
   settleSignedPayment,
+  type SettlementFunding,
   type SettlementPipelineProgress,
   type SettlementPipelineSigner,
   type StellarConfig,
@@ -88,6 +89,12 @@ export type TestnetSettlementInput = {
   countersign: Countersigner;
   relayerSigner: {signTransaction(xdr: string): Promise<{signedTxXdr: string}>};
   latestLedger: number;
+  /**
+   * Set when the customer is paying out of a token the merchant did not ask
+   * for. It never touches the envelope or the merchant's signature: the intent
+   * below is the same one either way.
+   */
+  funding?: SettlementFunding;
   onProgress?: (progress: SettlementPipelineProgress) => void;
 };
 
@@ -140,6 +147,7 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
     latestLedger: input.latestLedger,
     merchantContractSignature,
     ...authorization,
+    ...(input.funding ? {funding: input.funding} : {}),
     relayerSigner: input.relayerSigner,
     ...(input.onProgress ? {onProgress: input.onProgress} : {}),
   });

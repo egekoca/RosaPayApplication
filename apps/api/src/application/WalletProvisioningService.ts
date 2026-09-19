@@ -62,11 +62,20 @@ export class WalletProvisioningService {
     this.wallets = options.wallets ?? new InMemoryWalletRepository();
   }
 
+  /** The wallet a passkey recovers, for a phone that has nothing else to go on. */
+  findByRecoveryCredential(credentialId: string) {
+    return this.wallets.findByRecoveryCredential(credentialId);
+  }
+
   get enabled(): boolean {
     return this.deployer !== null && Boolean(this.options.walletWasmHash);
   }
 
-  async provision(devicePublicKeyBase64: string, userId?: string): Promise<ProvisionedWallet> {
+  async provision(
+    devicePublicKeyBase64: string,
+    userId?: string,
+    recovery?: {publicKey: string; credentialId: string; kind: 'Device' | 'Passkey'},
+  ): Promise<ProvisionedWallet> {
     const deployer = this.deployer;
     const wasmHash = this.options.walletWasmHash;
     if (!deployer || !wasmHash) {
@@ -83,6 +92,26 @@ export class WalletProvisioningService {
       );
     } catch {
       throw new WalletProvisioningError('INVALID_DEVICE_KEY', 'The device key is not an uncompressed secp256r1 point');
+    }
+
+    let recoveryPoint: Buffer | undefined;
+    if (recovery) {
+      try {
+        recoveryPoint = Buffer.from(
+          uncompressedPointFromSpki(Uint8Array.from(Buffer.from(recovery.publicKey, 'base64'))),
+        );
+      } catch {
+        throw new WalletProvisioningError(
+          'INVALID_DEVICE_KEY',
+          'The recovery key is not an uncompressed secp256r1 point',
+        );
+      }
+      if (recoveryPoint.equals(devicePoint)) {
+        throw new WalletProvisioningError(
+          'INVALID_DEVICE_KEY',
+          'The recovery key must differ from the device key, or one lost phone takes both',
+        );
+      }
     }
 
     // A device key controls exactly one wallet, so provisioning is idempotent
@@ -114,7 +143,17 @@ export class WalletProvisioningService {
           address: Address.fromString(deployer.publicKey()),
           wasmHash: Buffer.from(wasmHash, 'hex'),
           salt: randomBytes(32),
-          constructorArgs: [xdr.ScVal.scvBytes(devicePoint), xdr.ScVal.scvVoid()],
+          constructorArgs: [
+            xdr.ScVal.scvBytes(devicePoint),
+            signerKindScVal('Device'),
+            // Soroban carries `Option<T>` as the value itself, or Void for
+            // None. A wallet deployed with Void here can never be recovered:
+            // `set_recovery_signer` exists for that case and needs the wallet's
+            // own authorization, which a lost phone cannot give.
+            recoveryPoint
+              ? recoverySignerScVal(recoveryPoint, recovery!.kind)
+              : xdr.ScVal.scvVoid(),
+          ],
         }),
       )
       .setTimeout(60)
@@ -144,6 +183,15 @@ export class WalletProvisioningService {
       network: this.options.config.network === 'pubnet' ? 'pubnet' : 'testnet',
       status: 'active',
       ...(userId ? {userId} : {}),
+      ...(recovery && recoveryPoint
+        ? {
+            recovery: {
+              publicKey: recoveryPoint.toString('base64'),
+              credentialId: recovery.credentialId,
+              kind: recovery.kind,
+            },
+          }
+        : {}),
     });
 
     return {
@@ -191,4 +239,20 @@ export class WalletProvisioningService {
       throw new WalletProvisioningError('WALLET_PROVISIONING_FAILED', `Funding failed: ${confirmed.status}`);
     }
   }
+}
+
+/** `SignerKind`, a unit-variant enum, which XDR carries as a one-element vector. */
+function signerKindScVal(kind: 'Device' | 'Passkey'): xdr.ScVal {
+  return xdr.ScVal.scvVec([nativeToScVal(kind, {type: 'symbol'})]);
+}
+
+/** `RecoverySigner`, whose fields are ordered. */
+function recoverySignerScVal(publicKey: Buffer, kind: 'Device' | 'Passkey'): xdr.ScVal {
+  return xdr.ScVal.scvMap([
+    new xdr.ScMapEntry({key: nativeToScVal('kind', {type: 'symbol'}), val: signerKindScVal(kind)}),
+    new xdr.ScMapEntry({
+      key: nativeToScVal('public_key', {type: 'symbol'}),
+      val: xdr.ScVal.scvBytes(publicKey),
+    }),
+  ]);
 }

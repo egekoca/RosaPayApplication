@@ -31,13 +31,17 @@
                     "symbol": "Signer"
                   },
                   {
-                    "bytes": "0471f7780fd86d5931fca50462a80248a5c3597ce112f5e489c384542b84002ed1bd6d1f54334bcdf7c3f5a65e037f931a91b0126f1e2489361315afc108987e85"
+                    "bytes": "0408e56391b5bf29177f45a4527de2258370ed3d2f4058a5ecb589fd909044c42ef8aae08dffe20516eb755c891413cb44e18650390d9da2200ba49d224ff1962e"
                   }
                 ]
               },
               "durability": "persistent",
               "val": {
-                "bool": true
+                "vec": [
+                  {
+                    "symbol": "Device"
+                  }
+                ]
               }
             }
           },

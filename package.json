@@ -25,6 +25,10 @@
     "contract:build": "stellar contract build --manifest-path contracts/Cargo.toml",
     "testnet:smoke": "node --env-file-if-exists=.env scripts/testnet-smoke.mjs",
     "testnet:relayed": "tsx --env-file-if-exists=.env scripts/testnet-relayed-settlement.mts",
+    "testnet:bridge": "tsx --env-file-if-exists=.env scripts/testnet-bridge-ramp.mts",
+    "testnet:recovery": "tsx --env-file-if-exists=.env scripts/testnet-wallet-recovery.mts",
+    "testnet:passkey": "tsx --env-file-if-exists=.env scripts/testnet-passkey-auth.mts",
+    "testnet:wallet-deploy": "tsx --env-file-if-exists=.env scripts/testnet-wallet-deploy.mts",
     "testnet:wallet": "tsx --env-file-if-exists=.env scripts/testnet-wallet-auth.mts",
     "check": "npm run typecheck && npm run test",
     "testnet:accounts": "tsx --env-file-if-exists=.env scripts/testnet-accounts.mts",
@@ -35,7 +39,9 @@
     "web": "npm run dev --workspace @lumenadepay/web",
     "testnet:register-asset": "tsx --env-file-if-exists=.env scripts/testnet-register-asset.mts",
     "testnet:phrase-wallet": "tsx --env-file-if-exists=.env scripts/testnet-phrase-wallet.mts",
-    "testnet:try-ramp": "tsx --env-file-if-exists=.env scripts/testnet-try-ramp.mts"
+    "testnet:swap": "tsx --env-file-if-exists=.env scripts/testnet-swap-settlement.mts",
+    "testnet:try-ramp": "tsx --env-file-if-exists=.env scripts/testnet-try-ramp.mts",
+    "deploy:check": "node --env-file-if-exists=.env scripts/deployment-check.mjs"
   },
   "devDependencies": {
     "@noble/curves": "^2.3.0",

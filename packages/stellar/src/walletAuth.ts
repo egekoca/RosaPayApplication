@@ -2,12 +2,99 @@ import {derToCompactSignature, uncompressedPointFromSpki} from '@rosapay/secure-
 import {authorizeEntry, nativeToScVal, xdr} from '@stellar/stellar-sdk';
 import {Buffer} from 'buffer';
 
+/**
+ * The two ways this wallet's signers are held, matching the contract's
+ * `SignerKind`. They are not interchangeable: the contract verifies each by its
+ * own rules and refuses a signature checked by the wrong ones.
+ */
+export type WalletSignerKind = 'device' | 'passkey';
+
 export type HardwareDigestSigner = {
   /** The device's exported public key, SPKI or raw uncompressed point, base64. */
   publicKey: string;
   /** Asks the platform to prove user presence and sign the digest. */
   signDigest(request: {digest: string; reason: string}): Promise<{signature: string}>;
 };
+
+/**
+ * A passkey does not sign what it is given.
+ *
+ * It signs `authenticatorData || SHA-256(clientDataJSON)`, having put the
+ * challenge into that JSON itself. So the platform hands back three pieces and
+ * all three have to reach the contract: without them it cannot check that the
+ * genuine signature was made about *this* transaction.
+ */
+export type PasskeySigner = {
+  /** The credential's public key, SPKI or raw uncompressed point, base64. */
+  publicKey: string;
+  assert(request: {challenge: string; reason: string}): Promise<{
+    /** DER or compact, base64. */
+    signature: string;
+    /** Base64. */
+    authenticatorData: string;
+    /** Base64. */
+    clientDataJSON: string;
+  }>;
+};
+
+export type WalletSigner =
+  | {kind: 'device'; signer: HardwareDigestSigner}
+  | {kind: 'passkey'; signer: PasskeySigner};
+
+function toBuffer(base64: string): Buffer {
+  return Buffer.from(base64, 'base64');
+}
+
+/** Matches the contract's `DeviceSignature`, whose fields are ordered. */
+export function deviceSignatureScVal(publicKey: Buffer, signature: Buffer): xdr.ScVal {
+  return xdr.ScVal.scvMap([
+    new xdr.ScMapEntry({
+      key: nativeToScVal('public_key', {type: 'symbol'}),
+      val: xdr.ScVal.scvBytes(publicKey),
+    }),
+    new xdr.ScMapEntry({
+      key: nativeToScVal('signature', {type: 'symbol'}),
+      val: xdr.ScVal.scvBytes(signature),
+    }),
+  ]);
+}
+
+/** Matches the contract's `PasskeyAssertion`, whose fields are ordered. */
+export function passkeyAssertionScVal(assertion: {
+  publicKey: Buffer;
+  signature: Buffer;
+  authenticatorData: Buffer;
+  clientDataJSON: Buffer;
+}): xdr.ScVal {
+  // Field order is the contract struct's declaration order, which the SDK
+  // encodes as a map keyed by symbol.
+  return xdr.ScVal.scvMap([
+    new xdr.ScMapEntry({
+      key: nativeToScVal('authenticator_data', {type: 'symbol'}),
+      val: xdr.ScVal.scvBytes(assertion.authenticatorData),
+    }),
+    new xdr.ScMapEntry({
+      key: nativeToScVal('client_data', {type: 'symbol'}),
+      val: xdr.ScVal.scvBytes(assertion.clientDataJSON),
+    }),
+    new xdr.ScMapEntry({
+      key: nativeToScVal('public_key', {type: 'symbol'}),
+      val: xdr.ScVal.scvBytes(assertion.publicKey),
+    }),
+    new xdr.ScMapEntry({
+      key: nativeToScVal('signature', {type: 'symbol'}),
+      val: xdr.ScVal.scvBytes(assertion.signature),
+    }),
+  ]);
+}
+
+/** Wraps a variant in the contract's `WalletSignature` enum. */
+export function walletSignatureScVal(kind: WalletSignerKind, value: xdr.ScVal): xdr.ScVal {
+  return xdr.ScVal.scvVec([
+    nativeToScVal(kind === 'device' ? 'Device' : 'Passkey', {type: 'symbol'}),
+    value,
+  ]);
+}
 
 /**
  * Turns a platform keystore signature into the `WalletSignature` the Rosa smart
@@ -24,33 +111,65 @@ export async function signWalletAuthPayload(
   }
 
   const {signature} = await signer.signDigest({digest: payload.toString('base64'), reason});
-  const compact = derToCompactSignature(Uint8Array.from(Buffer.from(signature, 'base64')));
-  const point = uncompressedPointFromSpki(Uint8Array.from(Buffer.from(signer.publicKey, 'base64')));
+  const compact = derToCompactSignature(Uint8Array.from(toBuffer(signature)));
+  const point = uncompressedPointFromSpki(Uint8Array.from(toBuffer(signer.publicKey)));
 
-  return walletSignatureScVal(Buffer.from(point), Buffer.from(compact));
+  return walletSignatureScVal(
+    'device',
+    deviceSignatureScVal(Buffer.from(point), Buffer.from(compact)),
+  );
 }
 
-/** Matches the contract's `WalletSignature` struct, whose fields are ordered. */
-export function walletSignatureScVal(publicKey: Buffer, signature: Buffer): xdr.ScVal {
-  return xdr.ScVal.scvMap([
-    new xdr.ScMapEntry({
-      key: nativeToScVal('public_key', {type: 'symbol'}),
-      val: xdr.ScVal.scvBytes(publicKey),
+/**
+ * Asks a passkey to authorize this payload.
+ *
+ * The payload goes to the platform as the WebAuthn challenge, base64url without
+ * padding, because that is the form it will appear in inside the client data
+ * the contract reads back. Anything else and a genuine signature would be
+ * rejected for being about the wrong thing.
+ */
+export async function assertWalletAuthPayload(
+  signer: PasskeySigner,
+  payload: Buffer,
+  reason: string,
+): Promise<xdr.ScVal> {
+  if (payload.length !== 32) {
+    throw new Error('A wallet authorization payload is exactly 32 bytes');
+  }
+
+  const assertion = await signer.assert({challenge: base64Url(payload), reason});
+  const compact = derToCompactSignature(Uint8Array.from(toBuffer(assertion.signature)));
+  const point = uncompressedPointFromSpki(Uint8Array.from(toBuffer(signer.publicKey)));
+
+  return walletSignatureScVal(
+    'passkey',
+    passkeyAssertionScVal({
+      publicKey: Buffer.from(point),
+      signature: Buffer.from(compact),
+      authenticatorData: toBuffer(assertion.authenticatorData),
+      clientDataJSON: toBuffer(assertion.clientDataJSON),
     }),
-    new xdr.ScMapEntry({
-      key: nativeToScVal('signature', {type: 'symbol'}),
-      val: xdr.ScVal.scvBytes(signature),
-    }),
-  ]);
+  );
+}
+
+/** Base64url without padding, which is how WebAuthn carries a challenge. */
+export function base64Url(bytes: Buffer): string {
+  return bytes.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 export type WalletAuthEntrySignerOptions = {
-  signer: HardwareDigestSigner;
+  /** Whichever kind of signer this phone holds for this wallet. */
+  signer: HardwareDigestSigner | WalletSigner;
   networkPassphrase: string;
   /** Ledger after which the authorization can no longer be used. */
   validUntilLedger: number;
   reason?: string;
 };
+
+/** A bare digest signer is the device-key case, which is how this began. */
+function asWalletSigner(signer: HardwareDigestSigner | WalletSigner): WalletSigner {
+  return 'kind' in signer ? signer : {kind: 'device', signer};
+}
 
 /**
  * Authorizes Soroban entries for a smart wallet. The generated client hands its
@@ -60,6 +179,7 @@ export type WalletAuthEntrySignerOptions = {
  * resulting digest.
  */
 export function createWalletAuthorizeEntry(options: WalletAuthEntrySignerOptions) {
+  const wallet = asWalletSigner(options.signer);
   return async (
     entry: xdr.SorobanAuthorizationEntry,
     _signer: unknown,
@@ -69,11 +189,18 @@ export function createWalletAuthorizeEntry(options: WalletAuthEntrySignerOptions
     authorizeEntry(
       entry,
       async (_preimage, payload) => ({
-        signatureScVal: await signWalletAuthPayload(
-          options.signer,
-          Buffer.from(payload),
-          options.reason ?? 'Approve this payment',
-        ),
+        signatureScVal:
+          wallet.kind === 'passkey'
+            ? await assertWalletAuthPayload(
+                wallet.signer,
+                Buffer.from(payload),
+                options.reason ?? 'Approve this payment',
+              )
+            : await signWalletAuthPayload(
+                wallet.signer,
+                Buffer.from(payload),
+                options.reason ?? 'Approve this payment',
+              ),
       }),
       options.validUntilLedger ?? validUntilLedger,
       networkPassphrase ?? options.networkPassphrase,

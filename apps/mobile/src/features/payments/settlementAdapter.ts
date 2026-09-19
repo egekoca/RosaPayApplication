@@ -3,10 +3,11 @@ import {SecureSignerError, type NativeSecureSigner} from '@rosapay/secure-signer
 import {
   createStellarConfig,
   StellarRpcClient,
+  type SettlementFunding,
   type SettlementPipelineProgress,
   type StellarConfig,
 } from '@rosapay/stellar';
-import type {LocalReceipt} from '../../state/appStore';
+import type {LocalReceipt, PaymentTransport} from '../../state/appStore';
 import {useAppStore} from '../../state/appStore';
 import {useAppStore as useStore} from '../../state/appStore';
 import type {MerchantProfile} from '../merchant/merchantProfile';
@@ -33,12 +34,20 @@ export type MobileSettlementDependencies = {
   countersign?: Countersigner;
   baseUrl?: string;
   onProgress?: (progress: SettlementPipelineProgress) => void;
+  transport?: PaymentTransport;
+  /**
+   * How the customer is funding a request they cannot pay directly. The
+   * confirmation screen resolves and prices this before asking for a
+   * fingerprint, so by the time settlement runs the choice is already made.
+   */
+  funding?: SettlementFunding;
 };
 
 function toLocalReceipt(
   payload: SignedPaymentIntentV1,
   transactionHash: string,
   ledger?: number,
+  transport: PaymentTransport = 'unknown',
 ): LocalReceipt {
   return {
     intentId: payload.intent.intentId,
@@ -53,6 +62,7 @@ function toLocalReceipt(
     createdAt: new Date().toISOString(),
     ...(ledger === undefined ? {} : {ledger}),
     confirmedAt: new Date().toISOString(),
+    transport,
   };
 }
 
@@ -136,6 +146,7 @@ export async function settlePaymentIntent(
     relayerSigner,
     latestLedger,
     customer,
+    ...(dependencies.funding ? {funding: dependencies.funding} : {}),
     onProgress: progress => {
       dependencies.onProgress?.(progress);
       reporter.record(progress);
@@ -143,5 +154,5 @@ export async function settlePaymentIntent(
   });
   // The chain already settled; recording is best effort and must not fail it.
   await reporter.flush();
-  return toLocalReceipt(payload, receipt.transactionHash, receipt.ledger);
+  return toLocalReceipt(payload, receipt.transactionHash, receipt.ledger, dependencies.transport);
 }

@@ -61,7 +61,19 @@ export function WelcomeScreen({navigation}: Props) {
             testID="restore-wallet">
             <Text style={styles.restore}>{t('I already have a wallet')}</Text>
           </Pressable>
-          <Text style={styles.footnote}>{t('No password to remember. Twelve words are your wallet, and they are what lets you add money in lira.')}</Text>
+          {/*
+            For someone whose phone is gone. There is nothing for them to type —
+            the key that controlled the wallet never left that handset — so this
+            is a different road from restoring a phrase, and saying so is the
+            only way they will find it.
+          */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('RecoverWallet')}
+            testID="recover-wallet-entry">
+            <Text style={styles.restore}>{t('I lost my phone')}</Text>
+          </Pressable>
+          <Text style={styles.footnote}>{t('No password to remember. Your phone holds a key it cannot give away, and a passkey brings it back if the phone is lost.')}</Text>
         </View>
       </AnimatedContent>
     </Screen>

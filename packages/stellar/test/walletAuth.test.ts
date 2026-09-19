@@ -2,7 +2,15 @@ import {p256} from '@noble/curves/nist.js';
 import {Buffer} from 'buffer';
 import {describe, expect, it, vi} from 'vitest';
 import {Address, StrKey, scValToNative, xdr} from '@stellar/stellar-sdk';
-import {createWalletAuthorizeEntry, signWalletAuthPayload, walletSignatureScVal} from '../src/walletAuth';
+import {
+  assertWalletAuthPayload,
+  base64Url,
+  createWalletAuthorizeEntry,
+  deviceSignatureScVal,
+  passkeyAssertionScVal,
+  signWalletAuthPayload,
+} from '../src/walletAuth';
+import {createHash} from 'node:crypto';
 
 /** Platform keystores return ASN.1 DER, so the fake hardware signer does too. */
 function toDer(compact: Uint8Array): Uint8Array {
@@ -33,6 +41,41 @@ function hardwareSigner(secretKey: Uint8Array) {
   };
 }
 
+/**
+ * A passkey never signs the payload it is handed. It builds a client-data
+ * document around it and signs `authenticatorData || SHA-256(clientData)`, which
+ * is exactly what this fake reproduces so the test exercises the real shape.
+ */
+function passkeySigner(secretKey: Uint8Array) {
+  const publicKey = p256.getPublicKey(secretKey, false);
+  const authenticatorData = Buffer.concat([
+    Buffer.alloc(32, 0x49),
+    Buffer.from([0x01 | 0x04 | 0x08 | 0x10]),
+    Buffer.from([0, 0, 0, 1]),
+  ]);
+  return {
+    publicKey: Buffer.from(publicKey).toString('base64'),
+    assert: vi.fn(async ({challenge}: {challenge: string}) => {
+      const clientDataJSON = Buffer.from(
+        JSON.stringify({type: 'webauthn.get', challenge, origin: 'https://lumenade-pay.vercel.app'}),
+      );
+      const signed = Buffer.concat([
+        authenticatorData,
+        createHash('sha256').update(clientDataJSON).digest(),
+      ]);
+      const signature = p256.sign(createHash('sha256').update(signed).digest(), secretKey, {
+        prehash: false,
+        lowS: true,
+      });
+      return {
+        signature: Buffer.from(toDer(signature)).toString('base64'),
+        authenticatorData: authenticatorData.toString('base64'),
+        clientDataJSON: clientDataJSON.toString('base64'),
+      };
+    }),
+  };
+}
+
 describe('wallet authorization signing', () => {
   it('builds the signature value the wallet contract verifies', async () => {
     const secretKey = p256.utils.randomSecretKey();
@@ -40,7 +83,9 @@ describe('wallet authorization signing', () => {
     const payload = Buffer.alloc(32, 3);
 
     const value = await signWalletAuthPayload(signer, payload, 'Approve this payment');
-    const native = scValToNative(value) as {public_key: Buffer; signature: Buffer};
+    const [variant, inner] = scValToNative(value) as [string, {public_key: Buffer; signature: Buffer}];
+    expect(variant).toBe('Device');
+    const native = inner;
 
     expect(signer.signDigest).toHaveBeenCalledWith({digest: payload.toString('base64'), reason: 'Approve this payment'});
     expect(native.public_key).toHaveLength(65);
@@ -59,8 +104,74 @@ describe('wallet authorization signing', () => {
   });
 
   it('keeps the struct field order the contract expects', () => {
-    const value = walletSignatureScVal(Buffer.alloc(65, 4), Buffer.alloc(64, 5));
-    expect(Object.keys(scValToNative(value) as object)).toEqual(['public_key', 'signature']);
+    expect(
+      Object.keys(scValToNative(deviceSignatureScVal(Buffer.alloc(65, 4), Buffer.alloc(64, 5))) as object),
+    ).toEqual(['public_key', 'signature']);
+    expect(
+      Object.keys(
+        scValToNative(
+          passkeyAssertionScVal({
+            publicKey: Buffer.alloc(65, 4),
+            signature: Buffer.alloc(64, 5),
+            authenticatorData: Buffer.alloc(37, 6),
+            clientDataJSON: Buffer.from('{}'),
+          }),
+        ) as object,
+      ),
+    ).toEqual(['authenticator_data', 'client_data', 'public_key', 'signature']);
+  });
+
+  it('hands a passkey the payload as a base64url challenge', async () => {
+    const secretKey = p256.utils.randomSecretKey();
+    const signer = passkeySigner(secretKey);
+    const payload = Buffer.alloc(32, 7);
+
+    const value = await assertWalletAuthPayload(signer, payload, 'Approve this payment');
+    const [variant, assertion] = scValToNative(value) as [
+      string,
+      {public_key: Buffer; signature: Buffer; authenticator_data: Buffer; client_data: Buffer},
+    ];
+
+    expect(variant).toBe('Passkey');
+    // The challenge has to arrive in the form the contract will look for, or a
+    // genuine signature is rejected for being about the wrong thing.
+    expect(signer.assert).toHaveBeenCalledWith({
+      challenge: base64Url(payload),
+      reason: 'Approve this payment',
+    });
+    expect(JSON.parse(assertion.client_data.toString()).challenge).toBe(base64Url(payload));
+    expect(assertion.public_key).toHaveLength(65);
+    expect(assertion.signature).toHaveLength(64);
+
+    // And the signature really is over what WebAuthn says it is over.
+    const signed = Buffer.concat([
+      Buffer.from(assertion.authenticator_data),
+      createHash('sha256').update(Buffer.from(assertion.client_data)).digest(),
+    ]);
+    expect(
+      p256.verify(
+        Uint8Array.from(assertion.signature),
+        Uint8Array.from(createHash('sha256').update(signed).digest()),
+        Uint8Array.from(assertion.public_key),
+        {prehash: false},
+      ),
+    ).toBe(true);
+  });
+
+  it('base64url has no padding and none of the characters that need escaping', () => {
+    // 32 bytes encode to 43 characters, and the last one carries only the two
+    // leftover bits - which is why the all-ones case does not end in '_'.
+    // Cross-checked against Node's own `base64url` encoder.
+    expect(base64Url(Buffer.alloc(32, 0xff))).toBe(Buffer.alloc(32, 0xff).toString('base64url'));
+    expect(base64Url(Buffer.alloc(32, 0xff))).toBe('_'.repeat(42) + '8');
+    expect(base64Url(Buffer.alloc(32, 0))).toBe('A'.repeat(43));
+    expect(base64Url(Buffer.alloc(32, 0xff))).toHaveLength(43);
+  });
+
+  it('refuses a passkey payload that is not the 32-byte digest', async () => {
+    const signer = passkeySigner(p256.utils.randomSecretKey());
+    await expect(assertWalletAuthPayload(signer, Buffer.alloc(31), 'x')).rejects.toThrow('exactly 32 bytes');
+    expect(signer.assert).not.toHaveBeenCalled();
   });
 });
 

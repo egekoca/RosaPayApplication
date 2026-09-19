@@ -12,6 +12,7 @@ import {
   merchantPaymentsSchema,
   merchantRegistrationSchema,
   provisionedWalletSchema,
+  recoverableWalletSchema,
   settlementRecordSchema,
   storedIntentSchema,
 } from './schemas';
@@ -207,7 +208,10 @@ export class RosaPayApiClient {
   }
 
   /** Deploys and funds a smart wallet controlled by this device's key. */
-  provisionWallet(devicePublicKey: string) {
+  provisionWallet(
+    devicePublicKey: string,
+    recovery?: {publicKey: string; credentialId: string; kind: 'Device' | 'Passkey'},
+  ) {
     // Deploying and funding a wallet is two Testnet transactions, so this call
     // legitimately takes far longer than a normal request. It is not retried:
     // the endpoint allows three calls an hour, and spending that budget on a
@@ -218,9 +222,30 @@ export class RosaPayApiClient {
       {
         method: 'POST',
         headers: {'content-type': 'application/json'},
-        body: JSON.stringify({devicePublicKey}),
+        body: JSON.stringify({devicePublicKey, ...(recovery ? {recovery} : {})}),
       },
       90_000,
+    );
+  }
+
+  /**
+   * The wallet a passkey recovers, for a phone that has nothing else to go on.
+   *
+   * Both values it returns are already public on the ledger; this only saves the
+   * phone from scanning for them. Holding the credential is not what authorizes
+   * the recovery - the contract is, and it lets a recovery signer do exactly
+   * one thing.
+   */
+  findRecoverableWallet(credentialId: string) {
+    return this.request(
+      '/v1/wallets/recover',
+      recoverableWalletSchema,
+      {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({credentialId}),
+      },
+      this.timeoutMs,
     );
   }
 

@@ -18,7 +18,7 @@ jest.mock('../src/features/payments/testnetSettlement', () => ({
   fetchRelayerIdentity: jest.fn(async () => ({
     address: 'GA4AB7OZST6NKRYNAJBIYBPV5ZAOIE4QYNEBTMVS6QBAMNVSQ3XGC22H',
     networkPassphrase: 'Test SDF Network ; September 2015',
-    settlementContractId: 'CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO',
+    settlementContractId: 'CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO',
   })),
   createRemoteRelayerSigner: jest.fn(() => ({signTransaction: jest.fn()})),
 }));

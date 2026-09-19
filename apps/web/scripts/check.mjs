@@ -21,8 +21,11 @@ const requiredCopy = [
   'App Store',
   'Google Play',
   'Stellar Testnet',
-  'CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO',
-  'c8414bdabd495b987a45588a09dc95ef3b4a821c39f08696895ea3720025a777',
+  'CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO',
+  'b4a0cc9b8c7e3a3beb4b7a24c93517465ac2b731862451917c4ff24f2bcd1513',
+  // The page must keep saying the product is more than a QR reader; the
+  // integration and the fiat rail are what make that true.
+  'Soroswap',
 ];
 
 for (const value of requiredCopy) {

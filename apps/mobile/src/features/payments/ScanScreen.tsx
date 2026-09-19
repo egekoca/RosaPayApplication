@@ -9,7 +9,7 @@ import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {LumenadeMark} from '../../shared/LumenadeMark';
 import {useStellarHealth} from '../../shared/useStellarHealth';
-import {useAppStore} from '../../state/appStore';
+import {useAppStore, type PaymentTransport} from '../../state/appStore';
 import {requestCameraPermission} from './cameraPermission';
 import {readPaymentQr} from './readPaymentQr';
 import {useNfcReader} from './useNfc';
@@ -61,7 +61,7 @@ export function ScanScreen({navigation}: Props) {
   );
 
   const accept = useCallback(
-    (value: string) => {
+    (value: string, transport: PaymentTransport = 'qr') => {
       if (handled.current) return;
       const result = readPaymentQr(value, scanContext());
       if (!result.ok) {
@@ -70,7 +70,10 @@ export function ScanScreen({navigation}: Props) {
       }
       handled.current = true;
       setError(undefined);
-      navigation.navigate('Confirm', {payload: result.payload});
+      navigation.navigate(
+        'Confirm',
+        transport === 'qr' ? {payload: result.payload} : {payload: result.payload, transport},
+      );
     },
     [navigation, scanContext],
   );
@@ -78,7 +81,7 @@ export function ScanScreen({navigation}: Props) {
   // A tap and a scan carry the same signed request, so both go through the same
   // verification before anything is confirmed.
   const nfc = useNfcReader(!handled.current, {
-    onRequest: useCallback((payload: string) => accept(payload), [accept]),
+    onRequest: useCallback((payload: string) => accept(payload, 'nfc'), [accept]),
     onError: useCallback((message: string) => setError(message), []),
   });
 
@@ -88,7 +91,7 @@ export function ScanScreen({navigation}: Props) {
   // none exists — an invented merchant is not something to hand anyone.
   const scanOwnRequest = () => {
     if (!pendingRequest) return;
-    accept(encodePaymentQr(pendingRequest));
+    accept(encodePaymentQr(pendingRequest), 'qr');
   };
 
   return (

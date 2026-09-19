@@ -99,7 +99,7 @@
               <span data-rise style="--d: 200ms">Approve.</span>
               <em data-rise style="--d: 280ms">Settled.</em>
             </h1>
-            <p class="lede" data-rise style="--d: 380ms">Fast in-person payments. No addresses, no checkout.</p>
+            <p class="lede" data-rise style="--d: 380ms">Fast in-person payments. No addresses, no checkout. The QR is the last inch: underneath it, a merchant-signed request a Soroban contract enforces, lira in and out through a real anchor, and a bill that settles out of whatever you happen to be holding.</p>
 
             <div class="store-row" data-rise style="--d: 460ms" aria-label="Mobile app availability">
               <a class="store-button" href="https://apps.apple.com/us/search?term=Lumenade%20Pay" target="_blank" rel="noreferrer" aria-label="Lumenade Pay on the App Store, coming soon">
@@ -335,6 +335,25 @@
           </div>
         </div>
 
+        <div class="priced" data-rise>
+          <div class="priced-copy">
+            <p class="priced-tag">Paid out of what you hold</p>
+            <h3>The bill says USDC. Your wallet holds lumens. It still goes through.</h3>
+            <p class="priced-note">
+              The settlement contract buys the difference on Soroswap in the same transaction that pays
+              the merchant. One approval, one ledger entry: either they are paid the exact amount they
+              asked for, or nothing moved at all. The merchant's signature never mentions the swap, so
+              no route and no price can change who is paid, in what, or how much.
+            </p>
+          </div>
+          <div class="priced-convert" aria-hidden="true">
+            <p class="priced-from"><span>0.9465832</span><em>XLM</em></p>
+            <span class="priced-arrow"><svg class="i"><use href="#i-arrow" /></svg></span>
+            <p class="priced-to"><span>0.10</span><em>USDC</em></p>
+            <p class="priced-rate">one transaction, on Testnet</p>
+          </div>
+        </div>
+
         <ul class="swaps" data-rise>
           <li class="swaps-item">
             <p class="swaps-old"><svg class="i"><use href="#i-type" /></svg> 56-character address</p>
@@ -486,14 +505,15 @@
           <div class="proof-copy">
             <span class="section-index">Live proof</span>
             <h2 data-split>Not a mockup.<br /><em>On Testnet.</em></h2>
-            <a href="https://stellar.expert/explorer/testnet/tx/c8414bdabd495b987a45588a09dc95ef3b4a821c39f08696895ea3720025a777" target="_blank" rel="noreferrer">Inspect settled payment <svg class="i"><use href="#i-arrow" /></svg></a>
+            <p class="proof-note">A wallet holding no USDC paying a USDC bill: Soroswap swap and merchant payment in one transaction, authorized by one key in the phone's secure element, fee paid by the relayer.</p>
+            <a href="https://stellar.expert/explorer/testnet/tx/b4a0cc9b8c7e3a3beb4b7a24c93517465ac2b731862451917c4ff24f2bcd1513" target="_blank" rel="noreferrer">Inspect settled payment <svg class="i"><use href="#i-arrow" /></svg></a>
           </div>
           <div class="ledger-card">
             <p class="ledger-top"><span><i aria-hidden="true"></i> STELLAR TESTNET</span><b>SUCCESS</b></p>
-            <strong>12.50 <em>XLM</em></strong>
-            <dl><div><dt>Ledger</dt><dd><span data-count-to="4256843">4,256,843</span></dd></div><div><dt>Contract</dt><dd>CBX7…ZFAQO</dd></div></dl>
-            <a href="https://stellar.expert/explorer/testnet/contract/CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO" target="_blank" rel="noreferrer">View contract ↗</a>
-            <span class="hidden-evidence">CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO</span>
+            <strong>0.10 <em>USDC</em></strong>
+            <dl><div><dt>Paid with</dt><dd>0.9465832 XLM</dd></div><div><dt>Ledger</dt><dd><span data-count-to="4540761">4,540,761</span></dd></div><div><dt>Contract</dt><dd>CAV6…CSVO</dd></div></dl>
+            <a href="https://stellar.expert/explorer/testnet/contract/CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO" target="_blank" rel="noreferrer">View contract ↗</a>
+            <span class="hidden-evidence">CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO</span>
           </div>
         </div>
       </section>

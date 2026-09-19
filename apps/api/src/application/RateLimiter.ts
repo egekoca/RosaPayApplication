@@ -22,6 +22,12 @@ export class RateLimitError extends Error {
  * spend real funds — deploying a wallet and signing a settlement — from being
  * driven in a loop. A deployment behind more than one instance needs a shared
  * store; this bounds the damage a single instance can be made to do.
+ *
+ * What counts as a caller is the caller's decision, and it matters more than it
+ * looks. Keying on the network address makes a room of people behind one router
+ * into a single caller, so the fourth person to open the app is told to come
+ * back in an hour. The routes key on the authenticated device where there is
+ * one, and keep a much looser address-wide ceiling behind it.
  */
 export class RateLimiter {
   private readonly windows = new Map<string, {count: number; resetAt: number}>();

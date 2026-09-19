@@ -1,10 +1,18 @@
-import {Asset, BASE_FEE, Memo, Operation, TransactionBuilder, rpc} from '@stellar/stellar-sdk';
+import {Asset, BASE_FEE, Keypair, Memo, Operation, TransactionBuilder, rpc} from '@stellar/stellar-sdk';
 import {authenticate, discoverAnchor, type AnchorInfo, type SessionToken} from '@rosapay/anchor';
 import {createStellarConfig} from '@rosapay/stellar';
 import {logger} from '../../shared/logger';
 import {ensureTrustline} from './accountSetup';
 import {loadSigningKey} from './keyVault';
 import {keypairFromSecret} from './stellarKey';
+import {ensureBridgeAccount} from './bridgeAccount';
+import {
+  fundBridgeAccount,
+  sweepToSmartWallet,
+  type AnchorBridge,
+} from './anchorBridge';
+import {fundBridgeWithLumens} from './walletToBridge';
+import {useAppStore} from '../../state/appStore';
 
 /**
  * Buying USDC with Turkish lira, through the anchor's SEP-6 door.
@@ -44,6 +52,58 @@ export class LiraRampError extends Error {
  * a bank that can be told to pretend money arrived.
  */
 export const IS_SANDBOX_ANCHOR = LIRA_ANCHOR_HOME_DOMAIN.includes('mock');
+
+/**
+ * The account the anchor deals with, which is not always the account holding
+ * the money.
+ *
+ * A recovery-phrase wallet is both: it signs the SEP-10 challenge and it is
+ * where the USDC lands. A smart wallet can be neither - the anchor
+ * authenticates accounts rather than contracts, and refuses a contract address
+ * as a destination - so it is fronted by a bridge, and the money is moved
+ * across in a second step. See `anchorBridge.ts` for the three tests that
+ * established this.
+ */
+type RampAccount =
+  | {kind: 'classic'; keypair: Keypair; address: string}
+  | {kind: 'bridged'; bridge: AnchorBridge; address: string; smartWalletContractId: string};
+
+async function resolveRampAccount(reason: string): Promise<RampAccount> {
+  const {smartWallet} = useAppStore.getState();
+  if (smartWallet) {
+    const bridge = await ensureBridgeAccount();
+    // The wallet pays for its own bridge. Friendbot throttles by address, so a
+    // room of people on one network would otherwise be told the ramp is
+    // unavailable after the first few.
+    await fundBridgeAccount(bridge, createStellarConfig('testnet'), amount =>
+      fundBridgeWithLumens({
+        bridge,
+        smartWalletContractId: smartWallet.contractId,
+        amountStroops: amount,
+      }),
+    );
+    return {
+      kind: 'bridged',
+      bridge,
+      address: bridge.address,
+      smartWalletContractId: smartWallet.contractId,
+    };
+  }
+  const keypair = keypairFromSecret(await loadSigningKey(reason));
+  return {kind: 'classic', keypair, address: keypair.publicKey()};
+}
+
+function challengeSigner(account: RampAccount) {
+  const keypair = account.kind === 'classic' ? account.keypair : account.bridge.keypair;
+  return {
+    accountId: account.address,
+    signTransaction: async (xdr: string, {networkPassphrase}: {networkPassphrase: string}) => {
+      const challenge = TransactionBuilder.fromXDR(xdr, networkPassphrase);
+      challenge.sign(keypair);
+      return challenge.toXDR();
+    },
+  };
+}
 
 /**
  * Refuses an amount before anything else happens.
@@ -90,6 +150,12 @@ export type StartedLiraDeposit = {
   transferServer: string;
   /** Sandbox only: stands in for the customer's bank actually sending the money. */
   simulateUrl: string;
+  /**
+   * Present when the anchor is paying a bridge rather than the wallet itself,
+   * which is every smart-wallet deposit. The money is not the customer's to
+   * spend until it has been moved across.
+   */
+  sweep?: {bridge: AnchorBridge; smartWalletContractId: string};
 };
 
 export type LiraDepositStatus = {
@@ -100,6 +166,18 @@ export type LiraDepositStatus = {
   amountIn?: string;
   amountOut?: string;
   stellarTransactionId?: string;
+  /**
+   * Set when the anchor could not pay the wallet directly and left the money in
+   * a claimable balance instead. This anchor advertises
+   * `features.claimable_balances: true` and does exactly that when the
+   * destination has no trustline for the asset.
+   *
+   * It matters because the anchor still calls the transfer `completed`. Without
+   * reading this the app would report a finished deposit while the balance shows
+   * nothing, which is the one thing this product refuses to do: money that has
+   * not arrived must never look like money that has.
+   */
+  claimableBalanceId?: string;
 };
 
 export type LiraQuote = {
@@ -193,10 +271,8 @@ export async function startLiraDeposit(input: {
     throw new LiraRampError('UNSUPPORTED_ACCOUNT', 'The lira anchor cannot verify this wallet.');
   }
 
-  const keypair = keypairFromSecret(
-    await loadSigningKey(input.reason ?? `Connect to ${anchor.homeDomain}`),
-  );
-  if (keypair.publicKey() !== input.address) {
+  const account = await resolveRampAccount(input.reason ?? `Connect to ${anchor.homeDomain}`);
+  if (account.kind === 'classic' && account.address !== input.address) {
     throw new LiraRampError(
       'UNSUPPORTED_ACCOUNT',
       'The key on this phone does not match the wallet it shows.',
@@ -204,8 +280,11 @@ export async function startLiraDeposit(input: {
   }
 
   const config = createStellarConfig('testnet');
+  // Whichever account the anchor pays is a classic one, and a classic account
+  // cannot hold USDC without a line open for it.
+  const receiving = account.kind === 'classic' ? account.keypair : account.bridge.keypair;
   try {
-    await ensureTrustline(keypair, {code: 'USDC', issuer: usdc.issuer}, config);
+    await ensureTrustline(receiving, {code: 'USDC', issuer: usdc.issuer}, config);
   } catch (error) {
     throw new LiraRampError(
       'TRUSTLINE_FAILED',
@@ -213,38 +292,73 @@ export async function startLiraDeposit(input: {
     );
   }
 
-  const session = await authenticate(anchor, {
-    accountId: keypair.publicKey(),
-    signTransaction: async (xdr, {networkPassphrase}) => {
-      const challenge = TransactionBuilder.fromXDR(xdr, networkPassphrase);
-      challenge.sign(keypair);
-      return challenge.toXDR();
-    },
-  });
+  const session = await authenticate(anchor, challengeSigner(account));
 
   const url = new URL(`${transferServer}/deposit-exchange`);
   url.searchParams.set('asset_code', 'USDC');
   url.searchParams.set('source_asset', 'iso4217:TRY');
-  url.searchParams.set('destination_asset', `stellar:USDC:${usdc.issuer}`);
   url.searchParams.set('amount', input.amountTry);
-  url.searchParams.set('account', keypair.publicKey());
+  url.searchParams.set('account', account.address);
 
-  const opened = await readJson(url.toString(), {
-    headers: {Authorization: `Bearer ${session.token}`},
-  });
+  const opened = await openExchangeTransfer(
+    url,
+    'destination_asset',
+    `stellar:USDC:${usdc.issuer}`,
+    'USDC',
+    session,
+  );
   const transactionId = String(opened.id ?? '');
   if (!transactionId) {
     throw new LiraRampError('REFUSED', 'The anchor opened no deposit for this wallet.');
   }
 
-  logger.info('lira_deposit_opened', {transactionId, amountTry: input.amountTry});
+  logger.info('lira_deposit_opened', {
+    transactionId,
+    amountTry: input.amountTry,
+    bridged: account.kind === 'bridged',
+  });
   return {
     transactionId,
     instructions: readInstructions(opened),
     session,
     transferServer,
     simulateUrl: `${transferServer}/tx/${transactionId}/simulate-bank-transfer`,
+    ...(account.kind === 'bridged'
+      ? {
+          // The money lands on the bridge; `settleLiraDeposit` moves it the rest
+          // of the way. Carrying that here keeps the screen from having to know
+          // which kind of account it is looking at.
+          sweep: {bridge: account.bridge, smartWalletContractId: account.smartWalletContractId},
+        }
+      : {}),
   };
+}
+
+/**
+ * Finishes a deposit that the anchor has already paid.
+ *
+ * For a recovery-phrase wallet the anchor paid it directly and there is nothing
+ * left to do. For a smart wallet the money is sitting on the bridge, and this is
+ * the step that moves it into the wallet the customer actually sees. Until it
+ * runs, the deposit is not settled however complete the anchor calls it.
+ */
+export async function settleLiraDeposit(
+  started: StartedLiraDeposit,
+): Promise<{movedStroops: bigint; transactionHash: string | null}> {
+  if (!started.sweep) return {movedStroops: 0n, transactionHash: null};
+  const anchor = await discover();
+  const usdc = anchor.currencies.find(currency => currency.code === 'USDC');
+  if (!usdc?.issuer) {
+    throw new LiraRampError('ANCHOR_UNAVAILABLE', 'The anchor lists no USDC issuer right now.');
+  }
+  const swept = await sweepToSmartWallet({
+    bridge: started.sweep.bridge,
+    smartWalletContractId: started.sweep.smartWalletContractId,
+    assetCode: 'USDC',
+    assetIssuer: usdc.issuer,
+    config: createStellarConfig('testnet'),
+  });
+  return {movedStroops: swept.amount, transactionHash: swept.transactionHash};
 }
 
 function readInstructions(opened: Record<string, unknown>): BankInstructions {
@@ -268,6 +382,40 @@ function readInstructions(opened: Record<string, unknown>): BankInstructions {
   };
 }
 
+
+/**
+ * Opens a SEP-6 exchange transfer, tolerating an anchor that will not take the
+ * asset identifier it publishes.
+ *
+ * SEP-6 says `source_asset` and `destination_asset` are SEP-38 identifiers, and
+ * this anchor's own `/sep38/info` advertises `stellar:USDC:<issuer>`. As of
+ * 2026-09-07 its `/sep6/deposit-exchange` and `/sep6/withdraw-exchange` refuse
+ * that exact string and accept only a bare `USDC`, which is a regression on
+ * their side and has been reported.
+ *
+ * The spec-correct value is still what goes first, so nothing here has to
+ * change when they fix it. The bare code is a second attempt, made only for
+ * this one error, so a genuine "unsupported asset" still surfaces as one.
+ */
+async function openExchangeTransfer(
+  url: URL,
+  assetParam: 'source_asset' | 'destination_asset',
+  qualified: string,
+  bareCode: string,
+  session: SessionToken,
+): Promise<Record<string, unknown>> {
+  url.searchParams.set(assetParam, qualified);
+  try {
+    return await readJson(url.toString(), {headers: {Authorization: `Bearer ${session.token}`}});
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (!/unsupported (source|destination)_asset/i.test(message)) throw error;
+    logger.info('anchor_rejected_sep38_asset_identifier', {assetParam, qualified});
+    url.searchParams.set(assetParam, bareCode);
+    return readJson(url.toString(), {headers: {Authorization: `Bearer ${session.token}`}});
+  }
+}
+
 /** Where a transfer has got to, either direction. Terminal states stop polling. */
 export async function readLiraTransfer(started: {
   transferServer: string;
@@ -281,10 +429,16 @@ export async function readLiraTransfer(started: {
   });
   const transaction = (body.transaction ?? body) as Record<string, unknown>;
   const status = String(transaction.status ?? 'unknown');
+  const claimableBalanceId = transaction.claimable_balance_id
+    ? String(transaction.claimable_balance_id)
+    : undefined;
   return {
     status,
-    settled: status === 'completed',
+    // A completed transfer whose money is sitting in a claimable balance has
+    // not reached the wallet, so it is not settled until it is claimed.
+    settled: status === 'completed' && !claimableBalanceId,
     failed: status === 'error' || status === 'refunded',
+    ...(claimableBalanceId ? {claimableBalanceId} : {}),
     ...(transaction.amount_in ? {amountIn: String(transaction.amount_in)} : {}),
     ...(transaction.amount_out ? {amountOut: String(transaction.amount_out)} : {}),
     ...(transaction.stellar_transaction_id
@@ -368,6 +522,17 @@ export async function startLiraWithdrawal(input: {
   amountUsdc: string;
   available?: string;
   reason?: string;
+  /**
+   * Moves the money out of a smart wallet and onto the bridge, which only the
+   * wallet's own signer can authorize. It is passed in rather than reached for
+   * so this module stays out of the payment-authorization business.
+   */
+  moveToBridge: (input: {
+    bridge: AnchorBridge;
+    smartWalletContractId: string;
+    assetIssuer: string;
+    amountUsdc: string;
+  }) => Promise<void>;
 }): Promise<StartedLiraWithdrawal> {
   assertPayableAmount(input.amountUsdc, {
     unit: 'USDC',
@@ -380,34 +545,30 @@ export async function startLiraWithdrawal(input: {
     throw new LiraRampError('ANCHOR_UNAVAILABLE', 'The lira anchor is not paying out right now.');
   }
 
-  const keypair = keypairFromSecret(
-    await loadSigningKey(input.reason ?? `Cash out ${input.amountUsdc} USDC`),
+  const rampAccount = await resolveRampAccount(
+    input.reason ?? `Cash out ${input.amountUsdc} USDC`,
   );
-  if (keypair.publicKey() !== input.address) {
+  if (rampAccount.kind === 'classic' && rampAccount.address !== input.address) {
     throw new LiraRampError(
       'UNSUPPORTED_ACCOUNT',
       'The key on this phone does not match the wallet it shows.',
     );
   }
 
-  const session = await authenticate(anchor, {
-    accountId: keypair.publicKey(),
-    signTransaction: async (xdr, {networkPassphrase}) => {
-      const challenge = TransactionBuilder.fromXDR(xdr, networkPassphrase);
-      challenge.sign(keypair);
-      return challenge.toXDR();
-    },
-  });
+  const session = await authenticate(anchor, challengeSigner(rampAccount));
 
   const url = new URL(`${transferServer}/withdraw-exchange`);
   url.searchParams.set('asset_code', 'USDC');
-  url.searchParams.set('source_asset', `stellar:USDC:${usdc.issuer}`);
   url.searchParams.set('destination_asset', 'iso4217:TRY');
   url.searchParams.set('amount', input.amountUsdc);
 
-  const opened = await readJson(url.toString(), {
-    headers: {Authorization: `Bearer ${session.token}`},
-  });
+  const opened = await openExchangeTransfer(
+    url,
+    'source_asset',
+    `stellar:USDC:${usdc.issuer}`,
+    'USDC',
+    session,
+  );
   const treasury = String(opened.account_id ?? '');
   const transactionId = String(opened.id ?? '');
   if (!treasury || !transactionId) {
@@ -417,6 +578,22 @@ export async function startLiraWithdrawal(input: {
 
   const config = createStellarConfig('testnet');
   const server = new rpc.Server(config.rpcUrl);
+
+  // The anchor is always paid by a classic account, whichever wallet the money
+  // came from. A smart wallet cannot do it: a Soroban transaction cannot carry
+  // the memo that routes the withdrawal, and its transfer would not appear in
+  // the payments stream the anchor watches. So the wallet funds the bridge
+  // first, and the bridge makes the payment.
+  if (rampAccount.kind === 'bridged') {
+    await input.moveToBridge({
+      bridge: rampAccount.bridge,
+      smartWalletContractId: rampAccount.smartWalletContractId,
+      assetIssuer: usdc.issuer,
+      amountUsdc: input.amountUsdc,
+    });
+  }
+
+  const keypair = rampAccount.kind === 'classic' ? rampAccount.keypair : rampAccount.bridge.keypair;
   const account = await server.getAccount(keypair.publicKey());
   const builder = new TransactionBuilder(account, {
     fee: BASE_FEE,
@@ -477,4 +654,56 @@ function readBankAccount(extra: Record<string, unknown>): {bankAccount?: string}
   const message = typeof extra.message === 'string' ? extra.message : '';
   const iban = /TR\d{24}/.exec(message)?.[0];
   return iban ? {bankAccount: iban} : {};
+}
+
+/**
+ * Takes money the anchor left in a claimable balance and puts it in the wallet.
+ *
+ * The anchor does this when the destination has no trustline for the asset, and
+ * still calls the transfer complete. The money is genuinely the customer's -
+ * it just needs one more transaction, which only they can send. Opening the
+ * trustline first is part of the same job: claiming into an account that still
+ * cannot hold the asset would fail for the same reason the payment did.
+ */
+export async function claimLiraDeposit(input: {
+  claimableBalanceId: string;
+  config?: ReturnType<typeof createStellarConfig>;
+}): Promise<{transactionHash: string}> {
+  const config = input.config ?? createStellarConfig('testnet');
+  // The issuer comes from the anchor's own stellar.toml rather than a constant.
+  // Its own migration guide is explicit about this: the issuer changes between
+  // networks, and a hardcoded one is a bug that only shows up on mainnet.
+  const anchor = await discover();
+  const usdc = anchor.currencies.find(currency => currency.code === 'USDC');
+  if (!usdc?.issuer) {
+    throw new LiraRampError('ANCHOR_UNAVAILABLE', 'The anchor lists no USDC issuer right now.');
+  }
+  // The prompt names what it is for: this is the customer's own money being
+  // moved into their own wallet, not a payment to anyone.
+  const secret = await loadSigningKey('Claim the deposit into your wallet');
+  const keypair = keypairFromSecret(secret);
+  await ensureTrustline(keypair, {code: 'USDC', issuer: usdc.issuer}, config);
+
+  const server = new rpc.Server(config.rpcUrl);
+  const account = await server.getAccount(keypair.publicKey());
+  const transaction = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: config.networkPassphrase,
+  })
+    .addOperation(Operation.claimClaimableBalance({balanceId: input.claimableBalanceId}))
+    .setTimeout(60)
+    .build();
+  transaction.sign(keypair);
+
+  const sent = await server.sendTransaction(transaction);
+  if (sent.status === 'ERROR') {
+    logger.error('claimable_balance_claim_failed', {status: sent.status});
+    throw new LiraRampError('REFUSED', 'The deposit could not be claimed into this wallet.');
+  }
+  const confirmed = await server.pollTransaction(sent.hash, {attempts: 20});
+  if (confirmed.status !== 'SUCCESS') {
+    throw new LiraRampError('REFUSED', 'The deposit could not be claimed into this wallet.');
+  }
+  logger.info('claimable_balance_claimed', {transactionHash: sent.hash});
+  return {transactionHash: sent.hash};
 }

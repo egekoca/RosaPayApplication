@@ -1127,7 +1127,9 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .proof-copy, .ledger-card { position: relative; z-index: 2; }
 .proof-copy .section-index { color: var(--ink); }
 .proof-copy h2 em { border-bottom: 6px solid var(--ink); color: var(--ink); }
-.proof-copy > a { align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.3); display: flex; font-size: 11px; font-weight: 700; justify-content: space-between; letter-spacing: 0.04em; margin-top: 42px; padding-bottom: 12px; text-transform: uppercase; transition: gap 300ms var(--ease); }
+/* Sits between the headline and the link, so the card says what it is proof of. */
+.proof-note { font-size: 15px; line-height: 1.5; margin-top: 26px; max-width: 44ch; opacity: 0.78; }
+.proof-copy > a { align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.3); display: flex; font-size: 11px; font-weight: 700; justify-content: space-between; letter-spacing: 0.04em; margin-top: 28px; padding-bottom: 12px; text-transform: uppercase; transition: gap 300ms var(--ease); }
 .proof-copy > a .i { font-size: 17px; }
 .proof-copy > a:hover { border-bottom-color: var(--ink); }
 .ledger-card { background: var(--ink); border: 1px solid var(--ink); border-radius: 22px; color: var(--paper); padding: 26px; transform: rotate(2deg); transition: transform 500ms var(--ease); }

@@ -12,6 +12,21 @@ const mockSigner = {
 
 jest.mock('../src/native/nativeSigner', () => ({createNativeRosaPaySigner: () => mockSigner}));
 
+const mockPasskey = {
+  passkeysAvailable: jest.fn(),
+  createPasskey: jest.fn(),
+};
+jest.mock('../src/features/wallet/passkey', () => ({
+  ...jest.requireActual('../src/features/wallet/passkey'),
+  passkeysAvailable: (...args: unknown[]) => mockPasskey.passkeysAvailable(...args),
+  createPasskey: (...args: unknown[]) => mockPasskey.createPasskey(...args),
+}));
+
+const recoveryPasskey = {
+  credentialId: 'Y3JlZA',
+  publicKey: Buffer.concat([Buffer.from([4]), Buffer.alloc(64, 5)]).toString('base64'),
+};
+
 function api(overrides: {authDisabled?: boolean} = {}) {
   return {
     createDeviceChallenge: jest.fn(async () => {
@@ -42,6 +57,8 @@ describe('mobile device session bootstrap', () => {
     mockSigner.signDigest.mockReset().mockResolvedValue({
       signerId: 'device', signature: 'signed', signedAt: '2026-09-03T12:00:00.000Z',
     });
+    mockPasskey.passkeysAvailable.mockReset().mockResolvedValue(true);
+    mockPasskey.createPasskey.mockReset().mockResolvedValue(recoveryPasskey);
   });
 
   it('authenticates the hardware key before asking the API to provision its wallet', async () => {
@@ -56,7 +73,36 @@ describe('mobile device session bootstrap', () => {
     expect(useAppStore.getState().apiSession).toMatchObject({
       token: 't'.repeat(64), publicSigner: devicePublicKey,
     });
-    expect(client.provisionWallet).toHaveBeenCalledWith(devicePublicKey);
+    // A wallet is created with a recovery signer or it is one that dies with
+    // the phone, so the passkey travels with the provisioning call.
+    expect(client.provisionWallet).toHaveBeenCalledWith(devicePublicKey, {
+      publicKey: recoveryPasskey.publicKey,
+      credentialId: recoveryPasskey.credentialId,
+      kind: 'Passkey',
+    });
+    expect(useAppStore.getState().smartWallet).toMatchObject({recovery: recoveryPasskey});
+  });
+
+  it('still creates a wallet on a phone that cannot hold a passkey, and says so', async () => {
+    mockPasskey.passkeysAvailable.mockResolvedValue(false);
+    const client = api();
+    await ensureSmartWallet(client as never);
+
+    expect(mockPasskey.createPasskey).not.toHaveBeenCalled();
+    expect(client.provisionWallet).toHaveBeenCalledWith(devicePublicKey, undefined);
+    // The absence is recorded rather than implied: this wallet has no way back.
+    expect(useAppStore.getState().smartWallet?.recovery).toBeUndefined();
+  });
+
+  it('carries on when the customer dismisses the passkey prompt', async () => {
+    mockPasskey.createPasskey.mockRejectedValue(
+      Object.assign(new Error('dismissed'), {name: 'PasskeyError', code: 'USER_CANCELLED'}),
+    );
+    const client = api();
+    await ensureSmartWallet(client as never);
+
+    expect(client.provisionWallet).toHaveBeenCalledWith(devicePublicKey, undefined);
+    expect(useAppStore.getState().smartWallet?.contractId).toBe(contractId);
   });
 
   it('reuses a fresh session without another biometric prompt', async () => {

@@ -9,4 +9,5 @@ export * from './settlementClient';
 export * from './settlementEnvelope';
 export * from './settlementPipeline';
 export * from './settlementService';
+export * from './swapFunding';
 export * from './walletAuth';

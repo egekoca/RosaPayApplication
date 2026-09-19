@@ -1,0 +1,18 @@
+{
+  "network": "testnet",
+  "walletContractId": "CCGE4GOO5LP4CTUZLJ2RWQ3BS7UEAIB3QQO63MJJVEKCRVOVDEOFTEPB",
+  "wasmHash": "2c4d82af6757bb990ea1d8d69b8a9561aaf29f5279b34ffcb80dadd21d577165",
+  "lostDeviceKey": "04caf2a59f75a39c22316af321df6e81b921559e8e4a78bda3916f1649d909686aaf09033447b580c2b6352eeea4dc7990edcb72466f63924243bb80dbea261db2",
+  "recoveryPasskey": "04893fd8ccad1b88daae0b8c10b75431befaae4ae044a5d48e14d6f0a1686ba39a0ecdeec0a670c76241ceea9ab36378c22e1ebfde89e55cb92b4c34a24b1fd1ce",
+  "replacementDeviceKey": "04f3ba387846e02eab62a65b1ac31c8985deb794fc920f550a33b6edcba451851920a911d873429de7b761d649267a814829f2b537183980433bf94286705919d0",
+  "rotationTransactionHash": "2ed61aba82b4331ae0992d74d335deff6b61e7ce7abea6dc0009382200ee599d",
+  "relayer": "GA2UEYK57SKOEVWJDEULRMAR2ZHET4O3U6BODTGXWUVNSXDVUIUHHIL3",
+  "ranAt": "2026-09-07T08:25:10.402Z",
+  "checks": [
+    "wallet-created-with-a-recovery-passkey",
+    "the-passkey-rotated-the-lost-signer-out",
+    "the-new-phone-can-authorize-the-wallet",
+    "the-lost-phone-can-no-longer-authorize",
+    "the-recovery-passkey-still-cannot-do-anything-else"
+  ]
+}

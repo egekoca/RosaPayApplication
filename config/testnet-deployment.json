@@ -17,21 +17,31 @@
       "checkedAt": "2026-08-25"
     }
   },
-  "settlementContractId": "CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO",
+  "settlementContractId": "CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO",
   "nativeAssetContractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
   "adminAddress": "GA4AB7OZST6NKRYNAJBIYBPV5ZAOIE4QYNEBTMVS6QBAMNVSQ3XGC22H",
-  "wasmHash": "22b1d0638f6128407579e3993386fde7b0a2ed13494cccb49a3c080ddfe0ac7e",
-  "wasmUploadTransactionHash": "78fa16f61e74e50db501436cbe3db1f0f2dc0f3810329e09c4962da53c51ee51",
-  "deploymentTransactionHash": "0aea8df741e0bbb8fb928f609aa5e892b8b0a7ece61ea9b6f26552def81ca85f",
-  "deploymentLedger": 4256774,
-  "deployedAt": "2026-08-21T09:59:56Z",
+  "wasmHash": "b7fa54ae6f14cf76854977e4ba9d8e6da0957c4a5cb211a9c2f34d0f8ef85a4b",
+  "wasmUploadTransactionHash": "1fc729ceda6cef4e6428e8a4743ff837f1be17d9b2e203f3f18729306935d1c7",
+  "deploymentTransactionHash": "528664cba30b44a5d1d37208f097765e47e74c521a9feefba77ec16e315a2ba7",
+  "deploymentLedger": 4540659,
+  "deployedAt": "2026-09-06T20:34:42Z",
   "registeredAssets": [
     {
       "code": "USDC",
       "issuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
       "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-      "registeredAt": "2026-08-28T22:22:27.465Z",
-      "transactionHash": "5deaab81b43de06d0a467149b08553c19b1a5debe2d17c345cbad9b45f9f2e47"
+      "registeredAt": "2026-09-06T20:35:12Z",
+      "transactionHash": "8b806ee1171587b792b0b4d24aede774c4778f275b2bb11c3c27c237e286484b"
     }
-  ]
+  ],
+  "previousSettlementContractId": "CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO",
+  "swap": {
+    "protocol": "Soroswap",
+    "routerContractId": "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD",
+    "factoryContractId": "CDP3HMUH6SMS3S7NPGNDJLULCOXXEPSHY4JKUKMBNQMATHDHWXRRJTBY",
+    "addressSource": "https://raw.githubusercontent.com/soroswap/core/main/public/testnet.contracts.json",
+    "registeredAt": "2026-09-06T20:35:07Z",
+    "transactionHash": "cab972eba8641239c8d3001fa43069171ec65d473166717150f23a1c952c0606"
+  },
+  "apiBaseUrl": ""
 }

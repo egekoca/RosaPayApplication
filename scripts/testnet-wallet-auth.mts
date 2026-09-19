@@ -75,10 +75,13 @@ function throw_if(condition: boolean, message: string): void {
 }
 
 function walletSignature(publicKey: Buffer, signature: Buffer): xdr.ScVal {
-  // Matches the contract's `WalletSignature` struct, whose fields are ordered.
-  return xdr.ScVal.scvMap([
-    new xdr.ScMapEntry({key: nativeToScVal('public_key', {type: 'symbol'}), val: xdr.ScVal.scvBytes(publicKey)}),
-    new xdr.ScMapEntry({key: nativeToScVal('signature', {type: 'symbol'}), val: xdr.ScVal.scvBytes(signature)}),
+  // `WalletSignature::Device`, an enum variant carrying the ordered struct.
+  return xdr.ScVal.scvVec([
+    nativeToScVal('Device', {type: 'symbol'}),
+    xdr.ScVal.scvMap([
+      new xdr.ScMapEntry({key: nativeToScVal('public_key', {type: 'symbol'}), val: xdr.ScVal.scvBytes(publicKey)}),
+      new xdr.ScMapEntry({key: nativeToScVal('signature', {type: 'symbol'}), val: xdr.ScVal.scvBytes(signature)}),
+    ]),
   ]);
 }
 
@@ -93,7 +96,14 @@ async function main() {
 
   const wallet = new Contract(deployment.walletContractId);
   const source = await server.getAccount(relayer.publicKey());
-  const call = wallet.call('add_signer', xdr.ScVal.scvBytes(addedSigner));
+  // `SignerKind` is a unit-variant enum, which XDR carries as a one-element
+  // vector. The added key is a device key here; a passkey would say so and be
+  // checked by the WebAuthn rules instead.
+  const call = wallet.call(
+    'add_signer',
+    xdr.ScVal.scvBytes(addedSigner),
+    xdr.ScVal.scvVec([nativeToScVal('Device', {type: 'symbol'})]),
+  );
   const unsigned = new TransactionBuilder(source, {fee: '2000000', networkPassphrase: Networks.TESTNET})
     .addOperation(call)
     .setTimeout(60)
@@ -162,6 +172,7 @@ async function main() {
     transactionHash: sent.hash,
     ledger: confirmed.ledger,
     authorizedAt: new Date().toISOString(),
+    recoveryPublicKey: deployment.recoveryPublicKey ?? null,
     checks: ['p256-check-auth', 'relayer-paid-fee', 'signer-added'],
   };
   writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);

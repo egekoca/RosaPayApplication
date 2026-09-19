@@ -67,6 +67,47 @@ A small always-on host — Fly.io, Railway, Render, or a VM — runs both proces
 as they are written. Deploy the API and the worker separately so the worker can
 restart without interrupting payments.
 
+The repository includes a Docker image and a Render blueprint. The blueprint
+uses Render's free web service for the API and a separately billed worker
+service, because Render does not provide a free always-on background worker.
+For a small TestFlight group this is still the smallest production-shaped
+deployment: use a free Supabase or Neon PostgreSQL database, keep the worker on
+the provider's smallest plan, and move it to another host later without code
+changes. The worker must not be replaced with a sleeping cron job: payment
+confirmation and expiry need a continuous loop.
+
+### Render + Supabase/Neon
+
+1. Create a PostgreSQL project and copy its TLS connection string. Use the
+   provider's pooled connection for the API and a session/direct connection for
+   the worker when both are available.
+2. Create a Render Blueprint from this repository. `render.yaml` creates
+   `rosapay-api` and `rosapay-worker`; enter the same database URL and the
+   Testnet secrets in both services where requested.
+3. Before deploying, validate the environment without printing any secret:
+
+   ```sh
+   npm run deploy:check
+   ```
+
+   Every check must be `true`. The command intentionally rejects a missing
+   session secret, in-memory storage, cleartext database connections and a
+   loopback API host.
+4. Run the migration once from the API service shell:
+
+   ```sh
+   npm run db:migrate --workspace @rosapay/api
+   ```
+
+   A second run must report no pending migrations.
+5. Copy the API service's HTTPS URL (for example,
+   `https://rosapay-api.onrender.com`) into the mobile app's Profile →
+   Developer settings before installing the TestFlight build. The URL is
+   persisted on the device and can be changed without rebuilding the app.
+
+The API health response must report `storage: "postgres"`. If it reports
+`"memory"`, stop: that instance would lose payment state on restart.
+
 ## Configuring a machine
 
 The API, the worker and the Testnet proof scripts all read the same `.env` at

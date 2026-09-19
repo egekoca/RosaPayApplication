@@ -1,0 +1,39 @@
+{
+  "network": "testnet",
+  "anchor": "tr-mock-anchor.fly.dev",
+  "smartWallet": "CBNMQLAGSXWFFAMIJN5S54TE46BHAA4SY4DVY2RTZI2IJQW3ZVKTBBXU",
+  "bridge": "GDVJ5FT74XM6TKQDIUN2K56C36AVCV5EWIQU4W3PHK2MA7VPAQ3JI346",
+  "relayer": "GA2UEYK57SKOEVWJDEULRMAR2ZHET4O3U6BODTGXWUVNSXDVUIUHHIL3",
+  "onRamp": {
+    "soldTry": "300",
+    "usdcToBridge": "61632890",
+    "anchorTransaction": "4dd6aade60769b9f6c9e8002f37a83c63e158251868e0519730a749fcc6bc25c",
+    "sweepTransaction": "6daa0ddc49e0fadeb7970addc633fdebc05b67e377bd234ec8a56915dcaa6369",
+    "smartWalletBefore": "32810698",
+    "smartWalletAfter": "94443588"
+  },
+  "offRamp": {
+    "soldUsdc": "3.0816445",
+    "memo": "763881407280",
+    "paymentHash": "6a4adbe3788c9a45ff388bde199e739cbfcf334ce035ef0819462fcc2609129d",
+    "receivedTry": "148.50",
+    "status": "completed"
+  },
+  "whyABridge": [
+    "SEP-10 authenticates an account; a contract cannot sign a challenge and this anchor publishes no SEP-45",
+    "every SEP-6 door refuses a contract address: 'account' must be a Stellar G... or M... address",
+    "Soroban transactions cannot carry a memo, and a SAC transfer reaches Horizon as invoke_host_function rather than as a payment"
+  ],
+  "ranAt": "2026-09-07T16:25:09.231Z",
+  "checks": [
+    "bridge-created-and-funded",
+    "the-bridge-answered-sep-10",
+    "the-anchor-paid-the-bridge",
+    "the-usdc-landed-on-a-classic-account",
+    "the-smart-wallet-received-it",
+    "the-bridge-kept-nothing",
+    "the-wallet-funded-the-bridge",
+    "the-anchor-paid-out-lira",
+    "the-bridge-kept-nothing-again"
+  ]
+}

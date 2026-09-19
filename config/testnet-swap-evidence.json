@@ -1,0 +1,55 @@
+{
+  "network": "testnet",
+  "contractId": "CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO",
+  "swapProtocol": "Soroswap",
+  "routerContractId": "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD",
+  "customer": "CBNMQLAGSXWFFAMIJN5S54TE46BHAA4SY4DVY2RTZI2IJQW3ZVKTBBXU",
+  "customerKind": "smart wallet (P-256 device signer)",
+  "relayer": "GA2UEYK57SKOEVWJDEULRMAR2ZHET4O3U6BODTGXWUVNSXDVUIUHHIL3",
+  "recipient": "GA4AB7OZST6NKRYNAJBIYBPV5ZAOIE4QYNEBTMVS6QBAMNVSQ3XGC22H",
+  "merchantProfileId": "0e25a958-f4a4-4775-ac81-5903f8bcc2af",
+  "merchantSigningKey": "GDRJUGLGWD4A2ZL5SW25M43GWLLNPFVXNHBXSFXDAWBELFSQCWOBRCC3",
+  "merchantAskedFor": {
+    "asset": "USDC",
+    "amount": "0.1",
+    "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"
+  },
+  "customerPaidWith": {
+    "asset": "XLM",
+    "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+  },
+  "path": [
+    "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+    "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"
+  ],
+  "quotedAmountIn": "9465837",
+  "signedCeiling": "9513166",
+  "slippageBps": 50,
+  "actualXlmSpent": "9465837",
+  "usdcDeliveredToMerchant": "1000000",
+  "customerUsdcBefore": "0",
+  "customerUsdcAfter": "0",
+  "effectiveRate": "9.4658370 XLM per USDC",
+  "transactionHash": "ccfdaa238967a99d1bcfd3534c7e2e0c193dae585aa3a0c622f3f35a3230a53b",
+  "ledger": 4548854,
+  "settledAt": "2026-09-07T07:57:40.439Z",
+  "checks": [
+    "contract-knows-router",
+    "customer-holds-no-usdc",
+    "customer-holds-xlm",
+    "intent-names-usdc",
+    "quote-is-priced",
+    "ceiling-is-above-quote",
+    "customer-can-afford-quote",
+    "pipeline-stages",
+    "merchant-received-exact-amount",
+    "customer-keeps-no-usdc",
+    "customer-spent-xlm",
+    "spend-within-signed-ceiling",
+    "relayer-is-source-and-fee-payer",
+    "customer-is-not-source",
+    "soroswap-router-in-the-transaction",
+    "contract-reported-funding",
+    "contract-reported-settlement"
+  ]
+}

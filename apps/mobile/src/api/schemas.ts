@@ -86,6 +86,18 @@ export const provisionedWalletSchema = z.object({
 
 export type ProvisionedWalletResponse = z.infer<typeof provisionedWalletSchema>;
 
+/**
+ * What a replacement phone is told about the wallet it is recovering. Both
+ * fields are already public on the ledger; the passkey is what authorizes the
+ * rotation, not this answer.
+ */
+export const recoverableWalletSchema = z.object({
+  walletContractId: z.string().regex(/^C[A-Z2-7]{55}$/),
+  retiredSigner: z.string().min(64).max(512),
+  recoverySignerKind: z.enum(['Device', 'Passkey']),
+});
+export type RecoverableWalletResponse = z.infer<typeof recoverableWalletSchema>;
+
 export const merchantPaymentSchema = z.object({
   intentId: z.string().min(1),
   amount: z.string().min(1),

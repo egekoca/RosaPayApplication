@@ -8,6 +8,7 @@ import {
 } from './settlementEnvelope';
 import {
   settlePayment,
+  type SettlementFunding,
   type WalletAuthorizeEntry,
   type SettlementPipelineClient,
   type SettlementPipelineProgress,
@@ -15,6 +16,7 @@ import {
   type SettlementPipelineSigner,
   type SettlementRelayerSigner,
 } from './settlementPipeline';
+import {assertFundingPath} from './swapFunding';
 import type {StellarConfig} from './config';
 
 export type SettlementServiceAuthorizeEntry = WalletAuthorizeEntry;
@@ -38,6 +40,12 @@ export type SettlementServiceInput = {
   customerSigner?: SettlementPipelineSigner;
   customerAuthorizeEntry?: SettlementServiceAuthorizeEntry;
   relayerSigner: SettlementRelayerSigner;
+  /**
+   * Set when the customer is paying out of a token the merchant did not ask
+   * for. It is checked against the intent below rather than trusted, because
+   * this value travels with the customer's device and the intent does not.
+   */
+  funding?: SettlementFunding;
   client?: SettlementPipelineClient;
   maxLedgerLifetime?: number;
   onProgress?(progress: SettlementPipelineProgress): void;
@@ -56,7 +64,8 @@ export class SettlementServiceError extends Error {
       | 'INVALID_INTENT'
       | 'INVALID_MERCHANT_SIGNATURE'
       | 'CONTRACT_SIGNATURE_REQUIRED'
-      | 'RELAYER_REQUIRED',
+      | 'RELAYER_REQUIRED'
+      | 'INVALID_FUNDING_PATH',
     message: string,
   ) {
     super(message);
@@ -99,6 +108,27 @@ export async function settleSignedPayment(input: SettlementServiceInput): Promis
     settlementContractId: input.config.settlementContractId ?? '',
   });
   const signedEnvelope = attachMerchantContractSignature(envelope, input.merchantContractSignature);
+
+  // The funding choice arrives from the customer's device and the intent does
+  // not, so the two are reconciled here rather than taken on trust. The
+  // contract makes the same checks again; this one exists so a mistake reads as
+  // a typed error on the phone instead of a failed transaction at the counter.
+  if (input.funding) {
+    try {
+      assertFundingPath(input.funding.path, envelope.intent.token);
+    } catch (error) {
+      throw new SettlementServiceError(
+        'INVALID_FUNDING_PATH',
+        error instanceof Error ? error.message : 'The funding path is invalid',
+      );
+    }
+    if (input.funding.amountInMax <= 0n) {
+      throw new SettlementServiceError(
+        'INVALID_FUNDING_PATH',
+        'A funding swap needs a positive ceiling on what it may spend',
+      );
+    }
+  }
   // The relayer is the transaction source and fee payer; the customer only ever
   // signs the authorization entry for this exact invocation.
   const client = input.client ?? createSettlementClient(input.config, {
@@ -111,6 +141,7 @@ export async function settleSignedPayment(input: SettlementServiceInput): Promis
     merchantSignature: signedEnvelope.merchantSignature,
     customerSigner: input.customerSigner,
     ...(input.customerAuthorizeEntry ? {customerAuthorizeEntry: input.customerAuthorizeEntry} : {}),
+    ...(input.funding ? {funding: input.funding} : {}),
     relayerSigner: input.relayerSigner,
     onProgress: input.onProgress,
   });

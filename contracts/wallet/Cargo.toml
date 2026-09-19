@@ -9,8 +9,16 @@ crate-type = ["lib", "cdylib"]
 
 [dependencies]
 soroban-sdk = "=27.0.6"
+# WebAuthn hands the contract a JSON document it has to read the challenge out
+# of. Parsing it properly rather than scanning for a substring is what makes the
+# check hold for whitespace and field order the authenticator is free to choose.
+serde = { version = "1", default-features = false, features = ["derive"] }
+serde-json-core = { version = "0.6.0", default-features = false }
 
 [dev-dependencies]
 p256 = { version = "=0.13.2", default-features = false, features = ["ecdsa", "std"] }
+# The tests build a real WebAuthn assertion, which means hashing the client data
+# the way an authenticator does before signing it.
+sha2 = "0.10"
 rand_core = { version = "=0.6.4", features = ["getrandom"] }
 soroban-sdk = { version = "=27.0.6", features = ["testutils"] }

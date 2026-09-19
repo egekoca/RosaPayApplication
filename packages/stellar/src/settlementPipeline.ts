@@ -35,6 +35,32 @@ export type SettlementPipelineClient = {
     args: {intent: ContractPaymentIntent; merchant_signature: Buffer},
     options?: MethodOptions,
   ): Promise<SettlementPipelineTransaction>;
+  settle_payment_with_swap?(
+    args: {
+      intent: ContractPaymentIntent;
+      merchant_signature: Buffer;
+      path: string[];
+      amount_in_max: bigint;
+      deadline: bigint;
+    },
+    options?: MethodOptions,
+  ): Promise<SettlementPipelineTransaction>;
+};
+
+/**
+ * How the customer pays for an intent they cannot fund directly.
+ *
+ * None of this reaches the merchant's signature. The contract is handed the
+ * same intent either way and told an exact output, so the funding choice can
+ * change what the customer spends and never what the merchant receives.
+ */
+export type SettlementFunding = {
+  /** Input token first, the merchant's token last. */
+  path: string[];
+  /** The ceiling the router refuses to spend above. */
+  amountInMax: bigint;
+  /** Unix seconds after which the router will not execute the swap. */
+  deadline: bigint;
 };
 
 export type SettlementPipelineSentTransaction = {
@@ -58,6 +84,8 @@ export type SettlementPipelineInput = {
   /** Contract accounts authorize the whole entry rather than a preimage. */
   customerAuthorizeEntry?: WalletAuthorizeEntry;
   relayerSigner: SettlementRelayerSigner;
+  /** Present only when the customer is paying from a different token. */
+  funding?: SettlementFunding;
   onProgress?(progress: SettlementPipelineProgress): void;
 };
 
@@ -71,7 +99,11 @@ export class SettlementPipelineError extends Error {
   override readonly name = 'SettlementPipelineError';
 
   constructor(
-    readonly code: 'CUSTOMER_AUTH_REQUIRED' | 'SUBMISSION_FAILED' | 'CONFIRMATION_FAILED',
+    readonly code:
+      | 'CUSTOMER_AUTH_REQUIRED'
+      | 'SUBMISSION_FAILED'
+      | 'CONFIRMATION_FAILED'
+      | 'SWAP_UNSUPPORTED',
     message: string,
   ) {
     super(message);
@@ -80,10 +112,7 @@ export class SettlementPipelineError extends Error {
 
 /** Simulate, authorize, submit and wait for a Soroban settlement call. */
 export async function settlePayment(input: SettlementPipelineInput): Promise<SettlementPipelineReceipt> {
-  const transaction = await input.client.settle_payment(
-    {intent: input.intent, merchant_signature: input.merchantSignature},
-    {simulate: true},
-  );
+  const transaction = await buildSettlementCall(input);
   input.onProgress?.({stage: 'simulated'});
 
   const requiredCustomerSigners = transaction.needsNonInvokerSigningBy();
@@ -149,4 +178,36 @@ export async function settlePayment(input: SettlementPipelineInput): Promise<Set
 
   input.onProgress?.({stage: 'confirmed', transactionHash: confirmation.txHash, ledger: confirmation.ledger});
   return {transactionHash: confirmation.txHash, ledger: confirmation.ledger, result: sent.result};
+}
+
+/**
+ * The direct call and the funded one differ only in their arguments; everything
+ * after simulation - authorization, submission, confirmation - is identical,
+ * because from the contract's side they end in the same transfer.
+ */
+async function buildSettlementCall(
+  input: SettlementPipelineInput,
+): Promise<SettlementPipelineTransaction> {
+  if (!input.funding) {
+    return input.client.settle_payment(
+      {intent: input.intent, merchant_signature: input.merchantSignature},
+      {simulate: true},
+    );
+  }
+  if (!input.client.settle_payment_with_swap) {
+    throw new SettlementPipelineError(
+      'SWAP_UNSUPPORTED',
+      'This settlement contract has no funding-swap entry point',
+    );
+  }
+  return input.client.settle_payment_with_swap(
+    {
+      intent: input.intent,
+      merchant_signature: input.merchantSignature,
+      path: input.funding.path,
+      amount_in_max: input.funding.amountInMax,
+      deadline: input.funding.deadline,
+    },
+    {simulate: true},
+  );
 }

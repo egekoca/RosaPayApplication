@@ -158,3 +158,4 @@ export function createStellarSignerCallbacks(
     }),
   };
 }
+export * from './webauthn';

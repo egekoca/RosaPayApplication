@@ -37,17 +37,20 @@ test('offers the lira-capable wallet path in customer language', async () => {
   expect(tree).toContain('LUMEN');
   expect(tree).toContain('LEMONADE');
   expect(tree).toContain('Create a new wallet');
-  // Twelve words are what an anchor can verify, so they are what the app leads
-  // with — and someone who already has a Stellar wallet is not made to create a
-  // second one to get in.
-  expect(tree).toContain('Twelve words are your wallet');
-  expect(tree).toContain('lira');
+  // Someone who already has a Stellar wallet is not made to create a second one
+  // to get in.
   expect(tree).toContain('I already have a wallet');
+
+  // And someone whose phone is gone needs a different road entirely: there is
+  // nothing for them to type, because the key that controlled their wallet
+  // could never leave the handset. A recovery nobody can find is not one.
+  expect(tree).toContain('I lost my phone');
+  expect(tree).toContain('a passkey brings it back if the phone is lost');
 
   // The screen used to offer "Create your wallet" and "Sign in with passkey"
   // side by side. Both did exactly the same thing, and neither told a customer
   // which one was theirs.
-  expect(tree).not.toContain('passkey');
+  expect(tree).not.toContain('Sign in with passkey');
   expect(tree).not.toContain('Create your wallet');
 });
 

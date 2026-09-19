@@ -6,6 +6,6 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 
 class RosaPaySignerPackage : ReactPackage {
-  override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> = listOf(RosaPaySignerModule(reactContext), RosaPayNfcModule(reactContext))
+  override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> = listOf(RosaPaySignerModule(reactContext), RosaPayNfcModule(reactContext), RosaPayPasskeyModule(reactContext))
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> = emptyList()
 }

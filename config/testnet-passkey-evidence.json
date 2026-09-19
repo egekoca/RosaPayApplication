@@ -1,0 +1,22 @@
+{
+  "network": "testnet",
+  "walletContractId": "CBNMQLAGSXWFFAMIJN5S54TE46BHAA4SY4DVY2RTZI2IJQW3ZVKTBBXU",
+  "wasmHash": "2c4d82af6757bb990ea1d8d69b8a9561aaf29f5279b34ffcb80dadd21d577165",
+  "passkeyPublicKey": "04a4f24bb6b95ef89c5a55c0420295914be3ad2fae3d1c2052f5437f914bc1a2e6163d029d1a8a2ae9b38ec6d319691f13f3c08ff7f38b32ab321d9acea7c2e096",
+  "devicePublicKey": "046aba99dc31094fb0dfa577d0332f7f005965d770dc439f09a29e66520ad8fe26cfd29885dc091a2361a763ae9de90a3c712bdbecb9f483dc9add95fbaafe954b",
+  "relayer": "GA2UEYK57SKOEVWJDEULRMAR2ZHET4O3U6BODTGXWUVNSXDVUIUHHIL3",
+  "authorizedTransactionHash": "6208731aecf16315d4a46878e6b09f873d16c010dde81468889d59d90eaa4f6b",
+  "authorizedLedger": 4548870,
+  "assertionShape": "authenticatorData || SHA-256(clientDataJSON), signed as secp256r1",
+  "flags": "user present, user verified, backup eligible, backed up",
+  "ranAt": "2026-09-07T07:59:08.123Z",
+  "checks": [
+    "device-signer-enrolled-the-passkey",
+    "passkey-authorized-the-wallet",
+    "refuses-an-assertion-made-for-another-payload",
+    "refuses-a-registration-ceremony",
+    "refuses-an-unverified-assertion",
+    "refuses-a-device-signature-for-a-passkey",
+    "passkey-authorized-a-second-operation"
+  ]
+}

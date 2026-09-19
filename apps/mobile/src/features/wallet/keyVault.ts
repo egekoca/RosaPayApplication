@@ -13,6 +13,18 @@ import {logger} from '../../shared/logger';
 const SERVICE = 'com.rosapay.signingkey';
 const USERNAME = 'stellar-secret';
 
+/**
+ * The bridge key lives in its own entry, apart from the wallet key.
+ *
+ * They are not the same kind of secret and must not share a prompt. The wallet
+ * key spends the customer's money and is guarded accordingly. The bridge key
+ * only answers the anchor's SEP-10 challenge and holds money for the seconds it
+ * takes to pass through, so asking for a fingerprint every time an exchange
+ * rate is refreshed would be a tax with nothing behind it.
+ */
+const BRIDGE_SERVICE = 'com.rosapay.bridgekey';
+const BRIDGE_USERNAME = 'stellar-bridge-secret';
+
 export class KeyVaultError extends Error {
   override readonly name = 'KeyVaultError';
 
@@ -130,4 +142,49 @@ export async function clearSigningKey(): Promise<void> {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : 'unknown';
+}
+
+/**
+ * The classic account that stands between a smart wallet and the anchor.
+ *
+ * The anchor authenticates accounts, not contracts, and it refuses a contract
+ * address as a deposit destination. This key exists only to be that address:
+ * it signs SEP-10 challenges, receives on-ramp USDC on the way to the wallet,
+ * and pays the anchor on the way out. It never holds a balance at rest, which
+ * is why it is not something the customer has to write down.
+ */
+export async function loadBridgeKey(): Promise<string | null> {
+  try {
+    const stored = await Keychain.getGenericPassword({service: BRIDGE_SERVICE});
+    return stored === false ? null : stored.password;
+  } catch (error) {
+    logger.error('bridge_key_read_failed', {message: describe(error)});
+    return null;
+  }
+}
+
+export async function saveBridgeKey(secret: string): Promise<void> {
+  try {
+    // Guarded by the device being unlocked, and no further. A prompt here would
+    // land in the middle of reading a rate, and this key guards nothing that a
+    // prompt would protect: it is replaceable and holds nothing at rest.
+    await Keychain.setGenericPassword(BRIDGE_USERNAME, secret, {
+      service: BRIDGE_SERVICE,
+      accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    });
+  } catch (error) {
+    logger.error('bridge_key_store_failed', {message: describe(error)});
+    throw new KeyVaultError(
+      'NO_DEVICE_LOCK',
+      'This phone needs a screen lock before it can reach the lira ramp. Set one, then try again.',
+    );
+  }
+}
+
+export async function clearBridgeKey(): Promise<void> {
+  try {
+    await Keychain.resetGenericPassword({service: BRIDGE_SERVICE});
+  } catch (error) {
+    logger.error('bridge_key_clear_failed', {message: describe(error)});
+  }
 }

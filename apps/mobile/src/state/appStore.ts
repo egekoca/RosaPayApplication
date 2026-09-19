@@ -5,7 +5,7 @@ import type {PaymentStatus} from '@rosapay/domain';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 import type {MerchantProfile} from '../features/merchant/merchantProfile';
 import {createNativeRosaPaySigner} from '../native/nativeSigner';
-import {clearSigningKey} from '../features/wallet/keyVault';
+import {clearBridgeKey, clearSigningKey} from '../features/wallet/keyVault';
 import {decodeSecrets, encodeSecrets, secureSessionStorage} from './persistence';
 import {defaultApiBaseUrl} from '../shared/apiConfig';
 
@@ -33,6 +33,13 @@ export type StellarAccount = {
 export type SmartWallet = {
   contractId: string;
   devicePublicKey: string;
+  /**
+   * The passkey registered as this wallet's recovery signer, when the phone
+   * could make one. Its absence is the difference between a wallet that
+   * survives a lost handset and one that does not, so the app reads this rather
+   * than assuming.
+   */
+  recovery?: {credentialId: string; publicKey: string};
 };
 
 export type ApiSession = {token: string; expiresAt: string; publicSigner: string};
@@ -54,6 +61,7 @@ export type PendingAnchorTransfer = {
 };
 
 export type AppMode = 'customer' | 'merchant';
+export type PaymentTransport = 'qr' | 'nfc' | 'unknown';
 export type LocalReceipt = {
   intentId: string;
   merchantName: string;
@@ -68,6 +76,16 @@ export type LocalReceipt = {
   /** `mock` receipts are local demo state and have no Stellar transaction. */
   ledger?: number;
   confirmedAt?: string;
+  /** How the signed request reached this phone. Older receipts are unknown. */
+  transport?: PaymentTransport;
+};
+
+export type RampActivity = {
+  id: string;
+  kind: 'deposit' | 'withdrawal';
+  amount: string;
+  assetCode: 'TRY' | 'USDC';
+  createdAt: string;
 };
 
 /**
@@ -116,6 +134,7 @@ type AppState = {
   pendingAnchorTransfer: PendingAnchorTransfer | null;
   pendingRequest: SignedPaymentIntentV1 | null;
   receipts: LocalReceipt[];
+  rampActivities: RampActivity[];
   createAccount(account: Omit<Account, 'createdAt'>): void;
   unlock(): void;
   lock(): void;
@@ -133,6 +152,7 @@ type AppState = {
   setPendingAnchorTransfer(transfer: PendingAnchorTransfer | null): void;
   setPendingRequest(request: SignedPaymentIntentV1 | null): void;
   addReceipt(receipt: LocalReceipt): void;
+  addRampActivity(activity: RampActivity): void;
 };
 
 /**
@@ -151,6 +171,9 @@ export function dropUnusableSecrets(state: Partial<AppState>): Partial<AppState>
   const smartWallet = isSmartWallet(state.smartWallet) ? state.smartWallet : null;
   const apiSession = isApiSession(state.apiSession) ? state.apiSession : null;
   const wallet = isStellarAccount(state.wallet) ? state.wallet : null;
+  const rampActivities = Array.isArray(state.rampActivities)
+    ? state.rampActivities.filter(isRampActivity).slice(0, MAX_PERSISTED_RECEIPTS)
+    : [];
   return {
     ...state,
     merchantProfile,
@@ -158,6 +181,7 @@ export function dropUnusableSecrets(state: Partial<AppState>): Partial<AppState>
     smartWallet,
     apiSession,
     wallet,
+    rampActivities,
     // Without a profile there is no merchant mode to return to.
     ...(merchantProfile ? {} : {merchantRegisteredOnChain: false, pendingRequest: null, mode: 'customer' as const}),
   };
@@ -218,6 +242,19 @@ function isSigningKey(value: unknown, length: number): boolean {
   return value instanceof Uint8Array && value.length === length;
 }
 
+function isRampActivity(value: unknown): value is RampActivity {
+  if (!value || typeof value !== 'object') return false;
+  const activity = value as Partial<RampActivity>;
+  return (
+    typeof activity.id === 'string' && activity.id.length > 0 &&
+    (activity.kind === 'deposit' || activity.kind === 'withdrawal') &&
+    typeof activity.amount === 'string' && /^\d+(\.\d+)?$/.test(activity.amount) &&
+    ((activity.kind === 'deposit' && activity.assetCode === 'TRY') ||
+      (activity.kind === 'withdrawal' && activity.assetCode === 'USDC')) &&
+    typeof activity.createdAt === 'string' && Number.isFinite(Date.parse(activity.createdAt))
+  );
+}
+
 /** True once a session exists that a returning user should come back to. */
 export function hasRestorableSession(
   state: Pick<AppState, 'merchantProfile' | 'receipts'> & {
@@ -259,6 +296,7 @@ export const useAppStore = create<AppState>()(
       pendingAnchorTransfer: null,
       pendingRequest: null,
       receipts: [],
+      rampActivities: [],
       createAccount: account =>
         set({account: {...account, createdAt: new Date().toISOString()}, locked: false}),
       unlock: () => set({locked: false}),
@@ -269,6 +307,11 @@ export const useAppStore = create<AppState>()(
         const {smartWallet, wallet} = get();
         if (smartWallet) await createNativeRosaPaySigner().deleteIdentity();
         if (wallet) await clearSigningKey();
+        // The bridge key belongs to this installation rather than to the
+        // account, but leaving it behind would hand the next person an account
+        // the anchor still recognises. It holds no money, so dropping it costs
+        // nothing and a later ramp simply makes another.
+        await clearBridgeKey();
         set({
           account: null,
           locked: false,
@@ -281,6 +324,7 @@ export const useAppStore = create<AppState>()(
           pendingAnchorTransfer: null,
           pendingRequest: null,
           receipts: [],
+          rampActivities: [],
         });
       },
       setMode: mode => set(state => (mode === 'merchant' && !state.merchantProfile ? state : {...state, mode})),
@@ -297,12 +341,18 @@ export const useAppStore = create<AppState>()(
       setPendingRequest: request => set({pendingRequest: request}),
       addReceipt: receipt =>
         set(state => ({receipts: [receipt, ...state.receipts].slice(0, MAX_PERSISTED_RECEIPTS)})),
+      addRampActivity: activity =>
+        set(state => ({
+          rampActivities: state.rampActivities.some(existing => existing.id === activity.id)
+            ? state.rampActivities
+            : [activity, ...state.rampActivities].slice(0, MAX_PERSISTED_RECEIPTS),
+        })),
     }),
     {
       name: 'rosapay-session',
-      // Version 5 restores the hardware-backed smart wallet as the production
-      // account while retaining the classic-account adapter as isolated state.
-      version: 5,
+      // Version 6 adds validated ramp activity while retaining the classic
+      // account adapter and existing receipts.
+      version: 6,
       migrate: state => dropUnusableSecrets(state as Partial<AppState>),
       merge: (persisted, current) => ({...current, ...dropUnusableSecrets(persisted as Partial<AppState>)}),
       onRehydrateStorage: () => state => {
@@ -336,6 +386,7 @@ export const useAppStore = create<AppState>()(
         pendingAnchorTransfer: state.pendingAnchorTransfer,
         pendingRequest: state.pendingRequest,
         receipts: state.receipts,
+        rampActivities: state.rampActivities,
       }),
     },
   ),

@@ -34,7 +34,12 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [~] Add device tests for cancellation, biometric failure and process death during authorization; developer settings run a real signature self-test and every failure maps to a typed signer error, while scripted cancellation and process-death cases remain.
 - [x] Give the iOS app a Keychain entitlement. It had no entitlements file at all, so every Keychain call failed with `errSecMissingEntitlement` — the session could not be written or read and no wallet key could be stored, which meant the iOS build forgot everything on relaunch and could not hold a wallet.
 - [ ] Drive the full iOS flow (create wallet, add lira, cash out) on a simulator or device. The Keychain fix is verified — the session persists and the errors are gone — but the screens after it have only been walked as far as the recovery-phrase check, because the simulator has no scriptable tap.
-- [ ] Validate the selected native passkey bridge on physical iOS and Android devices.
+- [x] Give the wallet a passkey signer, so an account is not bound to one handset. The contract now records how each key is held and checks it by those rules only — a device key signs the payload, a passkey signs `authenticatorData ‖ SHA-256(clientDataJSON)` and has to prove the challenge inside it is this transaction. The WebAuthn verifier is adapted from OpenZeppelin's audited Stellar implementation. Proven on Testnet by `npm run testnet:passkey` (7/7), including four refusals: another payload, a registration ceremony, an unverified assertion, and a device signature offered for a passkey.
+- [x] Make a lost phone survivable. Wallets are provisioned with a recovery passkey, the API records which wallet a credential recovers, and `rotate` swaps the lost signer for the new phone's. `npm run testnet:recovery` proves all five steps on-chain, including that the lost key can no longer authorize and that the recovery passkey still cannot spend. This retires the single-device limitation in ADR 0002; see [passkeys.md](passkeys.md).
+- [x] Give recovery a screen. **I lost my phone** on the welcome screen finds the wallet from the synced passkey (`POST /v1/wallets/recover` answers with the contract address and the signer to retire, both already public on the ledger), then rotates this phone's new Secure Enclave key in. The API records which wallet a credential recovers, and sign-out now clears the bridge key too.
+- [ ] Add the time-delayed rotation and second recovery factor ADR 0002 requires for production. Today a stolen recovery credential can rotate a signer to itself in one step and then spend, which is the remaining gap between this and a production custody model.
+- [ ] Fill in the two domain-association values passkeys cannot work without: the Apple Team ID in `apps/web/.well-known/apple-app-site-association` and the Android signing-certificate SHA-256 in `assetlinks.json`. Only the project owner can supply them, and without them both platforms refuse the prompt before the customer sees anything.
+- [ ] Validate the native passkey modules on physical iOS and Android devices. Both compile (`xcodebuild`, `compileDebugKotlin`) and the contract and parsing halves are proven without a phone, but a simulator has no real passkey.
 
 ## P1 - Application and API Foundation
 
@@ -64,15 +69,23 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [x] Create and sign payment intents from merchant data rather than a fixture; amounts are canonicalized, expiry comes from the live ledger and the customer verifies the merchant signature.
 - [x] Add merchant request status and receipt lookup; the request screen polls the API settlement, and the merchant home lists every request that merchant made with its outcome.
 - [x] Persist local session and pending payment recovery across app restarts; the merchant profile, demo wallet, open request and receipts survive a restart in the platform's encrypted store, and a returning user skips onboarding.
+- [x] Add transport-aware activity records and a Dashboard bottom tab; confirmed QR/NFC payment totals are separated, and completed TRY deposits and USDC withdrawals are retained for the money-movement summary. Merchant totals use the authenticated payment list when available.
 - [x] Let a merchant price in the money on their menu: a request named in lira carries the converted asset amount, the `500.00 TRY` label travels in the signed reference, and both the customer's card and the merchant's read in lira. Verified on Android — 500 TRY became 55.7413601 XLM at 8.97 TRY/XLM.
 - [x] Read lira rates from a real anchor: `tr-mock-anchor.fly.dev` quotes TRY against the USDC issuer this app already settles in, unauthenticated, on Testnet. Fixed a SEP-38 price-direction bug it exposed — the standard quotes sold-per-bought, this app read it bought-per-sold, and both sides being wrong the same way hid it until a real anchor priced a 500 TRY coffee at 24,095 USDC.
 - [x] Add the anchor's TRY on-ramp (SEP-10 + SEP-38 + SEP-6), reachable from the home screen. Verified on Android end to end: 500 TRY arrived as 10.27 USDC at 48.67 TRY/USDC.
 - [x] Make every new account one the anchor can verify. Setup no longer offers a custody choice: a smart wallet cannot answer a SEP-10 challenge, so offering one would be a trap that springs at the bank transfer. Phones that already hold one keep working.
 - [x] Add the TRY off-ramp (SEP-6 withdraw-exchange) on the same screen as the on-ramp. Verified on Android: 10.27 USDC was paid out as 495.12 TRY to an IBAN. The wallet sends the USDC itself with the anchor's memo, and waits for Stellar to confirm before reporting anything.
+- [x] Record the lira rail's own evidence file, the way every other proof does. `npm run testnet:try-ramp` now writes `config/testnet-try-ramp-evidence.json`; the anchor leg was the most heavily weighted claim and the only one with nothing under `config/` behind it.
+- [x] Let a smart-wallet account use the lira rail. It is fronted by a bridge: a classic account that answers SEP-10, receives the deposit and pays the anchor, and holds nothing between transfers. Three live tests decided the shape — the anchor refuses a contract address on every SEP-6 door, a Soroban transaction cannot carry a memo, and a SAC transfer reaches Horizon as `invoke_host_function` rather than as a payment even when sent to a muxed address. `npm run testnet:bridge` proves both legs (9/9): 300 TRY in and 148.50 TRY back out, with the bridge empty at both ends. A deposit is not settled while the money is still on the bridge.
 - [ ] Replace this deployment's own SEP-38 server for lumens when an anchor prices them. Surveying every domain in the Stellar Anchor Directory found two publishing an `ANCHOR_QUOTE_SERVER`, both the same operator, both pricing only `iso4217:BRL`; `testanchor.stellar.org` offers USD and CAD and its `/prices` has been answering 502. Until then rates come from a public market feed and the screens say so.
 - [x] Offer both custody models at onboarding and let the account choose: a secure-hardware smart wallet, or a SEP-0005 recovery-phrase account that can also be imported from another wallet. Settlement, balances and merchant setup all follow whichever account the phone holds, since a contract account authorizes the whole entry and a classic one signs the hashed preimage.
 - [x] Stop `Get paid` reading as a second account: both views show the same wallet balance, takings are labelled as takings, and business setup no longer asks for an address the app already knows.
-- [ ] Convert on the customer's behalf when they hold the wrong asset. A merchant paid in USDC and a customer holding only XLM currently cannot transact; the settlement contract moves one named token, so this needs a DEX (Soroswap is live on Mainnet) either before settlement or inside it.
+- [x] Convert on the customer's behalf when they hold the wrong asset. It is inside the settlement, not before it: `settle_payment_with_swap` calls Soroswap's router for the exact amount the merchant signed for and pays them in the same transaction, so either they get exactly that or nothing moved. The funding path, ceiling and deadline are the customer's and are outside the merchant's signature, so no route can change who is paid or how much. Verified on Testnet — a smart wallet holding no USDC paid a 0.10 USDC request for 0.9465832 XLM (tx `b4a0cc9b…`, ledger 4,540,761); see [swap-funding.md](swap-funding.md).
+
+- [ ] Route a funding swap through more than one hop. The contract and the client both accept a longer path, but nothing selects one: Soroswap's aggregator API is the right way to pick it, and a single XLM/USDC pool is enough for the pair this deployment settles.
+
+- [x] Make the app usable by more than one person at once. Rate limits were counted by network address, so a room behind one router looked like a single caller: the relayer allowed thirty payments a minute *for everyone*, and the fourth phone to install could not create a wallet for an hour. They are counted per device now, with a looser address-wide ceiling behind them, and `apps/api/test/rateLimit.test.ts` fails without the change. The API address comes from the deployment manifest rather than a loopback default, so a TestFlight build reaches something. The lira bridge is funded from the wallet rather than Friendbot, which throttles by address.
+- [ ] Publish the API and put its HTTPS address in `config/testnet-deployment.json` as `apiBaseUrl`. `Dockerfile` and `render.yaml` are ready; until it is filled in, every build still points at a development machine and only works on an emulator.
 
 ## P2 - Reliability and Evidence
 
@@ -98,7 +111,8 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [x] Implement Android NFC HCE as an optional transport over the same RTP/1 flow; a merchant publishes the request it is already showing as a QR, a customer reads it in reader mode, and a paid or expired request stops being offered.
 - [x] Keep QR visible as the iOS and unsupported-device fallback; NFC is additive on both screens and iOS reports it unavailable rather than degrading.
 - [ ] Record 100+ successful Testnet settlements and publish anonymized demo metrics.
-- [ ] Prepare the architecture diagram, three-minute demo script and failure-path demo.
+- [x] Draw the architecture. Four Mermaid diagrams in [architecture-diagrams.md](architecture-diagrams.md) — the three-signature separation, where the keys live and why there are three, the lira rails through the bridge, and what runs where — each checked through a real Mermaid parser rather than eyeballed. The submission also asks which skill files were used; that record is [skills-used.md](skills-used.md), including the four things skills could not answer.
+- [ ] Write the three-minute demo script and the failure-path demo.
 
 ## Interface review
 
@@ -220,8 +234,9 @@ What still stands between here and a store build:
 - A release build with the JS bundle embedded; the debug build loads from Metro
   and cannot run away from the development machine.
 - Signing identities: a Play upload key and an Apple distribution certificate.
-- The API, worker and database must run somewhere other than the laptop before
-  Testnet mode works for anyone else (`docs/deployment.md`).
+- [x] Add a containerized API/worker deployment path and Render blueprint; the
+  remaining step is entering provider secrets and a durable PostgreSQL URL in
+  the hosting dashboards (`docs/deployment.md`).
 - Privacy declarations: Apple's nutrition label and Play's Data Safety form.
 
 ## Next Execution Order

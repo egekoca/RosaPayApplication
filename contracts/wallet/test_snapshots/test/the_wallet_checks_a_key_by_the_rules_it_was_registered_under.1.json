@@ -1,33 +1,12 @@
 {
   "generators": {
-    "address": 1,
+    "address": 4,
     "nonce": 0,
     "mux_id": 0
   },
   "auth": [
     [],
-    [
-      [
-        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-        {
-          "function": {
-            "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "function_name": "rotate",
-              "args": [
-                {
-                  "bytes": "044309dfa482adf4e25a1ec29a46f10b668a2ae2ba17d338b0bbfc019448e7b544ac076c58505624bff524b327be7f833d16c1de65ad89fe428b59955310c9b550"
-                },
-                {
-                  "bytes": "0437ff7ca41d53c065a7624510a9688e2d3aebfe202a005129f2117bb7b521805ec2f01155e2401f548d602550d20175c97b5bb9e6ede3d5decae3ea16ba0425e4"
-                }
-              ]
-            }
-          },
-          "sub_invocations": []
-        }
-      ]
-    ],
+    [],
     [],
     []
   ],
@@ -54,19 +33,23 @@
                     "symbol": "Signer"
                   },
                   {
-                    "bytes": "0437ff7ca41d53c065a7624510a9688e2d3aebfe202a005129f2117bb7b521805ec2f01155e2401f548d602550d20175c97b5bb9e6ede3d5decae3ea16ba0425e4"
+                    "bytes": "040a06c4b002ae2bd0ab6dd7e3ca5c45b692c25eb151b58006a3eb7a7de8b768547da40c5d5e6349fdf241ec063071974ba81a3fb84979ebea3c410d9dfa0c3149"
                   }
                 ]
               },
               "durability": "persistent",
               "val": {
-                "bool": true
+                "vec": [
+                  {
+                    "symbol": "Passkey"
+                  }
+                ]
               }
             }
           },
           "ext": "v0"
         },
-        "live_until": 518400
+        "live_until": 4095
       },
       {
         "entry": {
@@ -110,19 +93,66 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
               "key": {
-                "ledger_key_nonce": {
-                  "nonce": "801925984706572462"
-                }
+                "vec": [
+                  {
+                    "symbol": "Signer"
+                  },
+                  {
+                    "bytes": "040a06c4b002ae2bd0ab6dd7e3ca5c45b692c25eb151b58006a3eb7a7de8b768547da40c5d5e6349fdf241ec063071974ba81a3fb84979ebea3c410d9dfa0c3149"
+                  }
+                ]
               },
-              "durability": "temporary",
-              "val": "void"
+              "durability": "persistent",
+              "val": {
+                "vec": [
+                  {
+                    "symbol": "Device"
+                  }
+                ]
+              }
             }
           },
           "ext": "v0"
         },
-        "live_until": 6311999
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
+              "key": "ledger_key_contract_instance",
+              "durability": "persistent",
+              "val": {
+                "contract_instance": {
+                  "executable": {
+                    "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  "storage": [
+                    {
+                      "key": {
+                        "vec": [
+                          {
+                            "symbol": "SignerCount"
+                          }
+                        ]
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 518400
       },
       {
         "entry": {

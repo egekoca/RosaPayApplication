@@ -52,7 +52,24 @@ const authorizeSchema = z.object({
   expiresAtLedger: z.number().int().positive().optional(),
 });
 const submitSchema = z.object({transactionHash: z.string().regex(/^[a-f0-9]{64}$/i)});
-const walletSchema = z.object({devicePublicKey: z.string().min(64).max(512)});
+const walletSchema = z.object({
+  devicePublicKey: z.string().min(64).max(512),
+  /**
+   * The key that may rotate a lost device signer. A wallet created without one
+   * is a wallet that dies with the handset, so the app always sends a passkey
+   * here - but it stays optional, because refusing to provision at all would be
+   * worse than provisioning a single-device wallet on a phone that cannot hold
+   * a passkey.
+   */
+  recovery: z
+    .object({
+      publicKey: z.string().min(64).max(512),
+      credentialId: z.string().min(1).max(512),
+      kind: z.enum(['Device', 'Passkey']),
+    })
+    .optional(),
+});
+const walletRecoverySchema = z.object({credentialId: z.string().min(1).max(512)});
 const stellarAddress = z.string().regex(/^[GC][A-Z2-7]{55}$/);
 const countersignatureRequestSchema = z.object({customerAddress: stellarAddress});
 const countersignatureSchema = z.object({
@@ -118,10 +135,33 @@ export function buildApp({
   // The endpoints that spend funds are the ones worth limiting.
   const walletLimiter = new RateLimiter({limit: 3, windowMs: 60 * 60 * 1000});
   const relayerLimiter = new RateLimiter({limit: 30, windowMs: 60 * 1000});
+  /**
+   * A ceiling over one address, sized for a room rather than a person. It is
+   * not the protection - `relayerLimiter` is - but it stops a single machine
+   * looping an endpoint faster than any crowd could.
+   */
+  const venueLimiter = new RateLimiter({limit: 600, windowMs: 60 * 1000});
   const authenticationLimiter = new RateLimiter({limit: 10, windowMs: 60 * 1000});
   // Rates are cached upstream, so this only bounds how hard one caller can ask.
   const priceLimiter = new RateLimiter({limit: 60, windowMs: 60 * 1000});
   const callerKey = (request: FastifyRequest) => request.ip ?? 'unknown';
+
+  /**
+   * Who a rate limit is counted against.
+   *
+   * The address is the wrong answer on its own. A room of people demonstrating
+   * this app is behind one router, so counting by IP makes thirty phones look
+   * like one caller and the fourth person to try is told to come back in an
+   * hour. Counting by the device that authenticated is what these limits were
+   * always for: stopping one client from driving an endpoint in a loop.
+   *
+   * The address is still the fallback, because an unauthenticated caller has
+   * nothing else to be identified by - and `venueLimiter` keeps a much looser
+   * ceiling over the whole address, so a runaway is still bounded without a
+   * crowd being mistaken for one.
+   */
+  const limitKey = (request: FastifyRequest, principal?: {publicSigner?: string} | null) =>
+    principal?.publicSigner ? `signer:${principal.publicSigner}` : `ip:${callerKey(request)}`;
 
   const relayerService = relayer ?? new RelayerService({
     config: stellarConfig,
@@ -153,20 +193,25 @@ export function buildApp({
   app.get('/sep38/prices', async (request, reply) => {
     if (!prices) return reply.code(503).send({code: 'PRICING_DISABLED', message: 'This deployment serves no rates'});
     const query = pricesQuerySchema.parse(request.query);
-    priceLimiter.assert(callerKey(request));
+    // Rates are read by every open lira screen, so this is the limit a crowd
+    // hits first. It is unauthenticated, so the address is all there is - the
+    // ceiling is set for a room.
+    priceLimiter.assert(`ip:${callerKey(request)}`);
     return reply.send(await prices.prices({sellAsset: query.sell_asset, sellAmount: query.sell_amount}));
   });
   app.post('/v1/auth/challenges', async (request, reply) => {
     if (!deviceAuth) return reply.code(503).send({code: 'AUTHENTICATION_DISABLED', message: 'Device authentication is unavailable'});
     const {publicSigner} = deviceAuthChallengeSchema.parse(request.body);
     const canonicalSigner = canonicalizeDevicePublicSigner(publicSigner);
-    authenticationLimiter.assert(`${callerKey(request)}:${canonicalSigner}`);
+    authenticationLimiter.assert(`device:${canonicalSigner}`);
+    venueLimiter.assert(`ip:${callerKey(request)}`);
     return reply.code(201).send(await deviceAuth.challenge(canonicalSigner));
   });
   app.post('/v1/auth/sessions', async (request, reply) => {
     if (!deviceAuth) return reply.code(503).send({code: 'AUTHENTICATION_DISABLED', message: 'Device authentication is unavailable'});
     const input = deviceAuthSessionSchema.parse(request.body);
-    authenticationLimiter.assert(`${callerKey(request)}:${canonicalizeDevicePublicSigner(input.publicSigner)}`);
+    authenticationLimiter.assert(`device:${canonicalizeDevicePublicSigner(input.publicSigner)}`);
+    venueLimiter.assert(`ip:${callerKey(request)}`);
     return reply.code(201).send(await deviceAuth.createSession(input));
   });
   /**
@@ -228,24 +273,60 @@ export function buildApp({
     return reply.send(relayerService.identity());
   });
   app.post('/v1/wallets', async (request, reply) => {
-    const {devicePublicKey} = walletSchema.parse(request.body);
+    const {devicePublicKey, recovery} = walletSchema.parse(request.body);
     const principal = await requireAuthenticatedPrincipal(request, authOptions);
     if (principal?.publicSigner && principal.publicSigner !== canonicalizeDevicePublicSigner(devicePublicKey)) {
       throw new CapabilityDeniedError('A device may only provision a wallet for its own key');
     }
-    walletLimiter.assert(`${callerKey(request)}:${devicePublicKey}`);
-    const wallet = await walletService.provision(devicePublicKey, principal?.userId);
+    walletLimiter.assert(`device:${devicePublicKey}`);
+    venueLimiter.assert(`ip:${callerKey(request)}`);
+    const wallet = await walletService.provision(devicePublicKey, principal?.userId, recovery);
     if (!wallet.reused) {
       await audit.record('wallet_provisioned', wallet.walletContractId, {
-        detail: {fundedAmount: wallet.fundedAmount, transactionHash: wallet.transactionHash},
+        detail: {
+          fundedAmount: wallet.fundedAmount,
+          transactionHash: wallet.transactionHash,
+          recoverySignerKind: recovery?.kind ?? 'none',
+        },
       });
     }
     return reply.code(201).send(wallet);
   });
+  /**
+   * The wallet a passkey recovers.
+   *
+   * A replacement phone arrives knowing nothing: not the contract address, and
+   * not the device key it has to rotate out. Both are already public on the
+   * ledger - this only saves the phone from scanning for them, and holding the
+   * credential is not what authorizes the rotation. The contract is: only the
+   * registered recovery signer can call `rotate`, and only that.
+   */
+  app.post('/v1/wallets/recover', async (request, reply) => {
+    const {credentialId} = walletRecoverySchema.parse(request.body);
+    // Counted against the credential being presented rather than the address,
+    // so one person recovering does not lock out everyone beside them.
+    walletLimiter.assert(`credential:${credentialId}`);
+    venueLimiter.assert(`ip:${callerKey(request)}`);
+    const wallet = await walletService.findByRecoveryCredential(credentialId);
+    if (!wallet) {
+      return reply.code(404).send({
+        error: 'WALLET_NOT_FOUND',
+        message: 'No wallet is recoverable with that credential',
+      });
+    }
+    return reply.send({
+      walletContractId: wallet.contractAddress,
+      retiredSigner: wallet.publicSigner,
+      recoverySignerKind: wallet.recovery?.kind ?? 'Passkey',
+    });
+  });
   app.post('/v1/relayer/transactions', async (request, reply) => {
-    await requireAuthenticatedPrincipal(request, authOptions);
+    const principal = await requireAuthenticatedPrincipal(request, authOptions);
     const {xdr} = relayerTransactionSchema.parse(request.body);
-    relayerLimiter.assert(callerKey(request));
+    // Every payment passes through here. Counted per device, because counting
+    // per address would make a room of customers share thirty a minute.
+    relayerLimiter.assert(limitKey(request, principal));
+    venueLimiter.assert(`ip:${callerKey(request)}`);
     const signed = relayerService.signSettlementTransaction(xdr);
     await audit.record('relayer_signed_settlement', relayerService.identity().address);
     return reply.send(signed);

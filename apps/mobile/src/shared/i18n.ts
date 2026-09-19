@@ -29,6 +29,48 @@ export function languageMeta(code: string) {
  * drops its translation, which `missingTranslations` is here to catch.
  */
 const TR: Record<string, string> = {
+  // Recovering a wallet after losing the phone that held it
+  RECOVER: 'KURTARMA',
+  'Recover your wallet': 'Cüzdanını kurtar',
+  'I lost my phone': 'Telefonumu kaybettim',
+  'Bring your wallet to this phone': 'Cüzdanını bu telefona getir',
+  'There is nothing to type': 'Yazılacak hiçbir şey yok',
+  'Your old phone held a key that could never leave it, so there was never a phrase to write down. Your passkey is what carries the wallet across.':
+    'Eski telefonun, ondan asla çıkamayan bir anahtar tutuyordu; bu yüzden yazılacak bir kelime dizisi hiç olmadı. Cüzdanı taşıyan şey passkey’in.',
+  'This phone makes a new key': 'Bu telefon yeni bir anahtar üretir',
+  'It is created here and stays here, exactly as the old one did.':
+    'Burada üretilir ve burada kalır, tıpkı eskisi gibi.',
+  'The old key stops working': 'Eski anahtar çalışmaz olur',
+  'Whoever finds your old phone cannot spend from this wallet afterwards.':
+    'Eski telefonunu bulan kişi, bundan sonra bu cüzdandan harcama yapamaz.',
+  'WALLET FOUND': 'CÜZDAN BULUNDU',
+  'Approving moves it to this phone. Nothing is spent.':
+    'Onaylamak cüzdanı bu telefona taşır. Hiçbir harcama yapılmaz.',
+  'Find my wallet': 'Cüzdanımı bul',
+  'Move it to this phone': 'Bu telefona taşı',
+  'Something went wrong. Try again.': 'Bir şeyler ters gitti. Tekrar dene.',
+  'This phone has no passkey for a Lumenade Pay wallet. Sign in on a phone that does, or create a new wallet.':
+    'Bu telefonda bir Lumenade Pay cüzdanına ait passkey yok. Passkey’in olduğu bir telefondan gir ya da yeni bir cüzdan oluştur.',
+  'That passkey does not belong to a Lumenade Pay wallet.':
+    'Bu passkey bir Lumenade Pay cüzdanına ait değil.',
+  'You dismissed the prompt, so nothing was changed.':
+    'İstemi kapattın, bu yüzden hiçbir şey değişmedi.',
+  'The wallet could not be moved to this phone. Nothing was changed; try again.':
+    'Cüzdan bu telefona taşınamadı. Hiçbir şey değişmedi; tekrar dene.',
+  'No password to remember. Your phone holds a key it cannot give away, and a passkey brings it back if the phone is lost.':
+    'Hatırlanacak parola yok. Telefonun, kimseye veremeyeceği bir anahtar tutar; telefon kaybolursa passkey onu geri getirir.',
+
+  // Paying with an asset the merchant did not ask for
+  'PAYING WITH': 'ÖDEME KAYNAĞI',
+  'via Soroswap': 'Soroswap ile',
+  'Checking what this wallet can pay with…': 'Bu cüzdanın neyle ödeyebileceği kontrol ediliyor…',
+  'Exchanged for the': 'Şuna çevrilir:',
+  'the merchant asked for, at': 'esnafın istediği tutar, kur:',
+  'You will never pay more than': 'Şundan fazlasını asla ödemezsin:',
+  'Held directly in this wallet.': 'Doğrudan bu cüzdanda tutuluyor.',
+  'This wallet cannot cover this request in': 'Bu cüzdan bu isteği şununla karşılayamaz:',
+  'or in anything it can be exchanged for.': 'ya da çevrilebileceği başka bir şeyle.',
+
   // Wallet
   'Scan to pay': 'Okut ve öde',
   'Scan a code or hold phones together': 'Kodu okut ya da telefonları birbirine yaklaştır',
@@ -45,6 +87,8 @@ const TR: Record<string, string> = {
 
   // Lira
   'Add money': 'Para yükle',
+  'Add money with Turkish lira': 'Türk Lirası ile para yükle',
+  'Bank transfer · receive USDC in your wallet': 'Banka havalesi · hesabınıza USDC olarak geçer',
   'Cash out': 'Paraya çevir',
   'Add lira': 'Lira yükle',
   'YOU SEND': 'GÖNDERDİĞİNİZ',
@@ -164,6 +208,24 @@ const TR: Record<string, string> = {
   Activity: 'Hareketler',
   'Filter activity': 'Hareketleri filtrele',
   PAYMENTS: 'ÖDEMELER',
+
+  // Dashboard
+  Dashboard: 'Gösterge paneli',
+  OVERVIEW: 'GENEL BAKIŞ',
+  'TOTAL RECEIVED': 'TOPLAM ALINAN',
+  'TOTAL PAYMENTS': 'TOPLAM ÖDEME',
+  'Confirmed merchant payments': 'Doğrulanmış satıcı ödemeleri',
+  'Confirmed payments on this phone': 'Bu telefondaki doğrulanmış ödemeler',
+  'PAYMENT CHANNELS': 'ÖDEME KANALLARI',
+  'QR RECEIVED': 'QR İLE ALINAN',
+  'NFC RECEIVED': 'NFC İLE ALINAN',
+  'MONEY MOVEMENT': 'PARA HAREKETİ',
+  'Money deposited': 'Para yatırma',
+  'Money withdrawn': 'Para çekme',
+  transfers: 'transfer',
+  confirmed: 'doğrulandı',
+  'Channel totals reflect confirmed activity saved on this device.':
+    'Kanal toplamları bu cihazda kaydedilen doğrulanmış hareketleri gösterir.',
 
   // Merchant
   'GET PAID': 'ÖDEME AL',

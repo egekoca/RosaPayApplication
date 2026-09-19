@@ -65,6 +65,10 @@ Make a Stellar payment feel like tapping a card while preserving the strongest p
   present sandbox activity as real money movement.
 - Issuing a new Lumenade Pay token.
 - Cross-chain bridges, NFTs, loyalty points, AI features, or multi-chain support.
+  On-Stellar liquidity is not in this exclusion: a customer holding the wrong
+  Stellar asset is a payment problem, not a multi-chain one, and it is solved by
+  buying the merchant's exact amount through Soroswap inside the settlement
+  transaction. See [`swap-funding.md`](swap-funding.md).
 - Full restaurant POS hardware integration.
 - Making iOS NFC card emulation a required dependency. iOS NFC availability depends on Apple entitlements and device support; QR must always work.
 - Supporting every Stellar wallet in the first release. The primary path is Lumenade Pay passkey smart wallet; external wallets are a later adapter.
