@@ -194,7 +194,42 @@ authorization entry, its preimage and the XDR are assembled in JavaScript, which
 never sees the key, and `signWalletAuthPayload` converts the platform's DER
 signature into the low-S 64-byte form the wallet contract verifies.
 
+Both modules sign the payload bytes directly rather than hashing them again:
+Android uses `NONEwithECDSA` with a key that allows the `NONE` digest, and iOS
+uses `ecdsaSignatureDigestX962SHA256`, which takes a digest as input. Signing with
+`SHA256withECDSA` would hash the authorization payload a second time and produce
+a signature the contract can never verify — the device self-test in developer
+settings exists to catch exactly that class of mistake, by verifying a real
+signature against the exported public key with the same curve math the contract
+uses.
+
 The account decision is recorded in [ADR 0001](adr/0001-passkey-account-and-native-signer.md): use a Smart Account Kit/OpenZeppelin context-rule-compatible Soroban account, but keep React Native integration provider-neutral through a native bridge. Browser IndexedDB/WebAuthn storage is not used in React Native. Recovery and signer rotation are intentionally single-device for the Testnet demo and gated for production by [ADR 0002](adr/0002-recovery-and-signer-rotation.md). The bridge exposes Stellar SDK-compatible `signAuthEntry` and `signTransaction` operations so the generated contract client can separate customer auth-entry signing from relayer fee-payer signing. The iOS and Android `RosaPaySigner` modules are now registered fail-closed; they return `UNAVAILABLE` until platform credential storage and user-presence signing are implemented.
+
+### Paying from the smart wallet
+
+`POST /v1/wallets` deploys a customer's wallet with the device key as its only
+signer and gives it a starting balance, so the deployer can create the account
+but can never spend from it. The app provisions that wallet the first time it
+pays, then settles with the wallet as the customer: the hardware key authorizes
+the exact invocation and the relayer remains the transaction source and fee payer.
+
+Contract accounts need two things a classic account does not. The generated
+client's `signAuthEntry` callback receives a preimage, which only fits an
+Ed25519 account, so the wallet supplies the whole `authorizeEntry` step instead.
+And because the first simulation never runs `__check_auth`, the signer read it
+performs is missing from the footprint; the pipeline therefore simulates again
+once the entries are signed, or the ledger rejects the transaction for touching
+data outside its footprint.
+
+A contract balance is not indexed by Horizon, so the wallet's XLM is read
+through the asset contract; the home screen shows that number and says plainly
+when the network could not be reached instead of implying a zero balance. The
+wallet itself is created when the device key is created rather than during a
+payment, because deploying and funding it takes two Testnet transactions.
+
+Evidence is in `config/testnet-hardware-wallet-evidence.json`: the wallet is
+debited the amount and nothing else, the merchant is credited it, and the relayer
+pays the fee.
 
 ## Interface and motion
 

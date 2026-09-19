@@ -48,3 +48,12 @@ export const settlementRecordSchema = z.object({
 });
 
 export type SettlementRecordResponse = z.infer<typeof settlementRecordSchema>;
+
+export const provisionedWalletSchema = z.object({
+  walletContractId: z.string().regex(/^C[A-Z2-7]{55}$/),
+  devicePublicKey: z.string().min(1),
+  transactionHash: z.string().regex(/^[a-f0-9]{64}$/),
+  fundedAmount: z.string().min(1),
+});
+
+export type ProvisionedWalletResponse = z.infer<typeof provisionedWalletSchema>;

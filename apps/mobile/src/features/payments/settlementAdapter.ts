@@ -14,6 +14,7 @@ import {apiBaseUrl} from '../../shared/apiConfig';
 import {createRandomBytes} from '../../shared/randomBytes';
 import type {MerchantProfile} from '../merchant/merchantProfile';
 import {createLifecycleReporter} from './paymentLifecycle';
+import {createHardwareDigestSigner, ensureSmartWallet, SmartWalletError} from './smartWalletSettlement';
 import {settleMockPayment} from './mockSettlement';
 import {
   createDevelopmentCustomerKeypair,
@@ -109,8 +110,20 @@ export async function settlePaymentIntent(
   const relayer = dependencies.relayer ?? (await fetchRelayerIdentity(baseUrl));
   const relayerSigner = dependencies.relayerSigner ?? createRemoteRelayerSigner(baseUrl);
 
+  // The device's smart wallet pays when the hardware key exists; the demo
+  // account is the fallback while a device has no payment key yet.
+  let smartWallet: {contractId: string; signer: ReturnType<typeof createHardwareDigestSigner>} | undefined;
+  if (!dependencies.customer) {
+    try {
+      const wallet = await ensureSmartWallet();
+      smartWallet = {contractId: wallet.contractId, signer: createHardwareDigestSigner(wallet.devicePublicKey)};
+    } catch (error) {
+      if (!(error instanceof SmartWalletError && error.code === 'DEVICE_KEY_MISSING')) throw error;
+    }
+  }
+
   const customer = dependencies.customer ?? (await ensureCustomerWallet());
-  if (!dependencies.customer) await ensureFunded(config, customer);
+  if (!dependencies.customer && !smartWallet) await ensureFunded(config, customer);
 
   // A native signer, once implemented, replaces the development wallet here.
   if (dependencies.signer) {
@@ -121,7 +134,8 @@ export async function settlePaymentIntent(
   }
 
   const latestLedger = dependencies.latestLedger ?? (await new StellarRpcClient(config).health()).latestLedger;
-  const reporter = createLifecycleReporter(payload.intent.intentId, customer.publicKey());
+  const authorizer = smartWallet?.contractId ?? customer.publicKey();
+  const reporter = createLifecycleReporter(payload.intent.intentId, authorizer);
   const receipt = await settleOnTestnet({
     payload,
     config,
@@ -130,6 +144,7 @@ export async function settlePaymentIntent(
     relayer,
     relayerSigner,
     latestLedger,
+    ...(smartWallet ? {smartWallet} : {}),
     onProgress: progress => {
       dependencies.onProgress?.(progress);
       reporter.record(progress);

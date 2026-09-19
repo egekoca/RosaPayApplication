@@ -82,6 +82,9 @@ export function decodeSecrets(value: unknown): unknown {
   if (isPersistedSecret(value)) {
     return Uint8Array.from(Buffer.from(value.__bytes, 'hex'));
   }
+  // A JSON reviver runs bottom-up, so a secret restored by an inner call must be
+  // left alone here; walking into it would turn the bytes back into an object.
+  if (ArrayBuffer.isView(value)) return value;
   if (Array.isArray(value)) return value.map(decodeSecrets);
   if (value && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, decodeSecrets(entry)]));

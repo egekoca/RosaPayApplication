@@ -21,6 +21,20 @@ describe('session persistence', () => {
     expect(restored.receipts).toEqual([{amount: '2.5'}]);
   });
 
+  it('survives the reviver walking the object bottom-up', () => {
+    const state = {
+      merchantProfile: {developmentSigningSecret: Uint8Array.from(Buffer.alloc(32, 11))},
+      nested: {deep: {seed: Uint8Array.from([9, 9])}},
+    };
+
+    const restored = JSON.parse(JSON.stringify(encodeSecrets(state)), (_key, value) => decodeSecrets(value)) as typeof state;
+
+    expect(restored.merchantProfile.developmentSigningSecret).toBeInstanceOf(Uint8Array);
+    expect(restored.merchantProfile.developmentSigningSecret).toHaveLength(32);
+    expect(restored.nested.deep.seed).toBeInstanceOf(Uint8Array);
+    expect(Array.from(restored.nested.deep.seed)).toEqual([9, 9]);
+  });
+
   it('leaves ordinary values untouched', () => {
     expect(encodeSecrets({a: 1, b: 'two', c: null, d: [3, 'four']})).toEqual({a: 1, b: 'two', c: null, d: [3, 'four']});
     expect(decodeSecrets({a: 1, b: 'two'})).toEqual({a: 1, b: 'two'});

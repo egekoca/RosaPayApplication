@@ -1,5 +1,6 @@
 import {Keypair} from '@stellar/stellar-sdk';
 import {basicNodeSigner} from '@stellar/stellar-sdk/contract';
+import {createWalletAuthorizeEntry, type HardwareDigestSigner} from '@rosapay/stellar';
 import {Buffer} from 'buffer';
 import type {SignedPaymentIntentV1, RandomBytes} from '@rosapay/protocol';
 import {sign as signEd25519} from '@noble/ed25519';
@@ -95,7 +96,10 @@ export type TestnetSettlementInput = {
   payload: SignedPaymentIntentV1;
   config: StellarConfig;
   merchantProfile: MerchantProfile;
+  /** Classic demo account, used until the device controls a smart wallet. */
   customer: Keypair;
+  /** The device-controlled smart wallet that pays, when one exists. */
+  smartWallet?: {contractId: string; signer: HardwareDigestSigner};
   relayer: RelayerIdentity;
   relayerSigner: {signTransaction(xdr: string): Promise<{signedTxXdr: string}>};
   latestLedger: number;
@@ -110,6 +114,7 @@ export type TestnetSettlementInput = {
  */
 export async function settleOnTestnet(input: TestnetSettlementInput) {
   const {intent} = input.payload;
+  const customerAddress = input.smartWallet?.contractId ?? input.customer.publicKey();
   if (intent.merchantSigningKey !== input.merchantProfile.signingKey) {
     throw new TestnetSettlementError(
       'MERCHANT_KEY_UNAVAILABLE',
@@ -118,7 +123,7 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
   }
 
   const envelope = buildSettlementEnvelope(intent, {
-    customer: input.customer.publicKey(),
+    customer: customerAddress,
     networkPassphrase: input.config.networkPassphrase,
     settlementContractId: input.relayer.settlementContractId,
   });
@@ -131,16 +136,27 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
     Uint8Array.from(digest),
     input.merchantProfile.developmentSigningSecret,
   );
-  const customerSigner = basicNodeSigner(input.customer, input.config.networkPassphrase);
+  // A smart wallet authorizes the whole entry with the hardware key; a classic
+  // demo account signs the preimage the generated client hands it.
+  const customerAuthorizeEntry = input.smartWallet
+    ? createWalletAuthorizeEntry({
+        signer: input.smartWallet.signer,
+        networkPassphrase: input.config.networkPassphrase,
+        validUntilLedger: input.latestLedger + 120,
+        reason: `Approve ${intent.amount} ${intent.asset.code} to ${intent.merchantName}`,
+      })
+    : undefined;
+  const {signAuthEntry} = basicNodeSigner(input.customer, input.config.networkPassphrase);
 
   return settleSignedPayment({
     payload: input.payload,
     config: {...input.config, settlementContractId: input.relayer.settlementContractId},
-    customerAddress: input.customer.publicKey(),
+    customerAddress,
     relayerAddress: input.relayer.address,
     latestLedger: input.latestLedger,
     merchantContractSignature,
-    customerSigner: {signAuthEntry: customerSigner.signAuthEntry},
+    customerSigner: {signAuthEntry},
+    ...(customerAuthorizeEntry ? {customerAuthorizeEntry} : {}),
     relayerSigner: input.relayerSigner,
     ...(input.onProgress ? {onProgress: input.onProgress} : {}),
   });

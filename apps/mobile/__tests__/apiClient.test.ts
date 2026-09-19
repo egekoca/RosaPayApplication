@@ -94,3 +94,25 @@ describe('RosaPayApiClient', () => {
     );
   });
 });
+
+describe('slow operations', () => {
+  it('gives wallet provisioning far longer than a normal request', async () => {
+    jest.useFakeTimers();
+    const fetcher = jest.fn(
+      (_input: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, rejectFetch) => {
+          init?.signal?.addEventListener('abort', () => rejectFetch(new Error('aborted')));
+        }),
+    );
+    const client = new RosaPayApiClient({baseUrl: 'http://127.0.0.1:4100', fetcher, timeoutMs: 1_000});
+    const pending = client.provisionWallet('BGq6mdwxCU+w36V30DMvfwBZZddw3EOfCaKeZlIK2P4m');
+
+    jest.advanceTimersByTime(5_000);
+    await Promise.resolve();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(90_000);
+    await expect(pending).rejects.toMatchObject({code: 'REQUEST_TIMEOUT'});
+    jest.useRealTimers();
+  });
+});

@@ -1,5 +1,5 @@
 import {derToCompactSignature, uncompressedPointFromSpki} from '@rosapay/secure-signer';
-import {nativeToScVal, xdr} from '@stellar/stellar-sdk';
+import {authorizeEntry, nativeToScVal, xdr} from '@stellar/stellar-sdk';
 import {Buffer} from 'buffer';
 
 export type HardwareDigestSigner = {
@@ -42,4 +42,40 @@ export function walletSignatureScVal(publicKey: Buffer, signature: Buffer): xdr.
       val: xdr.ScVal.scvBytes(signature),
     }),
   ]);
+}
+
+export type WalletAuthEntrySignerOptions = {
+  signer: HardwareDigestSigner;
+  networkPassphrase: string;
+  /** Ledger after which the authorization can no longer be used. */
+  validUntilLedger: number;
+  reason?: string;
+};
+
+/**
+ * Authorizes Soroban entries for a smart wallet. The generated client hands its
+ * `signAuthEntry` callback a preimage, which only fits a classic account, so a
+ * contract account has to supply the whole `authorizeEntry` step: the entry, its
+ * preimage and the expiry are assembled here and the device only ever signs the
+ * resulting digest.
+ */
+export function createWalletAuthorizeEntry(options: WalletAuthEntrySignerOptions) {
+  return async (
+    entry: xdr.SorobanAuthorizationEntry,
+    _signer: unknown,
+    validUntilLedger: number,
+    networkPassphrase?: string,
+  ): Promise<xdr.SorobanAuthorizationEntry> =>
+    authorizeEntry(
+      entry,
+      async (_preimage, payload) => ({
+        signatureScVal: await signWalletAuthPayload(
+          options.signer,
+          Buffer.from(payload),
+          options.reason ?? 'Approve this payment',
+        ),
+      }),
+      options.validUntilLedger ?? validUntilLedger,
+      networkPassphrase ?? options.networkPassphrase,
+    );
 }

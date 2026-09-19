@@ -17,6 +17,12 @@ export type DevelopmentCustomerWallet = {
   funded: boolean;
 };
 
+/** A smart wallet whose only signer is this device's hardware key. */
+export type SmartWallet = {
+  contractId: string;
+  devicePublicKey: string;
+};
+
 export type AppMode = 'customer' | 'merchant';
 export type LocalReceipt = {
   intentId: string;
@@ -43,6 +49,7 @@ type AppState = {
   merchantProfile: MerchantProfile | null;
   merchantRegisteredOnChain: boolean;
   customerWallet: DevelopmentCustomerWallet | null;
+  smartWallet: SmartWallet | null;
   pendingRequest: SignedPaymentIntentV1 | null;
   receipts: LocalReceipt[];
   setMode(mode: AppMode): void;
@@ -50,13 +57,46 @@ type AppState = {
   saveMerchantProfile(profile: MerchantProfile): void;
   setMerchantRegisteredOnChain(registered: boolean): void;
   setCustomerWallet(wallet: DevelopmentCustomerWallet | null): void;
+  setSmartWallet(wallet: SmartWallet | null): void;
   setPendingRequest(request: SignedPaymentIntentV1 | null): void;
   addReceipt(receipt: LocalReceipt): void;
 };
 
+/**
+ * A restored profile or wallet is only usable if its signing bytes came back
+ * intact. Anything else is dropped, so a broken session asks the user to set up
+ * again instead of failing later with an unreadable key.
+ */
+export function dropUnusableSecrets(state: Partial<AppState>): Partial<AppState> {
+  const merchantProfile =
+    state.merchantProfile && isSigningKey(state.merchantProfile.developmentSigningSecret, 32)
+      ? state.merchantProfile
+      : null;
+  const customerWallet =
+    state.customerWallet && isSigningKey(state.customerWallet.seed, 32) ? state.customerWallet : null;
+  return {
+    ...state,
+    merchantProfile,
+    customerWallet,
+    // Without a profile there is no merchant mode to return to.
+    ...(merchantProfile ? {} : {merchantRegisteredOnChain: false, pendingRequest: null, mode: 'customer' as const}),
+  };
+}
+
+function isSigningKey(value: unknown, length: number): boolean {
+  return value instanceof Uint8Array && value.length === length;
+}
+
 /** True once a session exists that a returning user should come back to. */
-export function hasRestorableSession(state: Pick<AppState, 'customerWallet' | 'merchantProfile' | 'receipts'>): boolean {
-  return state.customerWallet !== null || state.merchantProfile !== null || state.receipts.length > 0;
+export function hasRestorableSession(
+  state: Pick<AppState, 'customerWallet' | 'merchantProfile' | 'receipts'> & {smartWallet?: SmartWallet | null},
+): boolean {
+  return (
+    state.customerWallet !== null ||
+    (state.smartWallet ?? null) !== null ||
+    state.merchantProfile !== null ||
+    state.receipts.length > 0
+  );
 }
 
 const initialSettlementMode: SettlementMode =
@@ -74,6 +114,7 @@ export const useAppStore = create<AppState>()(
       merchantProfile: null,
       merchantRegisteredOnChain: false,
       customerWallet: null,
+      smartWallet: null,
       pendingRequest: null,
       receipts: [],
       setMode: mode => set(state => (mode === 'merchant' && !state.merchantProfile ? state : {...state, mode})),
@@ -82,13 +123,17 @@ export const useAppStore = create<AppState>()(
         set({merchantProfile: profile, mode: 'merchant', merchantRegisteredOnChain: false}),
       setMerchantRegisteredOnChain: merchantRegisteredOnChain => set({merchantRegisteredOnChain}),
       setCustomerWallet: customerWallet => set({customerWallet}),
+      setSmartWallet: smartWallet => set({smartWallet}),
       setPendingRequest: request => set({pendingRequest: request}),
       addReceipt: receipt =>
         set(state => ({receipts: [receipt, ...state.receipts].slice(0, MAX_PERSISTED_RECEIPTS)})),
     }),
     {
       name: 'rosapay-session',
-      version: 1,
+      // Version 2 drops sessions whose signer bytes did not survive storage.
+      version: 2,
+      migrate: state => dropUnusableSecrets(state as Partial<AppState>),
+      merge: (persisted, current) => ({...current, ...dropUnusableSecrets(persisted as Partial<AppState>)}),
       onRehydrateStorage: () => state => {
         useAppStore.setState({hydrated: true});
         return state;
@@ -105,6 +150,7 @@ export const useAppStore = create<AppState>()(
         merchantProfile: state.merchantProfile,
         merchantRegisteredOnChain: state.merchantRegisteredOnChain,
         customerWallet: state.customerWallet,
+        smartWallet: state.smartWallet,
         pendingRequest: state.pendingRequest,
         receipts: state.receipts,
       }),

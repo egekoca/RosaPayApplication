@@ -1,0 +1,18 @@
+{
+  "network": "testnet",
+  "walletContractId": "CBI3H4ROVXGJG3BRPABD2TKSIME2VJCJTKEMOCJNF3BNHYJOBK6U57NS",
+  "relayer": "GA2UEYK57SKOEVWJDEULRMAR2ZHET4O3U6BODTGXWUVNSXDVUIUHHIL3",
+  "merchantRecipient": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57",
+  "amount": "0.3",
+  "transactionHash": "9417138c6ce17cc7939336b1e914d13f6038cd35f390fd47256cc2f4dcede5ff",
+  "ledger": 4295728,
+  "feeCharged": "271534",
+  "authorizedBy": "Android Keystore secp256r1 key behind a device-credential prompt",
+  "checks": [
+    "wallet-debited-amount-only",
+    "merchant-credited-amount",
+    "relayer-is-source-and-fee-payer",
+    "check-auth-verified-secp256r1"
+  ],
+  "settledAt": "2026-08-23T19:11:27Z"
+}

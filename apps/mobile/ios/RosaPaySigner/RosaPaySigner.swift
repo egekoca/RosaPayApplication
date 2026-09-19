@@ -94,9 +94,9 @@ final class RosaPaySigner: NSObject {
       ],
     ]
     // The Simulator has no Secure Enclave; the key stays in the keychain there.
-    if TARGET_OS_SIMULATOR == 0 {
+    #if !targetEnvironment(simulator)
       attributes[kSecAttrTokenID as String] = kSecAttrTokenIDSecureEnclave
-    }
+    #endif
 
     var createError: Unmanaged<CFError>?
     guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &createError) else {

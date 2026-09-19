@@ -21,21 +21,21 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 
 ## P0 - Wallet and Authorization
 
-- [x] Keep signing behind the `SecureSigner` TypeScript port with no private key exposed to JavaScript.
+- [x] Keep signing behind the `SecureSigner` TypeScript port with no private key exposed to JavaScript; a Testnet payment is now authorized by the Keystore key and paid from the smart wallet (tx `9417138c…`, ledger 4295728).
 - [x] Complete the iOS/Android passkey smart-wallet feasibility decision and record the selected account model in ADR 0001 (PRD 22.1); the account is now implemented as `contracts/wallet` and deployed to Testnet.
 - [x] Define the generated-client settlement pipeline boundary for simulation, customer auth-entry signing, relayer submission and final confirmation; the relayer is now the transaction source and fee payer, verified on-chain by `npm run testnet:relayed`.
 - [x] Add a fail-closed signed-intent settlement service that keeps RTP/1 and contract-digest signatures separate.
 - [x] Define first-release recovery and signer rotation requirements in ADR 0002 (PRD 22.5); the wallet enforces them, with the recovery key scoped to rotation only.
 - [~] Implement native iOS signer storage and user-presence authorization; the Secure Enclave module is implemented as a local pod and builds, while on-device verification remains.
-- [~] Implement native Android signer storage and user-presence authorization; the Keystore module with BiometricPrompt compiles, while emulator verification of the biometric path remains.
+- [x] Implement native Android signer storage and user-presence authorization; a Keystore secp256r1 key signs only behind a device-credential prompt, verified on the Pixel 9 emulator against the exported public key.
 - [x] Register fail-closed `RosaPaySigner` modules on iOS and Android; both now generate a hardware secp256r1 key and sign a digest behind a user-presence prompt.
-- [~] Implement wallet creation/restoration and recoverable failure states; the wallet contract supports adding, removing and rotating signers, while the mobile creation and restore flows remain.
-- [ ] Add device tests for cancellation, biometric failure and process death during authorization.
+- [x] Implement wallet creation/restoration and recoverable failure states; the app provisions a device-controlled smart wallet, restores it with the session, and every failure maps to a specific message.
+- [~] Add device tests for cancellation, biometric failure and process death during authorization; developer settings run a real signature self-test and every failure maps to a typed signer error, while scripted cancellation and process-death cases remain.
 - [ ] Validate the selected native passkey bridge on physical iOS and Android devices.
 
 ## P1 - Application and API Foundation
 
-- [x] Add the React Native shell, navigation, design system, English copy and error boundary; motion primitives are React Native ports of React Bits components and screen transitions run on the native stack.
+- [x] Add the React Native shell, navigation, design system, English copy and error boundary; motion primitives are React Native ports of React Bits components, screen transitions run on the native stack, and the home balance is the wallet's real on-chain balance rather than a fixture.
 - [x] Add Zustand capability/mode state, TanStack Query and structured redacted logging boundaries, with the session persisted in encrypted device storage.
 - [x] Add a runtime-validated mobile API client with stable error handling.
 - [~] Keep API intent creation/get and in-memory idempotency for local development.

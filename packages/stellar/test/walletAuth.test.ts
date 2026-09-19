@@ -1,8 +1,8 @@
 import {p256} from '@noble/curves/nist.js';
 import {Buffer} from 'buffer';
 import {describe, expect, it, vi} from 'vitest';
-import {scValToNative} from '@stellar/stellar-sdk';
-import {signWalletAuthPayload, walletSignatureScVal} from '../src/walletAuth';
+import {Address, StrKey, scValToNative, xdr} from '@stellar/stellar-sdk';
+import {createWalletAuthorizeEntry, signWalletAuthPayload, walletSignatureScVal} from '../src/walletAuth';
 
 /** Platform keystores return ASN.1 DER, so the fake hardware signer does too. */
 function toDer(compact: Uint8Array): Uint8Array {
@@ -61,5 +61,37 @@ describe('wallet authorization signing', () => {
   it('keeps the struct field order the contract expects', () => {
     const value = walletSignatureScVal(Buffer.alloc(65, 4), Buffer.alloc(64, 5));
     expect(Object.keys(scValToNative(value) as object)).toEqual(['public_key', 'signature']);
+  });
+});
+
+describe('wallet authorization entries', () => {
+  it('signs the entry itself rather than the preimage the classic path expects', async () => {
+    const secretKey = p256.utils.randomSecretKey();
+    const signer = hardwareSigner(secretKey);
+    const authorize = createWalletAuthorizeEntry({
+      signer,
+      networkPassphrase: 'Test SDF Network ; September 2015',
+      validUntilLedger: 1_000,
+    });
+
+    // A source-account entry needs no signature, so it comes back untouched and
+    // proves the wrapper hands real entries to the SDK.
+    const entry = new xdr.SorobanAuthorizationEntry({
+      credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
+      rootInvocation: new xdr.SorobanAuthorizedInvocation({
+        function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+          new xdr.InvokeContractArgs({
+            contractAddress: new Address(StrKey.encodeContract(Buffer.alloc(32, 5))).toScAddress(),
+            functionName: 'settle_payment',
+            args: [],
+          }),
+        ),
+        subInvocations: [],
+      }),
+    });
+
+    const authorized = await authorize(entry, undefined, 1_000);
+    expect(authorized).toBeDefined();
+    expect(signer.signDigest).not.toHaveBeenCalled();
   });
 });

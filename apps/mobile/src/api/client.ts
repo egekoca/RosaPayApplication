@@ -6,6 +6,7 @@ import {
   healthResponseSchema,
   merchantProfileSchema,
   merchantRegistrationSchema,
+  provisionedWalletSchema,
   settlementRecordSchema,
   storedIntentSchema,
 } from './schemas';
@@ -117,14 +118,35 @@ export class RosaPayApiClient {
     });
   }
 
+  /** Deploys and funds a smart wallet controlled by this device's key. */
+  provisionWallet(devicePublicKey: string) {
+    // Deploying and funding a wallet is two Testnet transactions, so this call
+    // legitimately takes far longer than a normal request.
+    return this.request(
+      '/v1/wallets',
+      provisionedWalletSchema,
+      {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({devicePublicKey}),
+      },
+      90_000,
+    );
+  }
+
   getSettlement(intentId: string) {
     const id = z.string().min(1).parse(intentId);
     return this.request(`/v1/payment-intents/${encodeURIComponent(id)}/settlement`, settlementRecordSchema);
   }
 
-  private async request<T>(path: string, schema: z.ZodType<T>, init: RequestInit = {}): Promise<T> {
+  private async request<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    init: RequestInit = {},
+    timeoutMs: number = this.timeoutMs,
+  ): Promise<T> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const response = await this.fetcher(`${this.baseUrl}${path}`, {

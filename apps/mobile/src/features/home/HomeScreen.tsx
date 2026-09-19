@@ -9,6 +9,7 @@ import type {MainTabsParams, RootStackParams} from '../../app/navigation';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
 import {Screen} from '../../shared/Screen';
 import {useStellarHealth} from '../../shared/useStellarHealth';
+import {useWalletBalance} from '../../shared/useWalletBalance';
 import {useAppStore} from '../../state/appStore';
 
 type Props = CompositeScreenProps<
@@ -42,13 +43,25 @@ export function HomeScreen({navigation}: Props) {
 }
 
 function CustomerHome({navigation, merchantEnabled, isNarrow}: {navigation: Props['navigation']; merchantEnabled: boolean; isNarrow: boolean}) {
+  const smartWallet = useAppStore(state => state.smartWallet);
+  const balance = useWalletBalance();
+  const address = smartWallet?.contractId;
+
   return (
     <>
       <AnimatedContent><SurfaceCard accent="amber" style={styles.balanceCard}>
-        <View style={styles.cardHeader}><Text style={styles.cardLabel}>TOTAL BALANCE</Text><View style={styles.balanceNetwork}><View style={styles.dot} /><Text style={styles.balanceNetworkText}>XLM</Text></View></View>
-        <View style={styles.balanceLine}><CountUp value={1248.75} decimals={2} style={styles.balance} /><Text style={styles.balanceAsset}>XLM</Text></View>
-        <Text style={styles.balanceValue}>≈ $184.32 USD</Text>
-        <View style={styles.addressRow}><Text style={styles.address}>GDRX...N7KQ</Text><Copy color={colors.amber} size={16} /></View>
+        <View style={styles.cardHeader}><Text style={styles.cardLabel}>TOTAL BALANCE</Text><View style={styles.balanceNetwork}><View style={[styles.dot, balance.isError && styles.dotError]} /><Text style={styles.balanceNetworkText}>XLM</Text></View></View>
+        <View style={styles.balanceLine}><CountUp value={Number(balance.data ?? 0)} decimals={2} style={styles.balance} /><Text style={styles.balanceAsset}>XLM</Text></View>
+        <Text style={styles.balanceValue}>
+          {!smartWallet
+            ? 'Your wallet is created the first time you pay on Testnet.'
+            : balance.isPending
+              ? 'Reading your balance from Stellar'
+              : balance.isError
+                ? 'Stellar could not be reached, so this balance may be stale.'
+                : 'Held by your device wallet on Stellar Testnet'}
+        </Text>
+        <View style={styles.addressRow}><Text selectable style={styles.address}>{address ? `${address.slice(0, 8)}...${address.slice(-6)}` : 'No wallet yet'}</Text><Copy color={colors.amber} size={16} /></View>
       </SurfaceCard></AnimatedContent>
       <View style={[styles.quickGrid, isNarrow && styles.quickGridStacked]}>
         <QuickAction stacked={isNarrow} icon={<ScanLine color={colors.amber} size={22} />} title="Scan to pay" hint="Use a merchant QR" onPress={() => navigation.navigate('Scan')} />

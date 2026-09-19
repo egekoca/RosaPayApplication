@@ -1,4 +1,5 @@
 export * from './address';
+export * from './balances';
 export * from './config';
 export * from './deployments';
 export * from './merchantSignature';

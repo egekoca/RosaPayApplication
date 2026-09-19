@@ -19,3 +19,41 @@ describe('session restoration', () => {
     ).toBe(true);
   });
 });
+
+describe('unusable restored secrets', () => {
+  const {dropUnusableSecrets} = require('../src/state/appStore');
+  const usableSecret = Uint8Array.from(Buffer.alloc(32, 5));
+
+  it('keeps a profile whose signer bytes survived storage', () => {
+    const profile = {displayName: 'Rose Coffee', developmentSigningSecret: usableSecret};
+    const restored = dropUnusableSecrets({mode: 'merchant', merchantProfile: profile, receipts: []});
+
+    expect(restored.merchantProfile).toBe(profile);
+    expect(restored.mode).toBe('merchant');
+  });
+
+  it('drops a profile whose signer bytes did not survive, and leaves merchant mode', () => {
+    const restored = dropUnusableSecrets({
+      mode: 'merchant',
+      merchantProfile: {displayName: 'Rose Coffee', developmentSigningSecret: {0: 1, 1: 2}},
+      merchantRegisteredOnChain: true,
+      pendingRequest: {intent: {}},
+      receipts: [],
+    });
+
+    expect(restored.merchantProfile).toBeNull();
+    expect(restored.mode).toBe('customer');
+    expect(restored.merchantRegisteredOnChain).toBe(false);
+    expect(restored.pendingRequest).toBeNull();
+  });
+
+  it('drops a demo wallet whose seed did not survive', () => {
+    const restored = dropUnusableSecrets({
+      customerWallet: {publicKey: 'GABC', seed: {0: 1}, funded: true},
+      merchantProfile: null,
+      receipts: [],
+    });
+
+    expect(restored.customerWallet).toBeNull();
+  });
+});

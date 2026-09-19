@@ -36,7 +36,12 @@ class RosaPaySignerModule(private val reactContext: ReactApplicationContext) :
   private companion object {
     const val KEY_ALIAS = "com.rosapay.device-signer"
     const val KEYSTORE = "AndroidKeyStore"
-    const val SIGNATURE_ALGORITHM = "SHA256withECDSA"
+    /**
+     * The contract verifies a signature over the authorization payload itself,
+     * so the key must sign those exact bytes. SHA256withECDSA would hash them a
+     * second time and produce a signature nothing can verify.
+     */
+    const val SIGNATURE_ALGORITHM = "NONEwithECDSA"
   }
 
   override fun getName(): String = "RosaPaySigner"
@@ -82,7 +87,7 @@ class RosaPaySignerModule(private val reactContext: ReactApplicationContext) :
       val generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, KEYSTORE)
       val builder = KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_SIGN)
         .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
-        .setDigests(KeyProperties.DIGEST_SHA256)
+        .setDigests(KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA256)
         .setUserAuthenticationRequired(true)
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         // Authenticate for each signature rather than for a time window.

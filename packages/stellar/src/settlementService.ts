@@ -8,6 +8,7 @@ import {
 } from './settlementEnvelope';
 import {
   settlePayment,
+  type WalletAuthorizeEntry,
   type SettlementPipelineClient,
   type SettlementPipelineProgress,
   type SettlementPipelineReceipt,
@@ -15,6 +16,8 @@ import {
   type SettlementRelayerSigner,
 } from './settlementPipeline';
 import type {StellarConfig} from './config';
+
+export type SettlementServiceAuthorizeEntry = WalletAuthorizeEntry;
 
 export type SettlementServiceInput = {
   payload: unknown;
@@ -28,6 +31,7 @@ export type SettlementServiceInput = {
   latestLedger: number;
   merchantContractSignature: Uint8Array;
   customerSigner: SettlementPipelineSigner;
+  customerAuthorizeEntry?: SettlementServiceAuthorizeEntry;
   relayerSigner: SettlementRelayerSigner;
   client?: SettlementPipelineClient;
   maxLedgerLifetime?: number;
@@ -101,6 +105,7 @@ export async function settleSignedPayment(input: SettlementServiceInput): Promis
     intent: signedEnvelope.intent,
     merchantSignature: signedEnvelope.merchantSignature,
     customerSigner: input.customerSigner,
+    ...(input.customerAuthorizeEntry ? {customerAuthorizeEntry: input.customerAuthorizeEntry} : {}),
     relayerSigner: input.relayerSigner,
     onProgress: input.onProgress,
   });

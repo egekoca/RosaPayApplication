@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {CircleAlert, CircleCheck, FlaskConical, Radio, Wallet} from 'lucide-react-native';
+import {CircleAlert, CircleCheck, Fingerprint, FlaskConical, Radio, Wallet} from 'lucide-react-native';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Button, colors, radius, spacing, SurfaceCard, typography} from '@rosapay/ui';
 import {createStellarConfig} from '@rosapay/stellar';
@@ -16,6 +16,12 @@ import {
   type SessionStorageStatus,
 } from '../../state/persistence';
 import {fetchRelayerIdentity} from '../payments/testnetSettlement';
+import {
+  createHardwareSigner,
+  inspectHardwareSigner,
+  verifyHardwareSigner,
+  type HardwareSignerReport,
+} from './hardwareSigner';
 import {ensureCustomerWallet} from '../payments/settlementAdapter';
 
 type Props = NativeStackScreenProps<RootStackParams, 'DeveloperSettings'>;
@@ -26,13 +32,30 @@ const modes: {value: SettlementMode; title: string; hint: string}[] = [
 ];
 
 export function DeveloperSettingsScreen(_props: Props) {
-  const {settlementMode, setSettlementMode, customerWallet, merchantProfile, merchantRegisteredOnChain} = useAppStore();
+  const {settlementMode, setSettlementMode, customerWallet, merchantProfile, merchantRegisteredOnChain, smartWallet} =
+    useAppStore();
   const stellarHealth = useStellarHealth();
   const config = createStellarConfig('testnet');
   const [walletError, setWalletError] = useState<string | undefined>();
   const [session, setSession] = useState<SessionStorageStatus>(getSessionStorageStatus);
 
   useEffect(() => subscribeToSessionStorage(setSession), []);
+
+  const [hardware, setHardware] = useState<HardwareSignerReport>({state: 'unavailable'});
+  const [hardwareBusy, setHardwareBusy] = useState(false);
+
+  useEffect(() => {
+    void inspectHardwareSigner().then(setHardware);
+  }, []);
+
+  const runHardware = (action: () => Promise<HardwareSignerReport>) => async () => {
+    setHardwareBusy(true);
+    try {
+      setHardware(await action());
+    } finally {
+      setHardwareBusy(false);
+    }
+  };
 
   const relayer = useQuery({
     queryKey: ['relayer', apiBaseUrl],
@@ -116,11 +139,35 @@ export function DeveloperSettingsScreen(_props: Props) {
           ok={session.state === 'saved' || session.state === 'restored'}
         />
         <StatusRow
+          label="Device wallet"
+          value={smartWallet ? shorten(smartWallet.contractId) : 'Created with the device key'}
+          ok={Boolean(smartWallet)}
+        />
+        <StatusRow
           label="Merchant on-chain"
           value={!merchantProfile ? 'No profile' : merchantRegisteredOnChain ? 'Registered' : 'Not registered'}
           ok={merchantRegisteredOnChain}
           last
         />
+      </SurfaceCard>
+
+      <SurfaceCard style={styles.card}>
+        <View style={styles.walletHeader}>
+          <Fingerprint color={colors.amber} size={18} />
+          <Text style={styles.label}>DEVICE PAYMENT KEY</Text>
+        </View>
+        <Text style={styles.walletValue}>
+          {hardware.publicKey ? `${shorten(hardware.publicKey)} · in secure hardware` : 'Not created on this device'}
+        </Text>
+        <Text style={styles.modeHint}>
+          {hardware.detail ?? 'A secp256r1 key that never leaves the device and signs only after you approve.'}
+        </Text>
+        <Button loading={hardwareBusy} tone="ghost" onPress={runHardware(createHardwareSigner)} testID="create-hardware-key">
+          {hardware.publicKey ? 'Replace device key' : 'Create device key'}
+        </Button>
+        <Button loading={hardwareBusy} tone="ghost" onPress={runHardware(verifyHardwareSigner)} testID="verify-hardware-key">
+          Test a signature
+        </Button>
       </SurfaceCard>
 
       <SurfaceCard style={styles.card}>

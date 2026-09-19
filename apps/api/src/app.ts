@@ -26,6 +26,7 @@ import {
   MerchantProfileService,
 } from './application/MerchantProfileService';
 import {RelayerError, RelayerService} from './application/RelayerService';
+import {WalletProvisioningError, WalletProvisioningService} from './application/WalletProvisioningService';
 import {InMemoryIntentRepository} from './infrastructure/InMemoryIntentRepository';
 import {InMemoryMerchantProfileRepository} from './infrastructure/InMemoryMerchantProfileRepository';
 
@@ -38,12 +39,14 @@ const authorizeSchema = z.object({
   expiresAtLedger: z.number().int().positive().optional(),
 });
 const submitSchema = z.object({transactionHash: z.string().regex(/^[a-f0-9]{64}$/i)});
+const walletSchema = z.object({devicePublicKey: z.string().min(64).max(512)});
 
 export type BuildAppOptions = {
   repository?: IntentRepository;
   merchantProfiles?: MerchantProfileRepository;
   auth?: ApiAuthOptions;
   relayer?: RelayerService;
+  wallets?: WalletProvisioningService;
 };
 
 export function buildApp({
@@ -51,6 +54,7 @@ export function buildApp({
   merchantProfiles = new InMemoryMerchantProfileRepository(),
   auth,
   relayer,
+  wallets,
 }: BuildAppOptions = {}) {
   const app = Fastify({logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']}});
   const intents = new IntentService(repository);
@@ -61,6 +65,12 @@ export function buildApp({
     settlementContractId: process.env.STELLAR_SETTLEMENT_CONTRACT_ID,
   });
   const stellar = new StellarRpcClient(stellarConfig);
+  const walletService = wallets ?? new WalletProvisioningService({
+    config: stellarConfig,
+    ...(process.env.STELLAR_WALLET_WASM_HASH ? {walletWasmHash: process.env.STELLAR_WALLET_WASM_HASH} : {}),
+    ...(process.env.STELLAR_ADMIN_SECRET ? {deployerSecret: process.env.STELLAR_ADMIN_SECRET} : {}),
+    ...(process.env.STELLAR_WALLET_FUNDING ? {fundingAmount: process.env.STELLAR_WALLET_FUNDING} : {}),
+  });
   const relayerService = relayer ?? new RelayerService({
     config: stellarConfig,
     ...(process.env.STELLAR_RELAYER_SECRET ? {relayerSecret: process.env.STELLAR_RELAYER_SECRET} : {}),
@@ -102,6 +112,12 @@ export function buildApp({
   });
   app.get('/v1/relayer', async (_request, reply) => {
     return reply.send(relayerService.identity());
+  });
+  app.post('/v1/wallets', async (request, reply) => {
+    const {devicePublicKey} = walletSchema.parse(request.body);
+    await requireAuthenticatedPrincipal(request, authOptions);
+    const wallet = await walletService.provision(devicePublicKey);
+    return reply.code(201).send(wallet);
   });
   app.post('/v1/relayer/transactions', async (request, reply) => {
     const {xdr} = relayerTransactionSchema.parse(request.body);
@@ -169,6 +185,14 @@ export function buildApp({
     }
     if (error instanceof MerchantProfileNotFoundError) {
       return reply.code(404).send({code: 'MERCHANT_PROFILE_NOT_FOUND', message: error.message});
+    }
+    if (error instanceof WalletProvisioningError) {
+      const status = error.code === 'WALLET_PROVISIONING_DISABLED'
+        ? 503
+        : error.code === 'INVALID_DEVICE_KEY'
+          ? 400
+          : 502;
+      return reply.code(status).send({code: error.code, message: error.message});
     }
     if (error instanceof RelayerError) {
       const status = error.code === 'RELAYER_DISABLED' || error.code === 'ADMIN_DISABLED' ? 503 : 400;
