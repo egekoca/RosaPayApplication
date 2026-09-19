@@ -1,5 +1,5 @@
-import {Asset, BASE_FEE, Horizon, Operation, TransactionBuilder, rpc, type Keypair} from '@stellar/stellar-sdk';
-import {createStellarConfig, type StellarConfig} from '@rosapay/stellar';
+import {Asset, BASE_FEE, Operation, TransactionBuilder, rpc, type Keypair} from '@stellar/stellar-sdk';
+import {createStellarConfig, readAssetBalance, type StellarConfig} from '@rosapay/stellar';
 import {logger} from '../../shared/logger';
 
 export class AccountSetupError extends Error {
@@ -93,31 +93,58 @@ export async function ensureTrustline(
   asset: {code: string; issuer: string},
   config: StellarConfig = createStellarConfig('testnet'),
 ): Promise<{created: boolean}> {
-  const horizon = new Horizon.Server(config.horizonUrl);
-  const account = await horizon.loadAccount(keypair.publicKey());
-  const already = account.balances.some(
-    balance =>
-      'asset_code' in balance && balance.asset_code === asset.code && balance.asset_issuer === asset.issuer,
-  );
-  if (already) return {created: false};
+  const server = new rpc.Server(config.rpcUrl);
+  const stellarAsset = new Asset(asset.code, asset.issuer);
 
+  // A balance that reads at all is a line that is already open; a missing
+  // trustline makes the asset contract refuse rather than answer zero. That is
+  // the same signal `useWalletBalance` relies on, read the same way.
+  const contractId = stellarAsset.contractId(config.networkPassphrase);
+  const open = await readAssetBalance(config, keypair.publicKey(), contractId, server).then(
+    () => true,
+    () => false,
+  );
+  if (open) return {created: false};
+
+  const account = await server.getAccount(keypair.publicKey());
   const transaction = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: config.networkPassphrase,
   })
-    .addOperation(Operation.changeTrust({asset: new Asset(asset.code, asset.issuer)}))
+    .addOperation(Operation.changeTrust({asset: stellarAsset}))
     .setTimeout(60)
     .build();
   transaction.sign(keypair);
 
+  let sent;
   try {
-    await horizon.submitTransaction(transaction);
+    sent = await server.sendTransaction(transaction);
   } catch {
-    logger.error('trustline_failed', {code: asset.code});
     throw new AccountSetupError(
       'TRUSTLINE_FAILED',
       `This wallet could not open a line for ${asset.code}. It needs about 0.5 XLM spare to hold a new asset.`,
     );
   }
-  return {created: true};
+  if (sent.status === 'ERROR') {
+    logger.error('trustline_failed', {code: asset.code, status: sent.status});
+    throw new AccountSetupError(
+      'TRUSTLINE_FAILED',
+      `This wallet could not open a line for ${asset.code}. It needs about 0.5 XLM spare to hold a new asset.`,
+    );
+  }
+
+  // Submission is not settlement. Reporting success here would let the anchor
+  // be told to send an asset the ledger cannot yet deliver.
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 1_000));
+    const result = await server.getTransaction(sent.hash).catch(() => undefined);
+    if (result?.status === 'SUCCESS') return {created: true};
+    if (result?.status === 'FAILED') break;
+  }
+
+  logger.error('trustline_failed', {code: asset.code});
+  throw new AccountSetupError(
+    'TRUSTLINE_FAILED',
+    `This wallet could not open a line for ${asset.code}. It needs about 0.5 XLM spare to hold a new asset.`,
+  );
 }

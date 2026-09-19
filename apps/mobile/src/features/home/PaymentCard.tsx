@@ -1,8 +1,9 @@
 import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
-import {Copy, WalletCards} from 'lucide-react-native';
+import {ChevronDown, Copy, WalletCards} from 'lucide-react-native';
 import {CountUp, GoldCardSurface, spacing, typography} from '@rosapay/ui';
 import {AssetMark} from './AssetMark';
 import {displayAmount} from '../../shared/displayAmount';
+import {displayCurrencyMeta} from '../../shared/priceSource';
 
 /** One state at a time, so the card never says two things at once. */
 export type PaymentCardState = 'no-wallet' | 'loading' | 'error' | 'ready';
@@ -11,11 +12,15 @@ export type PaymentCardHolding = {code: string; amount: string};
 
 export type PaymentCardProps = {
   holdings: PaymentCardHolding[];
-  /** What the balance is worth, when an anchor actually quoted a rate. */
+  /** What the balance is worth, when a quote server actually priced it. */
   value?: {amount: string; currency: string};
+  /** The money the owner asked to read in, shown even before a rate arrives. */
+  currency?: string;
   address?: string;
   state: PaymentCardState;
   onCopy(): void;
+  /** Cycles the money the balance is read in. Absent means the card is fixed. */
+  onChangeCurrency?(): void;
 };
 
 /*
@@ -45,7 +50,7 @@ const CARD_RATIO = 53.98 / 85.6;
  * The sweep is a single specular band crossing on a long, slow loop, the way
  * light travels over metal as you turn it. Not a pulse, and not a glow.
  */
-export function PaymentCard({holdings, value, address, state, onCopy}: PaymentCardProps) {
+export function PaymentCard({holdings, value, currency, address, state, onCopy, onChangeCurrency}: PaymentCardProps) {
   const {width} = useWindowDimensions();
   // Perspective widens the near edge, so the card is measured a little
   // narrower than its slot; without this the right edge runs off the screen.
@@ -56,6 +61,7 @@ export function PaymentCard({holdings, value, address, state, onCopy}: PaymentCa
   // Whatever else is in the wallet. Shown small, because a customer reads the
   // headline number first and only then asks what else is in there.
   const rest = holdings.slice(1);
+  const shownCurrency = value?.currency ?? currency ?? 'TRY';
   const shown = address
     ? `${address.slice(0, 4)} ${address.slice(4, 8)} •••• ${address.slice(-4)}`
     : '•••• •••• •••• ••••';
@@ -95,9 +101,26 @@ export function PaymentCard({holdings, value, address, state, onCopy}: PaymentCa
           <View style={styles.bottom}>
             <View style={styles.legend}>
               <Text style={styles.legendLabel}>BALANCE</Text>
-              <Text style={styles.legendValue}>
-                {value ? `≈ ${value.amount} ${value.currency}` : captions[state]}
-              </Text>
+              {/*
+                The flag rather than the code, because it is read at a glance
+                while someone is looking at their own money — and it is the
+                control as well as the label, so the money the balance is in and
+                the way to change it are the same thing rather than two.
+              */}
+              <Pressable
+                accessibilityHint={onChangeCurrency ? 'Changes the money this balance is shown in' : undefined}
+                accessibilityLabel={`Balance shown in ${displayCurrencyMeta(shownCurrency).name}`}
+                accessibilityRole={onChangeCurrency ? 'button' : 'text'}
+                disabled={!onChangeCurrency}
+                onPress={onChangeCurrency}
+                style={styles.legendRow}
+                testID="balance-currency">
+                <Text style={styles.flag}>{displayCurrencyMeta(shownCurrency).flag}</Text>
+                <Text style={styles.legendValue}>
+                  {value ? `≈ ${value.amount} ${value.currency}` : captions[state]}
+                </Text>
+                {onChangeCurrency ? <ChevronDown color={inkSoft} size={12} /> : null}
+              </Pressable>
             </View>
             <Pressable
               accessibilityLabel="Copy wallet address"
@@ -134,6 +157,8 @@ const styles = StyleSheet.create({
   legend: {gap: 2},
   legendLabel: {...typography.mono, color: inkSoft, fontSize: 7.5, letterSpacing: 1.8},
   legendValue: {...typography.mono, color: ink, fontSize: 9.5, letterSpacing: 1.2},
+  legendRow: {alignItems: 'center', flexDirection: 'row', gap: 5},
+  flag: {fontSize: 12},
   numberRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.xs},
   number: {...typography.mono, color: ink, fontSize: 12, letterSpacing: 1.4},
 });

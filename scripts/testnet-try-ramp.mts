@@ -17,6 +17,7 @@ import {
   BASE_FEE,
   Horizon,
   Keypair,
+  Memo,
   Networks,
   Operation,
   TransactionBuilder,
@@ -145,18 +146,90 @@ if (!held || Number(held.balance) <= 0) {
   throw new Error('The anchor reported completed but no USDC arrived');
 }
 
+log('on-ramp', `${AMOUNT_TRY} TRY -> ${held.balance} USDC`);
+
+/*
+ * The way back out.
+ *
+ * An on-ramp nobody can reverse is a one-way door, and a merchant who takes
+ * lira-priced payments all day needs the lira back in a bank account at the end
+ * of it. SEP-6 withdrawal is the mirror of the deposit: the anchor names an
+ * account and a memo, the wallet pays real USDC on chain, and the anchor pays
+ * out the fiat.
+ */
+const withdrawAmount = (Number(held.balance) / 2).toFixed(7);
+const withdrawUrl = new URL(`${transferServer}/withdraw-exchange`);
+withdrawUrl.searchParams.set('asset_code', 'USDC');
+withdrawUrl.searchParams.set('source_asset', buyAsset);
+withdrawUrl.searchParams.set('destination_asset', sellAsset);
+withdrawUrl.searchParams.set('amount', withdrawAmount);
+const withdrawal = await json(withdrawUrl.toString(), {
+  headers: {Authorization: `Bearer ${session.token}`},
+});
+log('SEP-6 withdraw-exchange', withdrawal);
+
+const treasury = String(withdrawal.account_id ?? '');
+const memo = withdrawal.memo === undefined ? undefined : String(withdrawal.memo);
+if (!treasury) throw new Error('The anchor named no account to send the USDC to');
+
+// The memo is what tells the anchor whose withdrawal this payment settles.
+// Sending without it is sending money to a stranger.
+const payer = await horizon.loadAccount(customer.publicKey());
+const payment = new TransactionBuilder(payer, {fee: BASE_FEE, networkPassphrase: Networks.TESTNET})
+  .addOperation(
+    Operation.payment({
+      destination: treasury,
+      asset: new Asset('USDC', usdc.issuer),
+      amount: withdrawAmount,
+    }),
+  )
+  .setTimeout(60);
+if (memo) payment.addMemo(Memo.id(memo));
+const signedPayment = payment.build();
+signedPayment.sign(customer);
+const paid = await horizon.submitTransaction(signedPayment);
+log('paid the anchor', {hash: paid.hash, amount: withdrawAmount, memo: memo ?? null});
+
+const withdrawalId = String(withdrawal.id);
+let outStatus = '';
+let outTransaction: Record<string, unknown> = {};
+for (let attempt = 0; attempt < 40 && outStatus !== 'completed' && outStatus !== 'error'; attempt += 1) {
+  await new Promise(resolve => setTimeout(resolve, 3_000));
+  const polled = await json(`${transferServer}/transaction?id=${withdrawalId}`, {
+    headers: {Authorization: `Bearer ${session.token}`},
+  });
+  outTransaction = (polled.transaction ?? polled) as Record<string, unknown>;
+  const next = String(outTransaction.status);
+  if (next !== outStatus) log('SEP-6 withdraw status', next);
+  outStatus = next;
+}
+
+if (outStatus !== 'completed') {
+  throw new Error(`The withdrawal ended as ${outStatus}: ${JSON.stringify(outTransaction).slice(0, 400)}`);
+}
+
 console.log(
   `\n${JSON.stringify(
     {
       anchor: anchor.homeDomain,
       customer: customer.publicKey(),
-      soldTry: AMOUNT_TRY,
-      quotedPrice: quoted.price,
-      totalPrice: quoted.total_price,
-      expectedUsdc: quoted.buy_amount,
-      receivedUsdc: held.balance,
-      stellarTransaction: transaction.stellar_transaction_id ?? null,
-      status,
+      onRamp: {
+        soldTry: AMOUNT_TRY,
+        quotedPrice: quoted.price,
+        totalPrice: quoted.total_price,
+        expectedUsdc: quoted.buy_amount,
+        receivedUsdc: held.balance,
+        stellarTransaction: transaction.stellar_transaction_id ?? null,
+        status,
+      },
+      offRamp: {
+        soldUsdc: withdrawAmount,
+        paymentHash: paid.hash,
+        memo: memo ?? null,
+        receivedTry: outTransaction.amount_out ?? null,
+        fee: outTransaction.amount_fee ?? null,
+        status: outStatus,
+      },
     },
     null,
     2,

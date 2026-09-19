@@ -22,7 +22,7 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-test('offers the hardware-backed production wallet path in customer language', async () => {
+test('offers the lira-capable wallet path in customer language', async () => {
   const Screen = WelcomeScreen as unknown as React.ComponentType<{
     navigation: {navigate: jest.Mock};
   }>;
@@ -37,10 +37,11 @@ test('offers the hardware-backed production wallet path in customer language', a
   expect(tree).toContain('LUMEN');
   expect(tree).toContain('LEMONADE');
   expect(tree).toContain('Create a new wallet');
-  expect(tree).toContain('secure hardware');
-  // Both custody models are now offered, so someone who already has a Stellar
-  // wallet is not made to create a second one to get in.
-  expect(tree).toContain('recovery phrase');
+  // Twelve words are what an anchor can verify, so they are what the app leads
+  // with — and someone who already has a Stellar wallet is not made to create a
+  // second one to get in.
+  expect(tree).toContain('Twelve words are your wallet');
+  expect(tree).toContain('lira');
   expect(tree).toContain('I already have a wallet');
 
   // The screen used to offer "Create your wallet" and "Sign in with passkey"

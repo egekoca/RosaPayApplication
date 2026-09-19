@@ -34,7 +34,27 @@ const ANCHOR_PRICED_ASSETS = new Set([payableAssetByCode('USDC')?.sep38]);
 /** Named on any screen that shows a converted amount. */
 export const RATE_SOURCE_LABEL = PRICE_ANCHOR_DOMAIN;
 
-/** The currency amounts are read in, most preferred first. */
+/**
+ * The currencies a balance can be read in.
+ *
+ * A flag rather than a code, because the point of the control is to be
+ * recognised at a glance while someone is looking at their own money. Lira
+ * first: it is what the people this is built for count in.
+ */
+export const DISPLAY_CURRENCIES = [
+  {code: 'TRY', flag: '🇹🇷', name: 'Turkish lira'},
+  {code: 'USD', flag: '🇺🇸', name: 'US dollar'},
+  {code: 'NGN', flag: '🇳🇬', name: 'Nigerian naira'},
+  {code: 'EUR', flag: '🇪🇺', name: 'euro'},
+] as const;
+
+export type DisplayCurrency = (typeof DISPLAY_CURRENCIES)[number]['code'];
+
+export function displayCurrencyMeta(code: string) {
+  return DISPLAY_CURRENCIES.find(entry => entry.code === code) ?? DISPLAY_CURRENCIES[0];
+}
+
+/** Fallback order when no currency has been chosen yet. */
 export const PREFERRED_CURRENCIES = ['TRY', 'USD', 'USDC'];
 
 let discovered: Promise<QuoteSource> | undefined;
@@ -52,8 +72,17 @@ let discovered: Promise<QuoteSource> | undefined;
  * all: an unreachable anchor is a worse reason to lose a sale than a rate from
  * a market feed.
  */
-export async function resolveQuoteSource(sellAsset?: string): Promise<QuoteSource> {
-  const ownServer = {quoteServer: `${useAppStore.getState().apiBaseUrl}/sep38`};
+/** This deployment's own SEP-38 server, which prices what no anchor will. */
+export function ownQuoteSource(): QuoteSource {
+  return {quoteServer: `${useAppStore.getState().apiBaseUrl}/sep38`};
+}
+
+export async function resolveQuoteSource(sellAsset?: string, currency?: string): Promise<QuoteSource> {
+  const ownServer = ownQuoteSource();
+  // The anchor prices lira and nothing else. Asking it for dollars would come
+  // back empty and read as "this wallet is worth nothing", so a currency it
+  // cannot quote goes to the server that can.
+  if (currency && currency !== 'TRY') return ownServer;
   if (!sellAsset || !ANCHOR_PRICED_ASSETS.has(sellAsset)) return ownServer;
 
   discovered ??= discoverAnchor(PRICE_ANCHOR_DOMAIN).catch(error => {

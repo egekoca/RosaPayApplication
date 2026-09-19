@@ -88,6 +88,11 @@ type AppState = {
   mode: AppMode;
   /** Where the Lumenade Pay API lives; a phone needs the development machine's address. */
   apiBaseUrl: string;
+  /**
+   * The money a balance is read in. Not a formatting preference — it decides
+   * which currency the app asks a quote server to price the wallet in.
+   */
+  displayCurrency: string;
   account: Account | null;
   /** True while a returning user has not yet proved they are the device owner. */
   locked: boolean;
@@ -116,6 +121,7 @@ type AppState = {
   signOut(): Promise<void>;
   setMode(mode: AppMode): void;
   setApiBaseUrl(url: string): void;
+  setDisplayCurrency(currency: string): void;
   saveMerchantProfile(profile: MerchantProfile): void;
   setMerchantRegisteredOnChain(registered: boolean): void;
   setSmartWallet(wallet: SmartWallet | null): void;
@@ -240,6 +246,7 @@ export const useAppStore = create<AppState>()(
       requireUnlock: false,
       mode: 'customer',
       apiBaseUrl: defaultApiBaseUrl,
+      displayCurrency: 'TRY',
       merchantProfile: null,
       merchantRegisteredOnChain: false,
       smartWallet: null,
@@ -274,6 +281,7 @@ export const useAppStore = create<AppState>()(
       },
       setMode: mode => set(state => (mode === 'merchant' && !state.merchantProfile ? state : {...state, mode})),
       setApiBaseUrl: apiBaseUrl => set({apiBaseUrl}),
+      setDisplayCurrency: displayCurrency => set({displayCurrency}),
       saveMerchantProfile: profile =>
         set({merchantProfile: profile, mode: 'merchant', merchantRegisteredOnChain: false}),
       setMerchantRegisteredOnChain: merchantRegisteredOnChain => set({merchantRegisteredOnChain}),
@@ -313,6 +321,7 @@ export const useAppStore = create<AppState>()(
         requireUnlock: state.requireUnlock,
         mode: state.mode,
         apiBaseUrl: state.apiBaseUrl,
+        displayCurrency: state.displayCurrency,
         merchantProfile: state.merchantProfile,
         merchantRegisteredOnChain: state.merchantRegisteredOnChain,
         smartWallet: state.smartWallet,

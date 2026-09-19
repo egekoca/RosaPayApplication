@@ -5,6 +5,7 @@ import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 
 import {HomeScreen} from '../features/home/HomeScreen';
 import {AnchorTransferScreen} from '../features/wallet/AnchorTransferScreen';
+import {LiraDepositScreen} from '../features/wallet/LiraDepositScreen';
 import {WelcomeScreen} from '../features/onboarding/WelcomeScreen';
 import {CreateAccountScreen} from '../features/onboarding/CreateAccountScreen';
 import {RecoveryPhraseScreen} from '../features/onboarding/RecoveryPhraseScreen';
@@ -29,6 +30,8 @@ export type RootStackParams = {
   RecoveryPhrase: {phrase: string; name: string; email?: string};
   ImportWallet: {name: string; email?: string};
   Main: undefined;
+  /** Buying USDC with lira, through the anchor's SEP-6 door. */
+  LiraDeposit: undefined;
   Scan: undefined;
   Confirm: {payload: SignedPaymentIntentV1};
   Receipt: {receipt: LocalReceipt};
@@ -78,6 +81,7 @@ export function RootNavigator() {
         options={{title: 'Restore wallet', headerBackTitle: 'Back'}}
       />
       <Stack.Screen name="Main" component={HomeScreen} options={{headerShown: false, animation: 'fade'}} />
+      <Stack.Screen name="LiraDeposit" component={LiraDepositScreen} options={{title: 'Add lira', headerBackTitle: 'Back'}} />
       <Stack.Screen name="Scan" component={ScanScreen} options={{title: 'Scan QR', animation: 'fade_from_bottom'}} />
       <Stack.Screen name="Confirm" component={PaymentConfirmationScreen} options={{title: 'Review payment', animation: 'slide_from_bottom'}} />
       <Stack.Screen name="Receipt" component={ReceiptScreen} options={{title: 'Receipt', headerBackVisible: false, animation: 'fade'}} />

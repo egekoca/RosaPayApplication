@@ -83,6 +83,13 @@ export async function loadSigningKey(reason: string): Promise<string> {
   try {
     stored = await Keychain.getGenericPassword({
       service: SERVICE,
+      // The same access control the key was written under, repeated on the way
+      // out. Without it the prompt asks for biometrics alone, so a phone with a
+      // screen lock but no fingerprint enrolled — which is a great many of
+      // them — is told "No fingerprints enrolled" and cannot reach its own
+      // wallet at all. Naming it here is what allows the passcode fallback the
+      // constant already promises.
+      accessControl: ACCESS_CONTROL,
       authenticationPrompt: {title: reason, cancel: 'Cancel'},
     });
   } catch (error) {

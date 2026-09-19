@@ -15,6 +15,7 @@ import {
   assetCodeOf,
   readIndicativePrices,
   readCurrencyPrices,
+  currencyValueOfAsset,
   assetAmountForPrice,
   PriceConversionError,
   readTransaction,
@@ -421,6 +422,18 @@ describe('what a balance is worth', () => {
     expect(Number(currencies[0]!.perUnit)).toBeCloseTo(48.19, 1);
     const [url] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
     expect(url).toContain('sell_amount=1');
+  });
+
+  /**
+   * The balance card reads prices straight from `readIndicativePrices`, so it
+   * has to divide by the same rate `readCurrencyPrices` inverts. Multiplying
+   * priced a 25 lumen wallet at 2.87 lira instead of 224 — small enough to look
+   * like a real number, which is what makes it worth a test.
+   */
+  it('values a holding by dividing, because the price is sold-per-bought', () => {
+    expect(currencyValueOfAsset({amount: '25', price: '0.1115'})).toBeCloseTo(224.2, 1);
+    expect(currencyValueOfAsset({amount: '25', price: '0'})).toBeNaN();
+    expect(currencyValueOfAsset({amount: 'nonsense', price: '0.1115'})).toBeNaN();
   });
 
   it('converts a lira price through that rate the way the anchor would', async () => {

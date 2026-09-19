@@ -1,5 +1,5 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ChevronRight, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, SlidersHorizontal, Store} from 'lucide-react-native';
+import {Banknote, ChevronRight, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, SlidersHorizontal, Store} from 'lucide-react-native';
 import {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
@@ -14,6 +14,7 @@ import {useBalanceValue} from '../../shared/useBalanceValue';
 import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
 import {useCurrentAccount} from '../wallet/currentAccount';
+import {DISPLAY_CURRENCIES} from '../../shared/priceSource';
 import {greetingFor} from './greeting';
 import {MerchantBalanceCard} from './MerchantBalanceCard';
 import {PaymentCard} from './PaymentCard';
@@ -55,6 +56,14 @@ export function HomeScreen({navigation}: Props) {
 function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigation']; merchantEnabled: boolean}) {
   const account = useCurrentAccount();
   const receipts = useAppStore(state => state.receipts);
+  const displayCurrency = useAppStore(state => state.displayCurrency);
+  const setDisplayCurrency = useAppStore(state => state.setDisplayCurrency);
+  // Two currencies, so tapping through them is the whole control. A picker
+  // would be a sheet to open and dismiss for a choice with one alternative.
+  const cycleCurrency = () => {
+    const index = DISPLAY_CURRENCIES.findIndex(entry => entry.code === displayCurrency);
+    setDisplayCurrency(DISPLAY_CURRENCIES[(index + 1) % DISPLAY_CURRENCIES.length]!.code);
+  };
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupError, setSetupError] = useState<string>();
   const balance = useWalletBalance();
@@ -81,6 +90,8 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
       <AnimatedContent>
         <PaymentCard
           holdings={balance.data ?? []}
+          currency={displayCurrency}
+          onChangeCurrency={cycleCurrency}
           {...(value.data ? {value: value.data} : {})}
           {...(address === undefined ? {} : {address})}
           state={
@@ -134,6 +145,32 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
           </Pressable>
         </PressScale>
       </AnimatedContent>
+
+      {/*
+        Right under the one action, because a wallet with nothing in it can do
+        nothing with the one above. Only a recovery-phrase account can be paid
+        in lira, so a smart-wallet phone is not shown a door that closes.
+      */}
+      {account?.kind === 'classic' ? (
+        <AnimatedContent delay={120}>
+          <PressScale>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('LiraDeposit')}
+              style={styles.liraAction}
+              testID="add-lira">
+              <View style={styles.liraIcon}>
+                <Banknote color={colors.goldBright} size={22} />
+              </View>
+              <View style={styles.scanCopy}>
+                <Text style={styles.liraTitle}>Add money with lira</Text>
+                <Text style={styles.scanHint}>Bank transfer in TRY · arrives as USDC</Text>
+              </View>
+              <ChevronRight color={colors.inkMuted} size={19} />
+            </Pressable>
+          </PressScale>
+        </AnimatedContent>
+      ) : null}
 
       <AnimatedContent delay={160}>
         <Text style={styles.listTitle}>Payments</Text>
@@ -350,6 +387,9 @@ const styles = StyleSheet.create({
   eyebrow: {...typography.overline, color: colors.goldBright, fontSize: 9, letterSpacing: 1.5},
   greeting: {...typography.title, color: colors.ink, fontSize: 20},
 
+  liraAction: {alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.goldDeep, borderRadius: 22, borderWidth: 1, flexDirection: 'row', gap: 14, padding: 16},
+  liraIcon: {alignItems: 'center', backgroundColor: colors.goldSoft, borderRadius: 999, height: 48, justifyContent: 'center', width: 48},
+  liraTitle: {...typography.body, color: colors.ink, fontSize: 17, fontWeight: '600'},
   scanAction: {
     alignItems: 'center',
     backgroundColor: colors.surface,

@@ -26,7 +26,13 @@ const prices = new PriceService({
     'stellar:native',
     'stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
   ],
-  buyAssets: ['iso4217:TRY', 'iso4217:USD'],
+  /*
+   * Lira first because it is what this product is for, and the rest because a
+   * wallet that can only read itself in one currency is a wallet for one
+   * country. Every one of these is a market rate; only lira has an anchor
+   * behind it that would actually exchange at it, and the screens say so.
+   */
+  buyAssets: ['iso4217:TRY', 'iso4217:USD', 'iso4217:NGN', 'iso4217:EUR'],
 });
 const app = buildApp({
   repository: runtime.repository,

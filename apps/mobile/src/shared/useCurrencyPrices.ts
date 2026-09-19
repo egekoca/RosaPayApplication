@@ -1,13 +1,21 @@
 import {useQuery} from '@tanstack/react-query';
 import {readCurrencyPrices, type CurrencyPrice} from '@rosapay/anchor';
-import {resolveQuoteSource} from './priceSource';
+import {ownQuoteSource, resolveQuoteSource} from './priceSource';
 
 /**
  * The currencies a merchant may name a price in.
  *
- * The list is the quote server's, not this screen's. A hardcoded row of flags
+ * The list is the quote servers', not this screen's. A hardcoded row of flags
  * would offer a merchant a currency nothing can price, and they would find out
  * at the counter with a customer waiting.
+ *
+ * Both servers are asked and their answers merged, because between them they
+ * know different things: the anchor prices lira and would actually exchange at
+ * that rate, while the market feed covers every other currency and no anchor
+ * at all. Asking only the anchor left a merchant pricing in USDC with lira as
+ * their single option; asking only the feed would quote lira nobody has
+ * committed to. The anchor wins where they overlap, since its number is the one
+ * a ramp would honour.
  */
 export function useCurrencyPrices(sellAsset?: string) {
   return useQuery({
@@ -18,8 +26,25 @@ export function useCurrencyPrices(sellAsset?: string) {
     refetchInterval: 5 * 60_000,
     retry: 1,
     queryFn: async (): Promise<CurrencyPrice[]> => {
-      const source = await resolveQuoteSource(sellAsset);
-      return readCurrencyPrices({source, ...(sellAsset ? {sellAsset} : {})});
+      const preferred = await resolveQuoteSource(sellAsset);
+      const own = ownQuoteSource();
+      const sources =
+        preferred.quoteServer === own.quoteServer ? [own] : [preferred, own];
+
+      const answers = await Promise.all(
+        sources.map(source =>
+          readCurrencyPrices({source, ...(sellAsset ? {sellAsset} : {})}).catch(() => []),
+        ),
+      );
+
+      const byCurrency = new Map<string, CurrencyPrice>();
+      for (const prices of answers) {
+        for (const price of prices) {
+          // First writer wins, and the anchor is asked first.
+          if (!byCurrency.has(price.currency)) byCurrency.set(price.currency, price);
+        }
+      }
+      return [...byCurrency.values()];
     },
   });
 }

@@ -423,6 +423,21 @@ function invert(price: string): string {
   return (1 / value).toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
 }
 
+/**
+ * What an amount of the sold asset is worth in the bought currency.
+ *
+ * Division, because SEP-38 quotes the sold asset per unit of the bought one:
+ * 25 lumens at 0.1115 lumens to the lira is 224 lira, not 2.79. Multiplying is
+ * the same mistake `readCurrencyPrices` exists to prevent, and a balance card
+ * is exactly where it looks plausible enough to survive review.
+ */
+export function currencyValueOfAsset(input: {amount: string; price: string}): number {
+  const amount = Number(input.amount);
+  const price = Number(input.price);
+  if (!Number.isFinite(amount) || !Number.isFinite(price) || price <= 0) return Number.NaN;
+  return amount / price;
+}
+
 export class PriceConversionError extends Error {}
 
 /**

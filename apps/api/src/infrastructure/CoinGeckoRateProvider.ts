@@ -26,6 +26,8 @@ const DEFAULT_COIN_IDS: Record<string, string> = {
 const DEFAULT_CURRENCIES: Record<string, string> = {
   'iso4217:TRY': 'try',
   'iso4217:USD': 'usd',
+  'iso4217:NGN': 'ngn',
+  'iso4217:EUR': 'eur',
 };
 
 export type CoinGeckoRateProviderOptions = {

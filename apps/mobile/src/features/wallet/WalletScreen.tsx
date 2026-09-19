@@ -1,4 +1,4 @@
-import {ArrowDownToLine, ArrowUpFromLine, Check, Copy, ExternalLink, KeyRound, Lock, LogOut, Minus, Radio, ShieldCheck, UserRound} from 'lucide-react-native';
+import {ArrowDownToLine, Banknote, ArrowUpFromLine, Check, Copy, ExternalLink, KeyRound, Lock, LogOut, Minus, Radio, ShieldCheck, UserRound} from 'lucide-react-native';
 import {useState} from 'react';
 import {Linking, Pressable, StyleSheet, Text, View} from 'react-native';
 import type {ReactNode} from 'react';
@@ -14,6 +14,7 @@ import {useAppStore} from '../../state/appStore';
 
 type WalletNavigation = {
   navigate(screen: 'AnchorTransfer', params: {kind: 'deposit' | 'withdraw'}): void;
+  navigate(screen: 'LiraDeposit'): void;
 };
 
 export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {}) {
@@ -107,6 +108,26 @@ export function WalletScreen({navigation}: {navigation?: WalletNavigation} = {})
             <Text style={styles.copyText}>Share</Text>
           </Pressable>
         </View>
+      </SurfaceCard>
+      {/*
+        Lira first, because it is the money the people using this count in, and
+        because it is the one route that ends in a balance they can spend at a
+        counter rather than a Testnet faucet.
+      */}
+      <Text style={styles.sectionTitle}>Turkish lira</Text>
+      <SurfaceCard padded={false} style={styles.transferCard}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={!navigation}
+          onPress={() => navigation?.navigate('LiraDeposit')}
+          style={[styles.transferRow, !navigation && styles.disabledAction]}
+          testID="add-lira">
+          <View style={styles.transferIcon}><Banknote color={colors.goldBright} size={19} /></View>
+          <View style={styles.networkCopy}>
+            <Text style={styles.rowTitle}>Add money with lira</Text>
+            <Text style={styles.body}>Bank transfer in TRY · receive USDC</Text>
+          </View>
+        </Pressable>
       </SurfaceCard>
       <Text style={styles.sectionTitle}>Testnet anchor</Text>
       <SurfaceCard padded={false} style={styles.transferCard}>

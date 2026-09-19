@@ -1,37 +1,35 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Fingerprint, KeyRound} from 'lucide-react-native';
+import {KeyRound} from 'lucide-react-native';
 import {useState} from 'react';
-import {KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, radius, spacing, SurfaceCard, TextField, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
-import {useAppStore} from '../../state/appStore';
-import {createHardwareSigner} from '../settings/hardwareSigner';
 import {generateRecoveryPhrase} from '../wallet/stellarKey';
 
 type Props = NativeStackScreenProps<RootStackParams, 'CreateAccount'>;
 
 /**
- * How the account's key is held. Two real custody models, not two labels.
+ * Every new account is an ordinary Stellar account from twelve words.
  *
- * `device` mints a secp256r1 key inside the phone's secure hardware: it cannot
- * be exported, so it cannot be phished or pasted into a fake app, and there is
- * nothing to write down. `phrase` derives an ordinary Stellar account from
- * twelve words along SEP-0005, so the same account opens in Lobstr or
- * Freighter and survives the phone being lost — at the cost of being a secret
- * that can leave the device.
+ * There used to be a choice here, and the secure-hardware wallet was the better
+ * half of it: a secp256r1 key minted in the phone that cannot be exported, so
+ * cannot be phished or pasted into a fake app. It is still the stronger custody
+ * story and the contract for it is still in the tree.
  *
- * Neither is strictly safer, so the person choosing is told what each costs
- * rather than being given a default dressed up as advice.
+ * It cannot hold Turkish lira. Anchors verify a wallet by having it sign a
+ * SEP-10 challenge, the lira anchor publishes no SEP-45, and a contract account
+ * has no key that can answer one. Offering a wallet that cannot do the thing
+ * this app is for is not a choice, it is a trap that springs at the bank
+ * transfer — so the choice is gone and the phrase wallet is what everyone gets.
+ *
+ * Phones that already hold a smart wallet keep working; nothing here takes one
+ * away, and the payment path still follows whichever account exists.
  */
-type Custody = 'device' | 'phrase';
-
 export function CreateAccountScreen({navigation, route}: Props) {
   const importing = route.params?.intent === 'import';
-  const createAccount = useAppStore(state => state.createAccount);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [custody, setCustody] = useState<Custody>('device');
   const [nameError, setNameError] = useState<string | undefined>();
   const [emailError, setEmailError] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
@@ -63,20 +61,10 @@ export function CreateAccountScreen({navigation, route}: Props) {
         navigation.replace('ImportWallet', identity);
         return;
       }
-      if (custody === 'phrase') {
-        // Generated here and passed, never stored: the phrase reaches disk only
-        // as the derived secret, and only after the next screen is satisfied
-        // the person actually wrote it down.
-        navigation.replace('RecoveryPhrase', {...identity, phrase: generateRecoveryPhrase()});
-        return;
-      }
-
-      const signer = await createHardwareSigner();
-      if (!signer.walletContractId) {
-        throw new Error(signer.detail ?? 'Your secure wallet could not be created');
-      }
-      createAccount(identity);
-      navigation.replace('Main');
+      // Generated here and passed, never stored: the phrase reaches disk only
+      // as the derived secret, and only after the next screen is satisfied the
+      // person actually wrote it down.
+      navigation.replace('RecoveryPhrase', {...identity, phrase: generateRecoveryPhrase()});
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Your account could not be created');
     } finally {
@@ -149,25 +137,21 @@ export function CreateAccountScreen({navigation, route}: Props) {
             </AnimatedContent>
           ) : (
             <AnimatedContent delay={180}>
-              <View style={styles.custody}>
-                <Text style={styles.custodyLabel}>HOW YOUR KEY IS HELD</Text>
-                <CustodyOption
-                  body="A payment key is made inside this phone's secure hardware and can never leave it. Nothing to write down, and nothing to phish — but the wallet lives on this phone only."
-                  icon={<Fingerprint color={custody === 'device' ? colors.goldBright : colors.inkMuted} size={20} />}
-                  onPress={() => setCustody('device')}
-                  selected={custody === 'device'}
-                  testID="custody-device"
-                  title="This phone"
-                />
-                <CustodyOption
-                  body="Twelve words you write down. The same account opens in Lobstr or Freighter, and survives this phone — but anyone who reads the words can spend it."
-                  icon={<KeyRound color={custody === 'phrase' ? colors.goldBright : colors.inkMuted} size={20} />}
-                  onPress={() => setCustody('phrase')}
-                  selected={custody === 'phrase'}
-                  testID="custody-phrase"
-                  title="A recovery phrase"
-                />
-              </View>
+              <SurfaceCard style={styles.explainer}>
+                <View style={styles.explainerRow}>
+                  <View style={styles.explainerIcon}>
+                    <KeyRound color={colors.amber} size={20} />
+                  </View>
+                  <View style={styles.explainerCopy}>
+                    <Text style={styles.explainerTitle}>Twelve words are your wallet</Text>
+                    <Text style={styles.explainerBody}>
+                      The next screen shows them once. They open this same account in Lumenade Pay, Lobstr or
+                      Freighter, they are what lets you add money in lira, and they are the only way back if you lose
+                      this phone. Nobody can reissue them.
+                    </Text>
+                  </View>
+                </View>
+              </SurfaceCard>
             </AnimatedContent>
           )}
 
@@ -184,45 +168,7 @@ export function CreateAccountScreen({navigation, route}: Props) {
   );
 }
 
-/** One custody model, stated with what it costs rather than only what it gives. */
-function CustodyOption({
-  body,
-  icon,
-  onPress,
-  selected,
-  testID,
-  title,
-}: {
-  body: string;
-  icon: React.ReactNode;
-  onPress(): void;
-  selected: boolean;
-  testID: string;
-  title: string;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{selected}}
-      onPress={onPress}
-      style={[styles.custodyOption, selected && styles.custodyOptionSelected]}
-      testID={testID}>
-      <View style={[styles.explainerIcon, selected && styles.custodyIconSelected]}>{icon}</View>
-      <View style={styles.explainerCopy}>
-        <Text style={[styles.explainerTitle, selected && styles.custodyTitleSelected]}>{title}</Text>
-        <Text style={styles.explainerBody}>{body}</Text>
-      </View>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  custody: {gap: spacing.sm},
-  custodyLabel: {...typography.label, color: colors.inkMuted, marginBottom: spacing.xs},
-  custodyOption: {borderColor: colors.lineSoft, borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.lg},
-  custodyOptionSelected: {backgroundColor: colors.goldSoft, borderColor: colors.goldDeep},
-  custodyIconSelected: {backgroundColor: colors.goldSoft},
-  custodyTitleSelected: {color: colors.goldBright},
   screen: {paddingBottom: 0},
   flex: {flex: 1},
   scroll: {gap: spacing.xl, paddingBottom: spacing.huge},

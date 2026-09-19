@@ -62,8 +62,7 @@ export function WelcomeScreen({navigation}: Props) {
             <Text style={styles.restore}>I already have a wallet</Text>
           </Pressable>
           <Text style={styles.footnote}>
-            No password to remember. You choose whether your key stays in this phone's secure hardware or comes from a
-            recovery phrase.
+            No password to remember. Twelve words are your wallet, and they are what lets you add money in lira.
           </Text>
         </View>
       </AnimatedContent>

@@ -14,6 +14,9 @@ const DEFAULT_SERVICE = 'default';
 /** Set by a test to make the next guarded write fail, as a lockless phone does. */
 let deviceLock = true;
 
+/** The options the last read asked with, so a test can assert the prompt terms. */
+let lastReadOptions;
+
 const ACCESS_CONTROL = {
   USER_PRESENCE: 'UserPresence',
   BIOMETRY_ANY: 'BiometryAny',
@@ -43,6 +46,7 @@ module.exports = {
   SECURITY_LEVEL,
 
   async getGenericPassword(options) {
+    lastReadOptions = options;
     return entries.get(keyOf(options)) ?? false;
   },
   async setGenericPassword(username, password, options) {
@@ -70,8 +74,12 @@ module.exports = {
   __setDeviceLock(present) {
     deviceLock = present;
   },
+  __lastReadOptions() {
+    return lastReadOptions;
+  },
   __reset() {
     entries.clear();
     deviceLock = true;
+    lastReadOptions = undefined;
   },
 };

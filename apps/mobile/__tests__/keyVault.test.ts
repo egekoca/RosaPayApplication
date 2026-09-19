@@ -52,3 +52,20 @@ describe('where the wallet key is kept', () => {
     await expect(loadSigningKey('Approve this payment')).rejects.toMatchObject({code: 'MISSING'});
   });
 });
+
+/**
+ * A phone with a screen lock but no fingerprint enrolled must still reach its
+ * wallet. Reading without naming the access control asks Android for
+ * biometrics alone, and it answers "No fingerprints enrolled" — which stranded
+ * a freshly funded account on the emulator until the read repeated the terms
+ * the write had declared.
+ */
+it('asks for the key on the same terms it stored it, so a passcode still works', async () => {
+  await saveSigningKey(SECRET);
+
+  await loadSigningKey('Unlock');
+
+  expect((keychain as unknown as {__lastReadOptions(): {accessControl?: string}}).__lastReadOptions()).toMatchObject({
+    accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_CURRENT_SET_OR_DEVICE_PASSCODE,
+  });
+});

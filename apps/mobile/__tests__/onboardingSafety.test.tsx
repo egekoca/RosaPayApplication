@@ -41,12 +41,13 @@ afterEach(async () => {
   jest.clearAllMocks();
 });
 
-it('does not create a local account when secure wallet provisioning fails', async () => {
-  mockedCreateHardwareSigner.mockResolvedValue({
-    state: 'ready',
-    publicKey: smartWallet.devicePublicKey,
-    detail: 'The Testnet wallet could not be provisioned',
-  });
+/**
+ * Setup records nothing until a wallet exists. The phrase screen is where one
+ * starts existing, so this asserts the account is still absent when the phrase
+ * is only being shown — someone who backs out at the words must leave no
+ * half-made account for the next launch to find.
+ */
+it('creates no account until the wallet behind it exists', async () => {
   const navigation = {replace: jest.fn()};
   let renderer!: ReactTestRenderer.ReactTestRenderer;
   await ReactTestRenderer.act(() => {
@@ -65,8 +66,33 @@ it('does not create a local account when secure wallet provisioning fails', asyn
   });
 
   expect(useAppStore.getState().account).toBeNull();
-  expect(navigation.replace).not.toHaveBeenCalled();
-  expect(JSON.stringify(renderer.toJSON())).toContain('The Testnet wallet could not be provisioned');
+  const [screen, params] = navigation.replace.mock.calls[0] as [string, {phrase: string; name: string}];
+  expect(screen).toBe('RecoveryPhrase');
+  expect(params.name).toBe('Ege');
+  expect(params.phrase.split(' ')).toHaveLength(12);
+});
+
+/** A wallet nobody can add lira to is not what this app hands out any more. */
+it('never provisions a smart wallet for a new account', async () => {
+  const navigation = {replace: jest.fn()};
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <CreateAccountScreen navigation={navigation as never} route={{} as never} />,
+    );
+  });
+  renderers.push(renderer);
+
+  await ReactTestRenderer.act(() => {
+    renderer.root.findByProps({testID: 'account-name'}).props.onChangeText('Ege');
+  });
+  await ReactTestRenderer.act(async () => {
+    renderer.root.findByProps({testID: 'create-account'}).props.onPress();
+    await Promise.resolve();
+  });
+
+  expect(mockedCreateHardwareSigner).not.toHaveBeenCalled();
+  expect(useAppStore.getState().smartWallet).toBeNull();
 });
 
 /**
