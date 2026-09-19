@@ -22,6 +22,7 @@ export interface IntentRepository {
   findByIdempotencyKey(key: string): Promise<StoredIntent | null>;
   save(intent: StoredIntent): Promise<void>;
   findSettlement(intentId: string): Promise<SettlementRecord | null>;
+  listSettlements(status?: PaymentStatus): Promise<SettlementRecord[]>;
   saveSettlement(settlement: SettlementRecord): Promise<void>;
 }
 
@@ -66,6 +67,10 @@ export class IntentService {
   async getSettlement(intentId: string): Promise<SettlementRecord | null> {
     if (!(await this.repository.findByIntentId(intentId))) return null;
     return this.repository.findSettlement(intentId);
+  }
+
+  async listSubmittedSettlements(): Promise<SettlementRecord[]> {
+    return this.repository.listSettlements('submitted');
   }
 
   authorize(intentId: string) {

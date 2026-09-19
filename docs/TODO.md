@@ -62,9 +62,10 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 
 ## P2 - Reliability and Evidence
 
-- [ ] Implement worker confirmation/indexing, retry and notification hooks.
+- [~] Implement the worker confirmation port: submitted settlements are listed from the API state service, checked through the RPC receipt guard, and reconciled to confirmed/failed; scheduling, durable indexing, retry and notification hooks remain.
 - [ ] Add offline-safe retry using API idempotency keys.
 - [ ] Add contract-event reads and reconcile events with API settlement state.
+- [x] Add an RPC confirmation guard that accepts only `SUCCESS` with a valid ledger and rejects failed, missing or malformed receipts.
 - [ ] Add developer settings for network, contract ID and RPC status.
 - [ ] Add metrics for created, authorized, confirmed and failed payments plus median confirmation time.
 - [ ] Add tests for wrong contract/network, fake merchant, relayer alteration, polling failure and offline retry.
@@ -91,6 +92,6 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 
 ## Next Execution Order
 
-1. Implement native signer adapters and replace `settleMockPayment` with the generated Testnet client.
-2. Add durable API persistence, auth/capability checks and worker confirmation.
+1. Implement the native signer adapters and replace the development-only settlement boundary with the generated Testnet client.
+2. Add durable API persistence, auth/capability checks and a scheduled worker loop around the confirmation port.
 3. Finish merchant onboarding, real QR capture and reliability states before NFC or USDC.

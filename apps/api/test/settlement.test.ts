@@ -57,4 +57,19 @@ describe('settlement state service', () => {
 
     expect(second).toEqual(first);
   });
+
+  it('exposes submitted settlements for worker reconciliation', async () => {
+    const service = new IntentService(new InMemoryIntentRepository());
+    await service.create(payload, 'worker-reconciliation-key');
+    await service.authorize(payload.intent.intentId);
+    await service.submit(payload.intent.intentId, hash);
+
+    await expect(service.listSubmittedSettlements()).resolves.toEqual([
+      expect.objectContaining({
+        intentId: payload.intent.intentId,
+        status: 'submitted',
+        transactionHash: hash,
+      }),
+    ]);
+  });
 });
