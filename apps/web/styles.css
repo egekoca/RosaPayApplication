@@ -174,6 +174,45 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .orbit-two { animation: orbit-spin-reverse 24s linear infinite; border-color: rgba(255, 255, 255, 0.07); height: 400px; width: 400px; }
 .orbit-two i { background: #fff; bottom: 54px; height: 5px; left: 44px; width: 5px; }
 
+
+
+/*
+ * A photograph, because a drawn hand beside a rendered phone always reads as
+ * pasted on. This one is public domain, keyed off its white studio background,
+ * and the app is composited into the blank screen it was shot with — which is
+ * what the shot is for.
+ *
+ * The screen box is measured from the image, not guessed, so it stays welded to
+ * the bezel at every size.
+ */
+.held { display: block; margin: 0; position: relative; width: clamp(290px, 30vw, 424px); }
+/*
+ * The wrist runs off the bottom of the photograph. Left hard it reads as a cut;
+ * faded, it reads as the frame ending.
+ */
+.held-hand {
+  display: block;
+  height: auto;
+  mask-image: linear-gradient(180deg, #000 78%, transparent 99%);
+  width: 100%;
+}
+.held--mirror .held-hand { transform: scaleX(-1); }
+
+.held-screen {
+  background: #0b0b09;
+  border-radius: 3px 3px 9px 9px;
+  display: block;
+  height: 76.2%;
+  left: 33%;
+  overflow: hidden;
+  position: absolute;
+  top: 10.2%;
+  width: 35.6%;
+}
+/* Mirroring the photograph moves the screen with it; the app inside must not flip. */
+.held--mirror .held-screen { left: 31.4%; }
+.held-shot { display: block; height: 100%; object-fit: cover; object-position: top center; width: 100%; }
+
 /*
  * The counter, which is the whole product in one picture: two phones facing
  * each other, one asking and one paying. A single phone showed what the app
@@ -195,9 +234,9 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   z-index: 3;
 }
 .counter-row {
-  align-items: center;
+  align-items: flex-end;
   display: flex;
-  gap: clamp(10px, 3.4vw, 52px);
+  gap: clamp(0px, 0.5vw, 12px);
   justify-content: center;
   position: relative;
   transform-style: preserve-3d;
@@ -207,16 +246,9 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
  * Only the phone drifts. When the caption floated with it the two labels sat at
  * different heights, which read as a mistake rather than as motion.
  */
-.hold-float { position: relative; transform-style: preserve-3d; }
-.hold--merchant .hold-float { animation: phone-float 7s ease-in-out infinite; }
-.hold--customer .hold-float { animation: phone-float 7s ease-in-out -3.4s infinite; }
-
-.phone--merchant, .phone--customer {
-  height: clamp(268px, 30vw, 392px);
-  transition: transform 900ms var(--ease);
-  width: clamp(128px, 14.3vw, 187px);
-}
-.phone--merchant, .phone--customer { --bezel: 6px; --screen-radius: 28px; }
+/* The two drift out of step, so neither looks pinned to the other. */
+.hold--merchant .held { animation: phone-float 7s ease-in-out infinite; }
+.hold--customer .held { animation: phone-float 7s ease-in-out -3.4s infinite; }
 
 /* Held closer together for a tap than for a scan, because that is the gesture. */
 .counter[data-mode="nfc"] .phone--customer { transform: rotateX(6deg) rotateY(25deg) rotateZ(-3deg) translateX(20px); }
@@ -279,69 +311,6 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   100% { opacity: 0; transform: scale(2.4); }
 }
 
-/*
- * The hand. Palm behind the phone, thumb across the front — the grip anyone
- * uses, and the one detail that stops two rectangles reading as product shots.
- * The customer holds from the left and the merchant from the right, so the
- * hands frame the pair rather than both leaning the same way.
- */
-.hand {
-  --skin: #e7b389;
-  --skin-shade: #c9925f;
-  bottom: 0;
-  height: 100%;
-  left: 0;
-  pointer-events: none;
-  position: absolute;
-  width: 100%;
-}
-.hand i { display: block; position: absolute; }
-
-/*
- * Palm and fingers sit behind the glass, because a phone hides them. Only the
- * thumb crosses the front, which is the single detail that makes a rectangle
- * read as something being held.
- */
-.palm {
-  background: var(--skin-shade);
-  border-radius: 46% 40% 36% 46%;
-  bottom: 2%;
-  height: 34%;
-  left: -28%;
-  transform: rotate(-10deg);
-  width: 70%;
-}
-.finger {
-  background: var(--skin-shade);
-  border-radius: 999px;
-  height: 5.4%;
-  left: -14%;
-  width: 24%;
-}
-.finger--1 { top: 46%; }
-.finger--2 { top: 53.6%; width: 23%; }
-.finger--3 { top: 61.2%; left: -15%; width: 21.5%; }
-.finger--4 { top: 68.8%; left: -16%; width: 19%; }
-
-.thumb {
-  background: var(--skin);
-  border-radius: 999px;
-  bottom: 8%;
-  height: 5.8%;
-  left: 2%;
-  transform: rotate(-17deg);
-  transform-origin: 6% 50%;
-  width: 40%;
-}
-
-.hand--right { transform: scaleX(-1); }
-/*
- * The thumb has to come forward in the same 3d space the phone is built in,
- * or the frame's own raised face swallows it.
- */
-.hand--over { transform: translateZ(56px); }
-.hand--right.hand--over { transform: translateZ(56px) scaleX(-1); }
-
 /* The screens the customer's phone moves through, cross-faded in place. */
 .face {
   align-items: center;
@@ -360,10 +329,115 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
  * while the phone was being carried across said the customer was scanning
  * something they were about to touch instead.
  */
-.counter[data-phase="aim"] .face--scan { opacity: 1; }
-.counter[data-phase="away"] .face--tap,
-.counter[data-phase="tap"] .face--tap { opacity: 1; }
+/*
+ * Which screen each phone is showing. The camera belongs to the scan and
+ * nowhere else — left up while the phone is carried across, it says the
+ * customer is scanning the thing they are about to touch.
+ */
+.counter[data-mode="qr"][data-phase="entry"] .face--scan,
+.counter[data-mode="qr"][data-phase="aim"] .face--scan { opacity: 1; }
+.counter[data-mode="nfc"][data-phase="entry"] .face--tap,
+.counter[data-mode="nfc"][data-phase="tap"] .face--tap { opacity: 1; }
 .counter[data-phase="done"] .face--done { opacity: 1; }
+
+/* The merchant types the price before there is a code to show. */
+.counter[data-phase="entry"] .face--entry { opacity: 1; }
+.counter:not([data-phase="entry"]) .face--code { opacity: 1; }
+
+/*
+ * Aiming. A camera is not held square to what it is reading, and the tilt is
+ * the only thing that says this phone is pointed at the other one.
+ */
+.counter[data-mode="qr"][data-phase="aim"] .hold--customer .hold-move { transform: rotate(-7deg) translate(5%, -4px); }
+
+/*
+ * The tap. Held back, then carried across until the two phones meet — the
+ * edges actually touch, because that is what makes it read as NFC rather than
+ * as two phones standing near each other.
+ */
+.counter[data-mode="nfc"][data-phase="entry"] .hold--customer .hold-move { transform: translateX(-11%); }
+/*
+ * Far enough that the two edges actually meet. The photograph carries a wide
+ * transparent margin, so a distance in pixels leaves a gap at one width and an
+ * overlap at another; measured against the phone it holds at every size.
+ */
+.counter[data-mode="nfc"][data-phase="tap"] .hold--customer .hold-move,
+.counter[data-mode="nfc"][data-phase="done"] .hold--customer .hold-move { transform: translateX(52%) rotate(3deg); }
+/* Only the phone moves; the caption under it stays level and stays put. */
+.hold-move { transition: transform 820ms var(--ease); }
+
+/* The wave only fires once the phones are together. */
+.counter[data-mode="nfc"]:not([data-phase="tap"]):not([data-phase="done"]) .link--nfc { opacity: 0; }
+.link--nfc { transform: translateX(7%); }
+.counter[data-phase="entry"] .link { opacity: 0; }
+
+/* The screen the merchant types the price on. */
+.face--entry { background: #0d0c0a; gap: 9px; justify-content: flex-start; padding: 13% 9%; text-align: left; align-items: stretch; }
+.entry-top { display: grid; gap: 2px; margin-bottom: 4px; }
+.entry-top b { color: var(--lemon); font-size: 8px; font-weight: 750; letter-spacing: 0.18em; text-transform: uppercase; }
+.entry-top span { color: #fff; font-size: 13px; font-weight: 680; letter-spacing: -0.02em; }
+.entry-pills { display: flex; gap: 5px; }
+.entry-pills i {
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.55);
+  display: flex;
+  font-size: 7.5px;
+  font-style: normal;
+  font-weight: 700;
+  gap: 3px;
+  letter-spacing: 0.06em;
+  padding: 3px 7px;
+}
+.entry-pills i.is-on { background: var(--lemon); border-color: var(--lemon); color: #14130f; }
+.flag { display: inline-block; height: 7px; width: 10.5px; vertical-align: -1px; }
+.done-note .flag { height: 8px; width: 12px; margin-right: 3px; }
+
+.entry-field { border-bottom: 1px solid rgba(255, 255, 255, 0.16); display: grid; gap: 3px; padding-bottom: 6px; }
+.entry-label { color: rgba(255, 255, 255, 0.45); font-size: 7px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.entry-amount { align-items: center; color: #fff; display: flex; font-size: 22px; font-weight: 700; letter-spacing: -0.03em; }
+/* A caret, because a number typing itself is the point of this frame. */
+.caret { animation: caret 1s steps(1) infinite; background: var(--lemon); display: inline-block; height: 20px; margin-left: 3px; width: 2px; }
+@keyframes caret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.entry-rate { color: rgba(255, 255, 255, 0.5); font-size: 7.5px; letter-spacing: 0.02em; margin-top: 2px; }
+
+/*
+ * The code the merchant then shows. Drawn rather than screenshotted: the
+ * capture we had was of a different payment, and a phone quoting one amount
+ * beside a phone quoting another is the one thing this sequence must not do.
+ */
+.face--code { background: #0b0b09; gap: 8px; justify-content: flex-start; padding: 12% 9%; align-items: stretch; text-align: left; }
+.code-top { display: grid; gap: 2px; }
+.code-top b { color: var(--lemon); font-size: 8px; font-weight: 750; letter-spacing: 0.18em; text-transform: uppercase; }
+.code-top span { color: #fff; font-size: 13px; font-weight: 680; letter-spacing: -0.02em; }
+.code-sum { display: grid; gap: 1px; }
+.code-fiat { align-items: center; color: #fff; display: flex; font-size: 17px; font-weight: 700; gap: 5px; letter-spacing: -0.03em; }
+.code-asset { color: var(--lemon); font-size: 9px; font-weight: 700; letter-spacing: 0.01em; }
+.code-asset i { font-size: 7.5px; font-style: normal; letter-spacing: 0.12em; }
+.code-art { background: #fff; border-radius: 4px; color: #0b0b09; fill: currentColor; padding: 5px; width: 100%; }
+.code-foot { color: rgba(255, 255, 255, 0.42); font-size: 7px; letter-spacing: 0.06em; }
+
+/*
+ * The control. It runs itself, and anyone who wants to stop on one of the two
+ * can — a page that only ever plays at you is a page you cannot check.
+ */
+.switcher { display: flex; gap: 4px; justify-content: center; }
+.switcher-btn {
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 6px 14px;
+  transition: background 220ms var(--ease), border-color 220ms var(--ease), color 220ms var(--ease);
+}
+.switcher-btn:hover { border-color: var(--rule-strong); color: var(--ink); }
+.switcher-btn.is-on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 
 .face--scan { background: #100f0c; justify-content: flex-end; }
 .scan-frame {
@@ -397,7 +471,7 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   0%, 100% { top: 20%; opacity: 0.2; }
   50% { top: 62%; opacity: 1; }
 }
-.scan-copy { color: rgba(255, 255, 255, 0.82); font-size: 10px; font-weight: 600; line-height: 1.4; margin: 0 0 12%; }
+.scan-copy { color: rgba(255, 255, 255, 0.82); font-size: 8.5px; font-weight: 600; line-height: 1.35; margin: 0 0 12%; }
 
 .face--tap { background: #0d0c0a; gap: 10px; }
 .tap-mark {
@@ -406,13 +480,13 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   border-radius: 50%;
   color: var(--lemon);
   display: flex;
-  font-size: 26px;
-  height: 58px;
+  font-size: 21px;
+  height: 48px;
   justify-content: center;
-  width: 58px;
+  width: 48px;
 }
-.tap-title { color: #fff; font-size: 17px; font-weight: 680; letter-spacing: -0.02em; margin: 8px 0 0; }
-.tap-note { color: rgba(255, 255, 255, 0.5); font-size: 10px; line-height: 1.4; margin: 0; }
+.tap-title { color: #fff; font-size: 14px; font-weight: 680; letter-spacing: -0.02em; margin: 6px 0 0; }
+.tap-note { color: rgba(255, 255, 255, 0.5); font-size: 8.5px; line-height: 1.35; margin: 0; }
 
 .face--done { background: #0b0b09; gap: 8px; }
 .done-tick {
@@ -421,28 +495,15 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   border-radius: 50%;
   color: #14130f;
   display: flex;
-  font-size: 24px;
-  height: 46px;
+  font-size: 19px;
+  height: 38px;
   justify-content: center;
-  width: 46px;
+  width: 38px;
 }
-.done-title { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin: 6px 0 0; }
-.done-amount { color: var(--lemon); font-size: 26px; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
-.done-amount span { font-size: 13px; letter-spacing: 0.08em; }
-.done-note { color: rgba(255, 255, 255, 0.5); font-size: 10px; letter-spacing: 0.1em; margin: 2px 0 0; text-transform: uppercase; }
-
-/*
- * The tap. The customer's phone starts held back, reaches across to touch the
- * merchant's, then shows the result — the gesture itself, rather than two
- * phones that were always already touching.
- */
-.counter[data-mode="nfc"][data-phase="away"] .hold--customer { transform: translateX(-58px); }
-.counter[data-mode="nfc"][data-phase="tap"] .hold--customer,
-.counter[data-mode="nfc"][data-phase="done"] .hold--customer { transform: translateX(16px); }
-.hold--customer, .hold--merchant { transition: transform 780ms var(--ease); }
-
-/* The wave only fires at the moment of contact. */
-.counter[data-mode="nfc"][data-phase="away"] .link--nfc { opacity: 0; }
+.done-title { color: #fff; font-size: 16px; font-weight: 700; letter-spacing: -0.02em; margin: 4px 0 0; }
+.done-amount { color: var(--lemon); font-size: 21px; font-weight: 700; letter-spacing: -0.03em; margin: 0; white-space: nowrap; }
+.done-amount span { font-size: 11px; letter-spacing: 0.08em; }
+.done-note { color: rgba(255, 255, 255, 0.5); font-size: 8.5px; letter-spacing: 0.08em; margin: 2px 0 0; text-transform: uppercase; white-space: nowrap; }
 
 .counter-modes { height: 22px; position: relative; text-align: center; width: 100%; }
 .counter-mode {
@@ -466,17 +527,14 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .counter[data-mode="nfc"] .counter-mode--nfc { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .hold--merchant .hold-float, .hold--customer .hold-float { animation: none; }
+  .hold--merchant .held, .hold--customer .held { animation: none; }
   .link i { animation: none; }
-  .phone--merchant, .phone--customer { transition: none; }
 }
 
 @media (max-width: 860px) {
   .counter { gap: 8px; }
   .hold-label { margin-top: 14px; }
 }
-
-.phone-float { animation: phone-float 7s ease-in-out infinite; position: relative; transform-style: preserve-3d; z-index: 3; }
 
 /*
  * An iPhone rather than a rounded rectangle. Three details do most of the work:
@@ -518,9 +576,6 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 }
 /* Mirrored, so the two phones face each other rather than both facing away. */
 .phone--customer { --rx: 6deg; --ry: 19deg; --rz: -1deg; }
-.phone--merchant { --rx: 4deg; --ry: -17deg; --rz: 2deg; }
-
-.phone-body { inset: 0; position: absolute; transform-style: preserve-3d; }
 
 /* Titanium is lighter than the body sides catch, and the ends are chamfered. */
 .phone-btn {
@@ -530,73 +585,12 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   transform-style: preserve-3d;
   width: 3px;
 }
-.btn-action { height: 30px; left: -3px; top: 96px; }
-.btn-vol-up { height: 46px; left: -3px; top: 148px; }
-.btn-vol-down { height: 46px; left: -3px; top: 202px; }
-.btn-power { height: 64px; right: -3px; top: 158px; }
-
-.slab {
-  background: var(--slab);
-  border-radius: var(--radius);
-  filter: brightness(var(--b, 1));
-  inset: 0;
-  position: absolute;
-  transform: translateZ(var(--z));
-}
-.phone-face {
-  background: #08080a;
-  border-radius: var(--radius);
-  box-shadow:
-    /* the polished lip of the frame, then the black bezel it holds */
-    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
-    inset 0 0 0 2px rgba(255, 255, 255, 0.12),
-    inset 0 1px 2px 1px rgba(0, 0, 0, 0.9),
-    0 60px 90px -44px rgba(20, 19, 15, 0.55);
-  inset: 0;
-  padding: var(--bezel);
-  position: absolute;
-  transform: translateZ(15px);
-  transform-style: preserve-3d;
-}
-.phone-screen {
-  background: #000;
-  border-radius: var(--screen-radius);
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-  width: 100%;
-}
-.phone-screen img { display: block; height: 100%; object-fit: cover; object-position: top center; width: 100%; }
 /* Glass sits slightly proud of the bezel and darkens where it curves away. */
 .screen-vignette {
   box-shadow: inset 0 0 26px 6px rgba(0, 0, 0, 0.55);
   inset: 0;
   pointer-events: none;
   position: absolute;
-}
-.screen-glare {
-  background: linear-gradient(
-    calc(115deg + var(--glare, 0) * 1deg),
-    /* Enough to read as glass, not so much that it hides the screen the
-       phone is there to show. */
-    rgba(255, 255, 255, 0.13) 0%,
-    rgba(255, 255, 255, 0.035) 22%,
-    transparent 40%
-  );
-  inset: 0;
-  mix-blend-mode: screen;
-  pointer-events: none;
-  position: absolute;
-}
-.phone-shadow {
-  background: radial-gradient(ellipse at center, rgba(20, 19, 15, 0.34), transparent 70%);
-  bottom: -72px;
-  filter: blur(26px);
-  height: 96px;
-  left: 50%;
-  position: absolute;
-  transform: translateX(-50%) rotateX(78deg);
-  width: 320px;
 }
 
 .chip {
@@ -641,92 +635,113 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .compare { align-items: stretch; display: grid; gap: 18px; grid-template-columns: 1fr 60px 1fr; }
 /*
  * The lead argument of the page, and the only one a restaurant owner already
- * feels: they are owed money they cannot touch. Two cards, same shape, so the
- * comparison is the wait itself rather than a list of features — a bar that
- * crawls across forty days beside one that is over before it is read.
+ * feels: they are owed money they cannot touch. Two lanes on the same rail, so
+ * the comparison is the distance itself — forty days beside five seconds — and
+ * a reader gets it before reading a word.
  *
- * The bars carry the meaning, so they are given a label and the numbers stay
- * legible; a reader who never looks at the paragraph still gets the point.
+ * The meal cards are drawn generically. Reproducing a scheme's branding beside
+ * a claim about how slowly it pays is their trademark and our accusation, which
+ * is not a combination to put on a marketing page.
  */
-.wait { display: grid; gap: 16px; grid-template-columns: 1fr; margin-bottom: 56px; }
-@media (min-width: 860px) { .wait { grid-template-columns: 1fr 1fr; gap: 20px; } }
+.wait { display: grid; gap: 18px; margin-bottom: 22px; }
 
-.wait-card {
+.wait-lane {
+  align-items: center;
   border: 1px solid var(--rule);
   border-radius: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 30px 30px 32px;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
+  padding: 26px 28px;
 }
-.wait-card--then { background: var(--paper-raised); }
-.wait-card--now { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+@media (min-width: 780px) { .wait-lane { grid-template-columns: 190px 1fr; gap: 34px; padding: 30px 34px; } }
+.wait-lane--then { background: var(--paper-raised); }
+.wait-lane--now { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 
-.wait-tag {
-  align-items: center;
-  display: flex;
-  font-size: 11px;
-  font-weight: 700;
-  gap: 8px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-.wait-tag .i { font-size: 15px; stroke-width: 1.7; }
-.wait-card--then .wait-tag { color: var(--ink-muted); }
-.wait-card--now .wait-tag { color: var(--lemon); }
+.wait-who { align-items: center; display: flex; gap: 16px; }
+.wait-name { font-size: 15px; font-weight: 680; letter-spacing: -0.02em; margin: 0; }
 
-.wait-lead { font-size: clamp(20px, 2.2vw, 25px); font-weight: 640; letter-spacing: -0.03em; line-height: 1.2; }
-.wait-note { font-size: 15px; line-height: 1.55; margin-top: auto; }
-.wait-card--then .wait-note { color: var(--ink-muted); }
-.wait-card--now .wait-note { color: rgba(242, 239, 228, 0.68); }
-
-.wait-meter { display: grid; gap: 12px; }
-.wait-track {
-  background: rgba(20, 19, 15, 0.1);
-  border-radius: 999px;
-  height: 10px;
-  overflow: hidden;
-  position: relative;
-}
-.wait-track--now { background: rgba(242, 239, 228, 0.16); }
-.wait-fill {
-  background: var(--rule-strong);
-  border-radius: inherit;
+/* A little stack of cards, fanned, with a chip and a stripe. */
+.cards { display: block; flex: 0 0 auto; height: 58px; position: relative; width: 84px; }
+.card {
+  background: #8f8b7e;
+  border-radius: 7px;
+  box-shadow: 0 2px 6px rgba(20, 19, 15, 0.18);
   display: block;
-  height: 100%;
-  transform-origin: left center;
-  transform: scaleX(var(--w, 1));
-  width: 100%;
+  height: 46px;
+  left: 0;
+  position: absolute;
+  top: 3px;
+  width: 72px;
 }
-.wait-track--now .wait-fill { background: var(--lemon); }
-
-.wait-scale {
-  color: var(--ink-faint);
-  display: flex;
-  font-size: 11px;
-  font-weight: 600;
-  justify-content: space-between;
-  letter-spacing: 0.1em;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.wait-figure { align-items: baseline; display: flex; gap: 10px; }
-.wait-figure > span:first-child { font-size: clamp(46px, 6vw, 68px); font-weight: 700; letter-spacing: -0.05em; line-height: 0.9; }
-.wait-unit { color: rgba(242, 239, 228, 0.6); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.card--3 { background: #c2bdaf; transform: rotate(-17deg) translate(-9px, 5px); }
+.card--2 { background: #a8a496; transform: rotate(-8.5deg) translate(-4px, 2px); }
+.card--1 { background: #6f6c63; }
+.card--gold { background: linear-gradient(126deg, #b07f1c, #ffd777 46%, #8a5e10); }
+.card b { background: rgba(255, 255, 255, 0.72); border-radius: 3px; display: block; height: 11px; left: 8px; position: absolute; top: 12px; width: 15px; }
+.card u { background: rgba(20, 19, 15, 0.4); display: block; height: 7px; left: 0; position: absolute; right: 0; top: 30px; }
 
 /*
- * The bars fill only once the block is on screen. Animating them on load meant
- * the forty-day crawl had already finished by the time anyone scrolled to it,
- * which is precisely the thing being illustrated.
+ * The rail. Each stop is a dot on one line, so the gap between "served" and
+ * "paid" is drawn to scale rather than described.
  */
-.wait-fill { transition: transform 1400ms var(--ease); }
-.wait:not([data-visible]) .wait-fill { transform: scaleX(0); }
-.wait-card--now .wait-fill { transition-duration: 320ms; }
-@media (prefers-reduced-motion: reduce) {
-  .wait-fill { transition: none; }
-  .wait:not([data-visible]) .wait-fill { transform: scaleX(var(--w, 1)); }
+.stops { display: grid; gap: 20px; grid-auto-flow: row; list-style: none; margin: 0; padding: 0; position: relative; }
+@media (min-width: 560px) {
+  .stops { grid-auto-columns: 1fr; grid-auto-flow: column; gap: 8px; }
+  .stops::before {
+    background: var(--rule-strong);
+    content: "";
+    height: 2px;
+    left: 6%;
+    position: absolute;
+    right: 6%;
+    top: 19px;
+  }
+  /* Two stops, close together: the short distance is the whole argument. */
+  .stops--short { grid-auto-columns: max-content; justify-content: start; gap: 90px; }
+  .stops--short::before { background: var(--lemon); left: 34px; right: auto; width: 152px; }
 }
+.stops li { display: grid; gap: 3px; justify-items: start; position: relative; z-index: 1; }
+@media (min-width: 560px) { .stops li { justify-items: center; text-align: center; } }
+.stop-dot {
+  align-items: center;
+  background: var(--paper-raised);
+  border: 2px solid var(--rule-strong);
+  border-radius: 50%;
+  display: flex;
+  font-size: 18px;
+  height: 40px;
+  justify-content: center;
+  margin-bottom: 8px;
+  width: 40px;
+}
+.wait-lane--now .stop-dot { background: var(--ink); border-color: var(--lemon); color: var(--lemon); }
+.stops b { font-size: clamp(17px, 2vw, 21px); font-weight: 700; letter-spacing: -0.03em; }
+.stops li > span:last-child { font-size: 12px; letter-spacing: 0.02em; }
+.wait-lane--then .stops li > span:last-child { color: var(--ink-muted); }
+.wait-lane--now .stops li > span:last-child { color: rgba(242, 239, 228, 0.6); }
+
+/* Six facts, three words each. The paragraph they replaced said no more. */
+.beats { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); list-style: none; margin: 0 0 56px; padding: 0; }
+@media (min-width: 720px) { .beats { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1040px) { .beats { grid-template-columns: repeat(6, 1fr); } }
+.beat {
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 18px 16px 16px;
+}
+.beat .i { font-size: 20px; margin-bottom: 10px; }
+.beat b { font-size: 14px; font-weight: 680; letter-spacing: -0.02em; }
+.beat span { font-size: 12px; line-height: 1.35; }
+.beat--then { background: var(--paper-raised); }
+.beat--then .i { color: var(--ink-faint); }
+.beat--then span { color: var(--ink-muted); }
+.beat--now { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.beat--now .i { color: var(--lemon); }
+.beat--now span { color: rgba(242, 239, 228, 0.62); }
 
 /*
  * The conversion, shown once and literally. Explaining an exchange rate in a
@@ -768,148 +783,154 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 .priced-rate { color: var(--ink-faint); font-size: 12px; letter-spacing: 0.06em; margin: 4px 0 0; }
 
 /*
- * One row per friction, with its fix beside it. Two mirrored lists made a reader
- * hold three problems in their head and pair them up themselves; here the pair
- * is the unit, so "a 56-character address" and "scan the code" are one thought.
- *
- * The old way is set on paper and the new way on lemon, so the swap is visible
- * before a word is read.
+ * Three frictions, three fixes, three words each. The old rows carried a
+ * sentence of explanation under every line, which is a paragraph pretending to
+ * be a comparison — and nobody reads a paragraph to learn that scanning beats
+ * typing an address.
  */
-.swap { display: grid; gap: 16px; list-style: none; margin: 0; padding: 0; }
-.swap-row {
-  align-items: stretch;
+.swaps { display: grid; gap: 12px; grid-template-columns: 1fr; list-style: none; margin: 0; padding: 0; }
+@media (min-width: 780px) { .swaps { grid-template-columns: repeat(3, 1fr); } }
+
+.swaps-item {
+  align-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
   display: grid;
-  gap: 0;
-  grid-template-columns: 1fr 62px 1.05fr;
+  gap: 10px;
+  grid-template-columns: 1fr auto 1fr;
+  padding: 18px 20px;
 }
-.swap-then,
-.swap-now { padding: 26px 28px; }
-.swap-then {
+.swaps-old, .swaps-new {
+  align-items: center;
+  display: flex;
+  font-size: 14px;
+  font-weight: 640;
+  gap: 9px;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  margin: 0;
+}
+.swaps-old { color: var(--ink-faint); }
+.swaps-old .i { color: var(--ink-faint); flex: 0 0 auto; font-size: 18px; }
+.swaps-new { color: var(--ink); }
+.swaps-new .i { color: var(--lemon-ink); flex: 0 0 auto; font-size: 18px; }
+.swaps-join { color: var(--ink-faint); font-size: 17px; }
+
+/*
+ * The two ways to hand a payment over, one card each. Restored: the base rules
+ * for this section had been lost in an earlier edit and only the narrow-screen
+ * overrides survived, so on a desktop the QR grew to the width of its card.
+ *
+ * Rewritten for paper rather than reinstated from the dark theme they were
+ * written for — a panel of translucent white on a cream page is a grey smear.
+ */
+.pay-grid { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+.pay-card {
   background: var(--paper-raised);
   border: 1px solid var(--rule);
   border-radius: 22px;
-}
-.swap-tag {
-  color: var(--ink-faint);
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  margin-bottom: 12px;
-  text-transform: uppercase;
-}
-.swap-head { font-size: 17px; font-weight: 640; letter-spacing: -0.02em; margin: 0; }
-.swap-note { color: var(--ink-muted); font-size: 14px; line-height: 1.5; margin: 6px 0 0; }
-
-.swap-join {
-  align-items: center;
-  color: var(--ink-faint);
-  display: flex;
-  font-size: 20px;
-  justify-content: center;
-}
-
-.swap-now {
-  align-items: flex-start;
-  background: var(--lemon);
-  border: 1px solid rgba(20, 19, 15, 0.26);
-  border-radius: 22px;
-  display: flex;
-  gap: 16px;
-}
-.swap-now .swap-head { color: var(--ink); }
-.swap-now .swap-note { color: rgba(20, 19, 15, 0.74); }
-.swap-icon {
-  align-items: center;
-  background: rgba(20, 19, 15, 0.14);
-  border-radius: 13px;
-  color: var(--ink);
-  display: flex;
-  flex: 0 0 auto;
-  height: 44px;
-  justify-content: center;
-  width: 44px;
-}
-.swap-icon .i { font-size: 21px; }
-
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; letter-spacing: 0.01em; }
-
-/* ---------- qr + nfc ---------- */
-.pay-grid { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; }
-.pay-card {
-  background: var(--ink);
-  border: 1px solid var(--ink);
-  border-radius: 26px;
-  color: var(--paper);
   overflow: hidden;
   padding: 32px;
   position: relative;
 }
-
-
-.pay-label { align-items: center; color: var(--lemon); display: flex; font-size: 10px; font-weight: 700; gap: 9px; letter-spacing: 0.22em; }
+.pay-label { align-items: center; color: var(--lemon-ink); display: flex; font-size: 10px; font-weight: 750; gap: 9px; letter-spacing: 0.22em; margin: 0; }
 .pay-label .i { font-size: 16px; }
-.pay-card h3 { font-size: clamp(25px, 2.6vw, 33px); font-weight: 620; letter-spacing: -0.05em; line-height: 1; margin-top: 13px; }
+.pay-card h3 { font-size: clamp(23px, 2.5vw, 31px); font-weight: 650; letter-spacing: -0.045em; line-height: 1.04; margin-top: 12px; }
 .pay-foot { position: relative; z-index: 2; }
 
-.qr-visual, .nfc-visual { align-items: center; display: flex; height: 300px; justify-content: center; margin-bottom: 34px; position: relative; }
-/* The pay cards are the one place ink sits on a dark ground, so the artwork
-   inside them is drawn in paper rather than in the page's ink. */
-.qr-code { color: var(--paper); fill: currentColor; height: 200px; width: 200px; }
+.qr-visual, .nfc-visual { align-items: center; display: flex; height: 300px; justify-content: center; margin-bottom: 32px; position: relative; }
+.qr-code { color: var(--ink); fill: currentColor; flex: 0 0 auto; height: 200px; width: 200px; }
 .qr-frame { border-color: var(--lemon); border-style: solid; height: 40px; position: absolute; width: 40px; }
 .qr-frame-1 { border-radius: 12px 0 0 0; border-width: 2px 0 0 2px; left: calc(50% - 124px); top: calc(50% - 124px); }
 .qr-frame-2 { border-radius: 0 12px 0 0; border-width: 2px 2px 0 0; right: calc(50% - 124px); top: calc(50% - 124px); }
 .qr-frame-3 { border-radius: 0 0 0 12px; border-width: 0 0 2px 2px; bottom: calc(50% - 124px); left: calc(50% - 124px); }
 .qr-frame-4 { border-radius: 0 0 12px 0; border-width: 0 2px 2px 0; bottom: calc(50% - 124px); right: calc(50% - 124px); }
-.qr-beam { animation: qr-beam 3.4s ease-in-out infinite; background: linear-gradient(90deg, transparent, var(--lemon) 20%, var(--lemon-light) 50%, var(--lemon) 80%, transparent); box-shadow: 0 0 30px 4px rgba(255, 176, 0, 0.45); height: 2px; left: calc(50% - 128px); position: absolute; width: 256px; z-index: 3; }
-.qr-logo { border-radius: 12px; position: absolute; }
+.qr-beam {
+  animation: qr-beam 3.4s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, var(--lemon) 24%, var(--lemon) 76%, transparent);
+  height: 2px;
+  left: calc(50% - 128px);
+  position: absolute;
+  width: 256px;
+  z-index: 3;
+}
+/* The mark sits in the quiet zone a real code leaves for exactly this. */
+.qr-logo {
+  border: 3px solid var(--paper-raised);
+  border-radius: 14px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
 
-.nfc-visual { gap: 92px; }
-.tap-phone::before { background: linear-gradient(170deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.4)); border-radius: 17px; content: ""; inset: 6px; position: absolute; }
-.tap-phone > * { position: relative; z-index: 1; }
+.nfc-visual { gap: 88px; }
 .tap-phone {
   align-items: center;
-  background: linear-gradient(160deg, #1d1d1a, #0a0a09);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 22px;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: var(--ink);
+  border-radius: 20px;
   display: flex;
   height: 196px;
   justify-content: center;
   position: relative;
   width: 100px;
 }
-.tap-phone::after { background: rgba(255, 255, 255, 0.12); border-radius: 999px; content: ""; height: 4px; left: 50%; position: absolute; top: 11px; transform: translateX(-50%); width: 26px; }
-.tap-merchant { animation: tap-lean-left 5s ease-in-out infinite; }
-.tap-customer { animation: tap-lean-right 5s ease-in-out infinite; }
-.tap-amount { color: var(--lemon); display: grid; font-size: 21px; font-weight: 650; letter-spacing: -0.05em; text-align: center; }
-.tap-amount em { color: rgba(242, 239, 228, 0.55); font-size: 8px; font-style: normal; letter-spacing: 0.18em; margin-top: 5px; }
-.tap-face { align-items: center; background: rgba(120, 220, 150, 0.14); border-radius: 50%; color: #78dc96; display: flex; font-size: 24px; height: 48px; justify-content: center; width: 48px; }
-.tap-waves { display: grid; height: 40px; left: 50%; place-items: center; position: absolute; transform: translateX(-24px); width: 40px; z-index: 3; }
-.tap-waves::after { background: var(--lemon); border-radius: 50%; box-shadow: 0 0 16px rgba(255, 176, 0, 0.85); content: ""; height: 7px; width: 7px; }
-.tap-waves i { animation: tap-wave 2.6s ease-out infinite; border: 2px solid transparent; border-radius: 50%; border-right-color: var(--lemon); height: 30px; opacity: 0; position: absolute; width: 30px; }
-.tap-waves i:nth-child(2) { animation-delay: 0.85s; }
-.tap-waves i:nth-child(3) { animation-delay: 1.7s; }
+.tap-amount { color: var(--paper); display: grid; font-size: 17px; font-weight: 700; justify-items: center; letter-spacing: -0.03em; }
+.tap-amount em { color: var(--lemon); font-size: 10px; font-style: normal; font-weight: 700; letter-spacing: 0.16em; margin-top: 3px; }
+.tap-face { align-items: center; color: var(--lemon); display: flex; font-size: 30px; justify-content: center; }
 
-.feature-strip { display: grid; gap: 12px; grid-template-columns: repeat(4, 1fr); list-style: none; margin: 14px 0 0; padding: 0; }
-.feature-strip li {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  color: var(--muted);
-  display: flex;
-  font-size: 12.5px;
-  font-weight: 550;
-  gap: 12px;
-  letter-spacing: -0.01em;
-  padding: 18px 20px;
-  transition: border-color 300ms ease, color 300ms ease;
+/* The tap itself, leaving the phone that touches. */
+.tap-waves { display: grid; place-items: center; position: absolute; }
+.tap-waves i {
+  border: 2px solid var(--lemon);
+  border-left-color: transparent;
+  border-radius: 50%;
+  border-right-color: transparent;
+  height: 34px;
+  position: absolute;
+  width: 34px;
 }
-.feature-strip .i { color: var(--lemon); font-size: 20px; }
-.feature-strip li:hover { border-color: rgba(255, 176, 0, 0.28); color: var(--ink); }
+.tap-waves i:nth-child(1) { animation: ping 1.8s ease-out infinite; }
+.tap-waves i:nth-child(2) { animation: ping 1.8s ease-out -0.6s infinite; }
+.tap-waves i:nth-child(3) { animation: ping 1.8s ease-out -1.2s infinite; }
 
-.flow { background: rgba(255, 255, 255, 0.014); border-block: 1px solid rgba(255, 255, 255, 0.05); }
+@media (prefers-reduced-motion: reduce) {
+  .qr-beam, .tap-waves i { animation: none; }
+}
+
+/*
+ * The anchors. Naming the SEP on each tile is not decoration: it is the claim
+ * that this is the ordinary way in and out of Stellar rather than a private
+ * arrangement of ours, and it is checkable.
+ */
+.anchors { display: grid; gap: 12px; grid-template-columns: 1fr; list-style: none; margin: 0 0 26px; padding: 0; }
+@media (min-width: 640px) { .anchors { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1000px) { .anchors { grid-template-columns: repeat(4, 1fr); } }
+
+.anchor-tile {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 24px 22px 20px;
+}
+.anchor-tile .i { color: var(--lemon-ink); font-size: 22px; margin-bottom: 12px; }
+.anchor-tile b { font-size: 15px; font-weight: 680; letter-spacing: -0.025em; }
+.anchor-tile span { color: var(--ink-muted); font-size: 13px; line-height: 1.45; }
+.anchor-tile code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.anchor-tile em {
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  margin-top: 10px;
+}
+.anchors-note { color: var(--ink-muted); font-size: 15px; line-height: 1.6; margin: 0 auto; max-width: 62ch; text-align: center; }
+
 /*
  * The flow is the page's argument, so it names who acts at each step rather
  * than only what happens. Each panel carries the thing that step produces — a
@@ -1118,15 +1139,11 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   .lede { font-size: 15px; margin-inline: auto; }
   .hero-title { font-size: clamp(54px, 16vw, 82px); }
   .stage { height: 520px; width: 100%; }
-  .phone { --radius: 40px; height: 466px; width: 218px; }
-  .phone-screen { border-radius: 32px; }
   .phone-rail-one { height: 47px; top: 103px; }
   .phone-rail-two { height: 72px; top: 166px; }
   .island { height: 18px; top: 16px; width: 68px; }
   .orbit-one { height: 440px; width: 440px; }
   .orbit-two { height: 344px; width: 344px; }
-  .halo { height: 300px; width: 300px; }
-  .phone-shadow { bottom: -56px; width: 250px; }
   .chip-request { left: 0; top: 96px; }
   .chip-settled { bottom: 96px; right: 0; }
   .section { padding-block: 96px; }
@@ -1149,9 +1166,6 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
   .store-button { justify-content: center; width: 100%; }
   .hero-copy .store-row { margin-inline: auto; }
   .stage { height: 470px; }
-  .phone { --radius: 36px; height: 420px; width: 196px; }
-  .phone-screen { border-radius: 29px; }
-  .phone-face { padding: 8px; }
   .phone-rail-one { height: 42px; top: 93px; }
   .phone-rail-two { height: 65px; top: 150px; }
   .island { height: 16px; top: 14px; width: 62px; }
