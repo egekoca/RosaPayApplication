@@ -1,5 +1,5 @@
-import {useEffect, useRef, type ReactNode} from 'react';
-import {Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle} from 'react-native';
+import {useEffect, useMemo, useRef, type ReactNode} from 'react';
+import {Animated, Easing, PanResponder, StyleSheet, View, type StyleProp, type ViewStyle} from 'react-native';
 import Svg, {Defs, LinearGradient, Path, Rect, Stop} from 'react-native-svg';
 import {radius, spacing} from './theme';
 
@@ -11,6 +11,8 @@ type GoldCardSurfaceProps = {
   style?: StyleProp<ViewStyle>;
   idSuffix?: string;
   animated?: boolean;
+  /** Lets a finger tilt the card, the way you would turn a real one to the light. */
+  interactive?: boolean;
 };
 
 /**
@@ -27,8 +29,11 @@ export function GoldCardSurface({
   style,
   idSuffix = 'default',
   animated = true,
+  interactive = false,
 }: GoldCardSurfaceProps) {
   const sweep = useRef(new Animated.Value(0)).current;
+  const tiltX = useRef(new Animated.Value(0)).current;
+  const tiltY = useRef(new Animated.Value(0)).current;
   const animate = animated && process.env.NODE_ENV !== 'test';
 
   useEffect(() => {
@@ -55,8 +60,50 @@ export function GoldCardSurface({
   });
   const baseId = `gold-card-${idSuffix}`;
 
+  /*
+   * A card you can turn.
+   *
+   * The resting angle already said "object, not panel"; this lets a finger
+   * carry it. Held to a fixed few degrees, because the point is the material
+   * catching light differently, not a toy — past about fifteen the type starts
+   * to distort and the card stops being something you can read.
+   *
+   * It claims the gesture only once a finger has actually travelled, so a tap
+   * still reaches the controls sitting on the card face.
+   */
+  const responder = useMemo(() => {
+    const clamp = (value: number) => Math.max(-1, Math.min(1, value));
+    const settle = () =>
+      Animated.parallel([
+        Animated.spring(tiltX, {bounciness: 6, speed: 12, toValue: 0, useNativeDriver: true}),
+        Animated.spring(tiltY, {bounciness: 6, speed: 12, toValue: 0, useNativeDriver: true}),
+      ]).start();
+
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_event, gesture) =>
+        interactive && (Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3),
+      onPanResponderMove: (_event, gesture) => {
+        tiltY.setValue(clamp(gesture.dx / (width / 2)));
+        tiltX.setValue(clamp(-gesture.dy / (height / 2)));
+      },
+      onPanResponderRelease: settle,
+      onPanResponderTerminate: settle,
+    });
+  }, [height, interactive, tiltX, tiltY, width]);
+
+  // Centred on the resting angle, so letting go returns to exactly where it was.
+  const rotateY = tiltY.interpolate({inputRange: [-1, 1], outputRange: ['-16deg', '8deg']});
+  const rotateX = tiltX.interpolate({inputRange: [-1, 1], outputRange: ['-6deg', '12deg']});
+
   return (
-    <View style={[styles.stage, style]}>
+    <Animated.View
+      {...(interactive ? responder.panHandlers : {})}
+      style={[
+        styles.stage,
+        interactive && {transform: [{perspective: 1600}, {rotateX}, {rotateY}]},
+        style,
+      ]}>
       <View style={[styles.card, {height, width}]}>
         <Svg
           pointerEvents="none"
@@ -134,7 +181,7 @@ export function GoldCardSurface({
 
         <View style={[styles.content, contentStyle]}>{children}</View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

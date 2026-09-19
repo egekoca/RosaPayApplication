@@ -31,7 +31,7 @@ const captions: Record<PaymentCardState, string> = {
   'no-wallet': 'SETUP REQUIRED',
   loading: 'READING',
   error: 'RECONNECTING',
-  ready: 'AVAILABLE',
+  ready: '',
 };
 
 /** A payment card is 85.6 by 53.98 millimetres, everywhere in the world. */
@@ -72,9 +72,13 @@ export function PaymentCard({holdings, value, currency, address, state, onCopy, 
       contentStyle={styles.inner}
       height={cardHeight}
       idSuffix="wallet"
+      interactive
       width={cardWidth}>
+          {/*
+            The app's name was printed here and again in the header directly
+            above it. A card carries the issuer's mark, not its name twice.
+          */}
           <View style={styles.top}>
-            <Text style={styles.brand}>LUMENADE PAY</Text>
             <WalletCards color={inkSoft} size={18} strokeWidth={1.8} />
           </View>
 
@@ -84,6 +88,39 @@ export function PaymentCard({holdings, value, currency, address, state, onCopy, 
               <CountUp value={Number(primary?.amount ?? 0)} decimals={2} style={styles.amount} />
               <Text style={styles.asset}>{primary?.code ?? 'XLM'}</Text>
             </View>
+            {/*
+              Directly under the headline, because "and that is worth X" is the
+              second thing anyone asks and the eye is already here. It spent a
+              version down in the card's small print at the size of the address,
+              which made the most-read number on the card the hardest to read.
+            */}
+            {onChangeCurrency || value ? (
+              <Pressable
+                accessibilityHint={onChangeCurrency ? 'Changes the money this balance is shown in' : undefined}
+                accessibilityLabel={
+                  value
+                    ? `Worth ${value.amount} ${displayCurrencyMeta(shownCurrency).name}`
+                    : `Reading the rate in ${displayCurrencyMeta(shownCurrency).name}`
+                }
+                accessibilityRole={onChangeCurrency ? 'button' : 'text'}
+                disabled={!onChangeCurrency}
+                hitSlop={10}
+                onPress={onChangeCurrency}
+                style={styles.conversion}
+                testID="balance-currency">
+                <Text style={styles.flag}>{displayCurrencyMeta(shownCurrency).flag}</Text>
+                {/*
+                  The row keeps its place while the rate loads. Rendering it
+                  only once a value arrives made the card change height on its
+                  own and took the currency control away exactly when someone
+                  had just tapped it.
+                */}
+                <Text style={[styles.conversionValue, !value && styles.conversionPending]}>
+                  {value ? `≈ ${value.amount} ${value.currency}` : `≈ —  ${shownCurrency}`}
+                </Text>
+                {onChangeCurrency ? <ChevronDown color={ink} size={17} strokeWidth={2.6} /> : null}
+              </Pressable>
+            ) : null}
             {rest.length > 0 ? (
               <View style={styles.rest}>
                 {rest.map(holding => (
@@ -99,28 +136,13 @@ export function PaymentCard({holdings, value, currency, address, state, onCopy, 
           </View>
 
           <View style={styles.bottom}>
+            {/*
+              "BALANCE" over "AVAILABLE" was two labels for one fact anybody
+              holding a wallet already knows. What is worth saying is when the
+              card is *not* showing a balance, so only that is said.
+            */}
             <View style={styles.legend}>
-              <Text style={styles.legendLabel}>BALANCE</Text>
-              {/*
-                The flag rather than the code, because it is read at a glance
-                while someone is looking at their own money — and it is the
-                control as well as the label, so the money the balance is in and
-                the way to change it are the same thing rather than two.
-              */}
-              <Pressable
-                accessibilityHint={onChangeCurrency ? 'Changes the money this balance is shown in' : undefined}
-                accessibilityLabel={`Balance shown in ${displayCurrencyMeta(shownCurrency).name}`}
-                accessibilityRole={onChangeCurrency ? 'button' : 'text'}
-                disabled={!onChangeCurrency}
-                onPress={onChangeCurrency}
-                style={styles.legendRow}
-                testID="balance-currency">
-                <Text style={styles.flag}>{displayCurrencyMeta(shownCurrency).flag}</Text>
-                <Text style={styles.legendValue}>
-                  {value ? `≈ ${value.amount} ${value.currency}` : captions[state]}
-                </Text>
-                {onChangeCurrency ? <ChevronDown color={inkSoft} size={12} /> : null}
-              </Pressable>
+              {state === 'ready' ? null : <Text style={styles.legendValue}>{captions[state]}</Text>}
             </View>
             <Pressable
               accessibilityLabel="Copy wallet address"
@@ -157,8 +179,27 @@ const styles = StyleSheet.create({
   legend: {gap: 2},
   legendLabel: {...typography.mono, color: inkSoft, fontSize: 7.5, letterSpacing: 1.8},
   legendValue: {...typography.mono, color: ink, fontSize: 9.5, letterSpacing: 1.2},
-  legendRow: {alignItems: 'center', flexDirection: 'row', gap: 5},
-  flag: {fontSize: 12},
+  /*
+   * A plate under the row, because this sits on marbled metal. Mono type at
+   * small sizes disappeared into the gradient — the letterforms are thin and
+   * the background moves. A slightly darker ground and the sans face at
+   * seventeen give it an edge to read against without putting a box on a card
+   * that is otherwise all open surface.
+   */
+  conversion: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(28,21,3,0.10)',
+    borderRadius: 999,
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  conversionValue: {...typography.body, color: ink, fontSize: 17, fontWeight: '600', letterSpacing: 0.2},
+  conversionPending: {color: inkSoft},
+  flag: {fontSize: 19},
   numberRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.xs},
   number: {...typography.mono, color: ink, fontSize: 12, letterSpacing: 1.4},
 });

@@ -50,9 +50,9 @@ export function MerchantBalanceCard({
       contentStyle={styles.content}
       height={cardHeight}
       idSuffix="merchant"
+      interactive
       width={cardWidth}>
       <View style={styles.top}>
-        <Text style={styles.brand}>LUMENADE PAY</Text>
         <Store color={inkSoft} size={18} strokeWidth={1.8} />
       </View>
 

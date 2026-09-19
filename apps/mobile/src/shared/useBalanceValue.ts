@@ -6,7 +6,19 @@ import {displayAmount} from './displayAmount';
 import {PREFERRED_CURRENCIES, resolveQuoteSource} from './priceSource';
 import {useAppStore} from '../state/appStore';
 
-export type BalanceValue = {amount: string; currency: string};
+/** One holding, and what it is worth in the chosen currency. */
+export type ValuedHolding = {code: string; amount: string; value: string};
+
+export type BalanceValue = {
+  amount: string;
+  currency: string;
+  /**
+   * Per holding, in the order the wallet reports them. The total alone answers
+   * "what is this worth"; the breakdown answers "worth of what", which is the
+   * question anyone holding two assets actually has.
+   */
+  holdings: ValuedHolding[];
+};
 
 /**
  * What a wallet is worth, in a currency people think in.
@@ -40,6 +52,7 @@ export function useBalanceValue(holdings: Holding[] | undefined) {
 
       let total = 0;
       let currency: string | undefined;
+      const valued: ValuedHolding[] = [];
 
       for (const holding of priced) {
         const sellAsset = payableAssetByCode(holding.code)?.sep38;
@@ -64,10 +77,11 @@ export function useBalanceValue(holdings: Holding[] | undefined) {
         currency ??= assetCodeOf(chosen.asset);
         if (assetCodeOf(chosen.asset) !== currency) continue;
         total += value;
+        valued.push({code: holding.code, amount: holding.amount, value: displayAmount(value)});
       }
 
       if (!currency || total <= 0) return null;
-      return {amount: displayAmount(total), currency};
+      return {amount: displayAmount(total), currency, holdings: valued};
     },
   });
 }

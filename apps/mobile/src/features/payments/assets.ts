@@ -3,6 +3,8 @@ import type {PaymentAsset} from '@rosapay/protocol';
 export type PayableAsset = {
   /** What a person calls it. */
   code: string;
+  /** Written out, for a list where the code alone is a puzzle. */
+  name: string;
   /** What the intent carries, and what the contract is asked to move. */
   asset: PaymentAsset;
   /** How SEP-38 names it, for asking an anchor what it is worth. */
@@ -27,12 +29,14 @@ export type PayableAsset = {
 export const payableAssets: PayableAsset[] = [
   {
     code: 'XLM',
+    name: 'Stellar Lumens',
     asset: {type: 'native', code: 'XLM', decimals: 7},
     sep38: 'stellar:native',
     note: 'Settles fastest, and every account holds it',
   },
   {
     code: 'USDC',
+    name: 'USD Coin',
     // The issuer our own price anchor lists, so the currency a merchant prices
     // in and the asset the customer sends come from the same place.
     asset: {

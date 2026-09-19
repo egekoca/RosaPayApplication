@@ -50,6 +50,19 @@ export const DISPLAY_CURRENCIES = [
 
 export type DisplayCurrency = (typeof DISPLAY_CURRENCIES)[number]['code'];
 
+/**
+ * The mark a currency is written with, where it has one.
+ *
+ * A price reads faster with its own symbol than with a three-letter code, and
+ * lira has a symbol most Turkish screens use. Currencies without one fall back
+ * to the code and a space, which is what a code is for.
+ */
+const SYMBOLS: Record<string, string> = {TRY: '₺', USD: '$', EUR: '€', GBP: '£', NGN: '₦'};
+
+export function currencySymbol(code: string): string {
+  return SYMBOLS[code] ?? `${code} `;
+}
+
 export function displayCurrencyMeta(code: string) {
   return DISPLAY_CURRENCIES.find(entry => entry.code === code) ?? DISPLAY_CURRENCIES[0];
 }
