@@ -1,0 +1,33 @@
+{
+  "name": "rosapay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rosa Pay monorepo",
+  "packageManager": "npm@11.6.2",
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "android": "npm run android --workspace @rosapay/mobile",
+    "ios": "npm run ios --workspace @rosapay/mobile",
+    "start": "npm run start --workspace @rosapay/mobile",
+    "api": "npm run dev --workspace @rosapay/api",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "contract:test": "cargo +stable test --manifest-path contracts/Cargo.toml",
+    "contract:build": "stellar contract build --manifest-path contracts/Cargo.toml",
+    "testnet:smoke": "node scripts/testnet-smoke.mjs",
+    "check": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.0"
+  }
+}

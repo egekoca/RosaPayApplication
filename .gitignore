@@ -1,0 +1,26 @@
+node_modules/
+.DS_Store
+*.log
+.watchman-cookie-*
+.env
+.env.*
+!.env.example
+coverage/
+dist/
+build/
+
+# React Native
+apps/mobile/android/.gradle/
+apps/mobile/android/app/build/
+apps/mobile/android/app/*.keystore
+apps/mobile/ios/Pods/
+apps/mobile/ios/build/
+apps/mobile/.bundle/
+
+# Rust / Stellar
+contracts/target/
+.stellar/
+
+# Editors
+.idea/
+.vscode/

@@ -1,0 +1,146 @@
+import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
+import type {CompositeScreenProps} from '@react-navigation/native';
+import type {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {ArrowUpRight, Bell, ChevronRight, Copy, QrCode, ScanLine, ShieldCheck, Store, TrendingUp} from 'lucide-react-native';
+import {Image, Pressable, StyleSheet, Text, View} from 'react-native';
+import type {ReactNode} from 'react';
+import {AnimatedContent, Button, colors, CountUp, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
+import type {MainTabsParams, RootStackParams} from '../../app/navigation';
+import {ModeSwitcher} from '../../shared/ModeSwitcher';
+import {Screen} from '../../shared/Screen';
+import {useStellarHealth} from '../../shared/useStellarHealth';
+import {useAppStore} from '../../state/appStore';
+
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<MainTabsParams, 'Home'>,
+  NativeStackScreenProps<RootStackParams>
+>;
+
+export function HomeScreen({navigation}: Props) {
+  const {mode, merchantEnabled, activateMerchant} = useAppStore();
+  const stellarHealth = useStellarHealth();
+  return (
+    <Screen>
+      <View style={styles.header}>
+        <View style={styles.identity}>
+          <Image accessibilityLabel="Rosa Pay" source={require('../../assets/rosapay-logo.png')} style={styles.logo} />
+          <View><Text style={styles.eyebrow}>ROSA PAY</Text><Text style={styles.greeting}>Good morning</Text></View>
+        </View>
+        <Pressable accessibilityLabel="Notifications" style={styles.iconButton}><Bell color={colors.inkMuted} size={19} /></Pressable>
+      </View>
+      <View style={styles.networkRow}><View style={styles.network}><View style={[styles.dot, stellarHealth.isError && styles.dotError]} /><Text style={styles.networkText}>{stellarHealth.isPending ? 'Checking Testnet' : stellarHealth.isError ? 'Testnet unavailable' : 'Stellar Testnet'}</Text><ChevronRight color={colors.inkMuted} size={15} /></View><StatusPill tone={merchantEnabled ? 'pending' : 'success'}>{merchantEnabled ? 'MERCHANT ACCOUNT' : 'SECURE WALLET'}</StatusPill></View>
+      <ModeSwitcher />
+      {mode === 'customer' ? (
+        <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} activateMerchant={activateMerchant} />
+      ) : (
+        <MerchantHome navigation={navigation} />
+      )}
+    </Screen>
+  );
+}
+
+function CustomerHome({navigation, merchantEnabled, activateMerchant}: {navigation: Props['navigation']; merchantEnabled: boolean; activateMerchant: () => void}) {
+  return (
+    <>
+      <AnimatedContent><SurfaceCard accent="amber" style={styles.balanceCard}>
+        <View style={styles.cardHeader}><Text style={styles.cardLabel}>TOTAL BALANCE</Text><View style={styles.balanceNetwork}><View style={styles.dot} /><Text style={styles.balanceNetworkText}>XLM</Text></View></View>
+        <View style={styles.balanceLine}><CountUp value={1248.75} decimals={2} style={styles.balance} /><Text style={styles.balanceAsset}>XLM</Text></View>
+        <Text style={styles.balanceValue}>≈ $184.32 USD</Text>
+        <View style={styles.addressRow}><Text style={styles.address}>GDRX...N7KQ</Text><Copy color={colors.amber} size={16} /></View>
+      </SurfaceCard></AnimatedContent>
+      <View style={styles.quickGrid}>
+        <QuickAction icon={<ScanLine color={colors.amber} size={22} />} title="Scan to pay" hint="Use a merchant QR" onPress={() => navigation.navigate('Scan')} />
+        <QuickAction disabled icon={<ArrowUpRight color={colors.inkMuted} size={22} />} title="Send" hint="Coming soon" />
+      </View>
+      <SectionTitle title="Recent activity" action="View all" />
+      <SurfaceCard padded={false} style={styles.activityCard}>
+        <View style={styles.activityRow}><View style={styles.activityIcon}><TrendingUp color={colors.success} size={18} /></View><View style={styles.activityCopy}><Text style={styles.activityTitle}>No payments yet</Text><Text style={styles.activityHint}>Your confirmed payments will appear here.</Text></View><ChevronRight color={colors.inkMuted} size={17} /></View>
+      </SurfaceCard>
+      {!merchantEnabled && (
+        <SurfaceCard accent="rose" style={styles.capabilityCard}>
+          <View style={styles.capabilityIcon}><Store color={colors.rose} size={20} /></View>
+          <View style={styles.capabilityCopy}><Text style={styles.capabilityTitle}>Accept payments</Text><Text style={styles.capabilityBody}>Add merchant tools to this account.</Text></View>
+          <Button tone="ghost" onPress={activateMerchant}>Activate</Button>
+        </SurfaceCard>
+      )}
+    </>
+  );
+}
+
+function MerchantHome({navigation}: {navigation: Props['navigation']}) {
+  return (
+    <>
+      <AnimatedContent><SurfaceCard accent="amber" style={styles.merchantHero}>
+        <View style={styles.cardHeader}><Text style={styles.cardLabel}>TODAY'S RECEIVED</Text><StatusPill tone="success">LIVE</StatusPill></View>
+        <View style={styles.balanceLine}><CountUp value={342} decimals={2} style={styles.merchantTotal} /><Text style={styles.balanceAsset}>XLM</Text></View>
+        <Text style={styles.balanceValue}>8 confirmed payments</Text>
+        <View style={styles.merchantMetricRow}><View><Text style={styles.metricValue}>5</Text><Text style={styles.metricLabel}>Pending</Text></View><View><Text style={styles.metricValue}>0</Text><Text style={styles.metricLabel}>Failed</Text></View><View><Text style={styles.metricValue}>100%</Text><Text style={styles.metricLabel}>Success rate</Text></View></View>
+      </SurfaceCard></AnimatedContent>
+      <Button icon={<QrCode color={colors.black} size={20} />} onPress={() => navigation.navigate('MerchantRequest')}>Create payment request</Button>
+      <SectionTitle title="Merchant status" />
+      <SurfaceCard padded={false} style={styles.statusCard}>
+        <View style={styles.statusRow}><View style={styles.capabilityIcon}><ShieldCheck color={colors.success} size={19} /></View><View style={styles.activityCopy}><Text style={styles.activityTitle}>Receiving address verified</Text><Text style={styles.activityHint}>Ready to accept Stellar payments</Text></View><StatusPill tone="success">READY</StatusPill></View>
+      </SurfaceCard>
+    </>
+  );
+}
+
+function QuickAction({icon, title, hint, onPress, disabled = false}: {icon: ReactNode; title: string; hint: string; onPress?: () => void; disabled?: boolean}) {
+  return <PressScale disabled={disabled} onPress={onPress} style={[styles.quickAction, disabled && styles.disabledAction]}><View style={styles.quickIcon}>{icon}</View><Text style={styles.quickTitle}>{title}</Text><Text style={styles.quickHint}>{hint}</Text></PressScale>;
+}
+
+function SectionTitle({title, action}: {title: string; action?: string}) {
+  return <View style={styles.sectionTitle}><Text style={styles.sectionLabel}>{title}</Text>{action && <Text style={styles.sectionAction}>{action}</Text>}</View>;
+}
+
+const styles = StyleSheet.create({
+  header: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
+  identity: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
+  logo: {borderRadius: radius.sm, height: 38, width: 38},
+  iconButton: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, height: 38, justifyContent: 'center', width: 38},
+  eyebrow: {...typography.label, color: colors.amber, fontSize: 10, letterSpacing: 1.2},
+  greeting: {...typography.title, color: colors.ink, fontSize: 20},
+  networkRow: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
+  network: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: 6},
+  dot: {backgroundColor: colors.success, borderRadius: radius.round, height: 7, width: 7},
+  dotError: {backgroundColor: colors.danger},
+  networkText: {...typography.label, color: colors.inkMuted, fontSize: 11},
+  balanceCard: {gap: spacing.xs},
+  cardHeader: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
+  cardLabel: {...typography.label, color: colors.amber, fontSize: 11, letterSpacing: 1},
+  balanceNetwork: {alignItems: 'center', flexDirection: 'row', gap: spacing.xs},
+  balanceNetworkText: {...typography.label, color: colors.inkMuted, fontSize: 11},
+  balance: {color: colors.ink, fontSize: 34, fontWeight: '700', lineHeight: 42, marginTop: spacing.sm},
+  balanceLine: {alignItems: 'baseline', flexDirection: 'row', gap: spacing.sm},
+  balanceAsset: {color: colors.amber, fontSize: 16, fontWeight: '700'},
+  balanceValue: {color: colors.inkMuted, fontSize: 13, lineHeight: 18},
+  addressRow: {alignItems: 'center', borderTopColor: colors.line, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.md, paddingTop: spacing.md},
+  address: {...typography.mono, color: colors.inkMuted, fontSize: 12},
+  quickGrid: {flexDirection: 'row', gap: spacing.md},
+  quickAction: {backgroundColor: colors.surface, borderColor: colors.line, borderRadius: radius.md, borderWidth: 1, flex: 1, gap: spacing.xs, minHeight: 122, padding: spacing.lg},
+  disabledAction: {opacity: 0.48},
+  quickIcon: {alignItems: 'center', backgroundColor: colors.amberSoft, borderRadius: radius.md, height: 40, justifyContent: 'center', marginBottom: spacing.xs, width: 40},
+  quickTitle: {...typography.label, color: colors.ink, fontSize: 14},
+  quickHint: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
+  sectionTitle: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm},
+  sectionLabel: {...typography.label, color: colors.ink, fontSize: 14},
+  sectionAction: {...typography.label, color: colors.amber, fontSize: 12},
+  activityCard: {overflow: 'hidden'},
+  activityRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, padding: spacing.lg},
+  activityIcon: {alignItems: 'center', backgroundColor: colors.successSoft, borderRadius: radius.round, height: 34, justifyContent: 'center', width: 34},
+  activityCopy: {flex: 1, gap: 2},
+  activityTitle: {...typography.label, color: colors.ink, fontSize: 13},
+  activityHint: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
+  capabilityCard: {alignItems: 'center', flexDirection: 'row', gap: spacing.md},
+  capabilityIcon: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radius.round, height: 36, justifyContent: 'center', width: 36},
+  capabilityCopy: {flex: 1, gap: 2},
+  capabilityTitle: {...typography.label, color: colors.ink},
+  capabilityBody: {color: colors.inkMuted, fontSize: 12, lineHeight: 17},
+  merchantHero: {gap: spacing.xs},
+  merchantTotal: {color: colors.ink, fontSize: 36, fontWeight: '700', lineHeight: 44, marginTop: spacing.sm},
+  merchantMetricRow: {borderTopColor: colors.line, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.md, paddingTop: spacing.md},
+  metricValue: {color: colors.ink, fontSize: 17, fontWeight: '700'},
+  metricLabel: {color: colors.inkMuted, fontSize: 11, marginTop: 2},
+  statusCard: {overflow: 'hidden'},
+  statusRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, padding: spacing.lg},
+});

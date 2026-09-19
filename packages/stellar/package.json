@@ -1,0 +1,23 @@
+{
+  "name": "@rosapay/stellar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./merchant-signature": "./src/merchantSignature.ts"
+  },
+  "scripts": {"test": "vitest run", "typecheck": "tsc --noEmit"},
+  "dependencies": {
+    "@noble/ed25519": "3.1.0",
+    "@noble/hashes": "^2.0.0",
+    "@rosapay/protocol": "*",
+    "@stellar/stellar-sdk": "16.2.0",
+    "buffer": "6.0.3",
+    "js-base64": "^3.7.7",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {"vitest": "^3.2.0"}
+}

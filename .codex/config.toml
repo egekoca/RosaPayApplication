@@ -1,0 +1,5 @@
+[mcp_servers.stellar-raven]
+url = "https://raven.stellar.buzz/mcp"
+enabled = true
+startup_timeout_sec = 20
+tool_timeout_sec = 60

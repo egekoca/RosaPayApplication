@@ -1,0 +1,14 @@
+{
+  "network": "testnet",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "rpcUrl": "https://soroban-testnet.stellar.org",
+  "horizonUrl": "https://horizon-testnet.stellar.org",
+  "settlementContractId": "CBX7XUIEFWMRBZBEJGZ7SJAFJXFCAB6VFJKOAFMUFAEXML2UVOAZFAQO",
+  "nativeAssetContractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "adminAddress": "GA4AB7OZST6NKRYNAJBIYBPV5ZAOIE4QYNEBTMVS6QBAMNVSQ3XGC22H",
+  "wasmHash": "22b1d0638f6128407579e3993386fde7b0a2ed13494cccb49a3c080ddfe0ac7e",
+  "wasmUploadTransactionHash": "78fa16f61e74e50db501436cbe3db1f0f2dc0f3810329e09c4962da53c51ee51",
+  "deploymentTransactionHash": "0aea8df741e0bbb8fb928f609aa5e892b8b0a7ece61ea9b6f26552def81ca85f",
+  "deploymentLedger": 4256774,
+  "deployedAt": "2026-08-21T09:59:56Z"
+}
