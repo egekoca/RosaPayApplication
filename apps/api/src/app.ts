@@ -144,6 +144,25 @@ export function buildApp({
     ...(process.env.STELLAR_WALLET_WASM_HASH ? {walletWasmHash: process.env.STELLAR_WALLET_WASM_HASH} : {}),
     ...(process.env.STELLAR_ADMIN_SECRET ? {deployerSecret: process.env.STELLAR_ADMIN_SECRET} : {}),
     ...(process.env.STELLAR_WALLET_FUNDING ? {fundingAmount: process.env.STELLAR_WALLET_FUNDING} : {}),
+    /*
+     * A starting balance in the anchor's asset as well as in lumens, so the
+     * ordinary path — a merchant asking for USDC — works on a wallet that has
+     * never deposited. Both variables are needed; the amount alone would have
+     * nothing to send and the contract alone would send nothing.
+     */
+    ...(process.env.ANCHOR_BRIDGE_CONTRACT_ID && process.env.STELLAR_WALLET_FUNDING_BRIDGE
+      ? {
+          secondaryFunding: {
+            contractId: process.env.ANCHOR_BRIDGE_CONTRACT_ID,
+            amount: process.env.STELLAR_WALLET_FUNDING_BRIDGE,
+          },
+          onSecondaryFundingFailed: (error: Error) =>
+            app.log.warn(
+              {event: 'wallet_bridge_funding_skipped', reason: error.message},
+              'The wallet was created with lumens only',
+            ),
+        }
+      : {}),
   });
   // The endpoints that spend funds are the ones worth limiting.
   const walletLimiter = new RateLimiter({limit: 3, windowMs: 60 * 60 * 1000});

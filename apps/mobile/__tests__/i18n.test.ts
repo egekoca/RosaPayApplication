@@ -30,6 +30,10 @@ const USED = [
   'Exchanged for the',
   'You will never pay more than',
   'Allow camera access',
+  // The merchant's one pricing control, and what the sheet asks.
+  'PRICE IN',
+  'Name this price in',
+  'CUSTOMER SENDS',
   // The welcome screen's whole copy: the name carries the rest.
   'Scan. Approve. Settled.',
   // The iPhone tap path: iOS cannot listen in the background, so the customer

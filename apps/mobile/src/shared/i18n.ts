@@ -260,6 +260,11 @@ const TR: Record<string, string> = {
   Registering: 'Kaydediliyor',
   'PAID IN': 'ÖDEME BİRİMİ',
   'PRICED IN': 'FİYAT BİRİMİ',
+  // The one control that replaced those two: a merchant is asked what they are
+  // typing the price in, whether that is an asset or a currency.
+  'PRICE IN': 'FİYAT BİRİMİ',
+  'Name this price in': 'Bu fiyatı şu birimde belirt',
+  'CUSTOMER SENDS': 'MÜŞTERİ GÖNDERİR',
   REFERENCE: 'AÇIKLAMA',
   'Create payment request': 'Ödeme isteği oluştur',
   'New request': 'Yeni istek',

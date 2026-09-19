@@ -12,6 +12,8 @@ import {displayAmount, exactAmount} from '../../shared/displayAmount';
 import {createRandomBytes} from '../../shared/randomBytes';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useCurrencyPrices} from '../../shared/useCurrencyPrices';
+import {OptionField, OptionSheet, type SheetOption} from '../../shared/OptionSheet';
+import {displayCurrencyMeta} from '../../shared/priceSource';
 import {useAppStore} from '../../state/appStore';
 import {useNfcBroadcast} from '../payments/useNfc';
 import {businessEmailSchema, createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
@@ -59,6 +61,7 @@ export function MerchantRequestScreen({navigation, route}: Props) {
   // What actually moves on chain. The contract refuses anything it was not
   // told about, so this list is the registered one rather than a free choice.
   const [payable, setPayable] = useState<PayableAsset>(defaultPayableAsset);
+  const [pickingUnit, setPickingUnit] = useState(false);
   const currencies = useCurrencyPrices(payable.sep38);
   const canReceive = useRecipientCanReceive(merchantProfile?.recipient, payable);
   const [error, setError] = useState<string | undefined>();
@@ -100,6 +103,51 @@ export function MerchantRequestScreen({navigation, route}: Props) {
    * anchor's; when it will not quote, the currency is not offered at all.
    */
   const priced = priceRequest({amount, currency});
+
+  /*
+   * One control for the money the price is named in, whether that is an asset
+   * this deployment settles or a currency something will quote.
+   *
+   * These used to be two rows of pills — the asset, then the currency — and the
+   * currency row was cut to the first three, so a merchant who wanted the
+   * fourth had no way to reach it and no way to know it was there. They are one
+   * list now because to a merchant they are one question: what am I typing this
+   * price in? Picking an asset answers both halves at once, since a price named
+   * in USDC is paid in USDC.
+   */
+  const unitOptions: SheetOption[] = [
+    ...payableAssets.map(option => ({
+      value: `asset:${option.code}`,
+      label: option.code,
+      detail: option.name,
+      glyph: '◈',
+    })),
+    ...(currencies.data ?? []).map(price => ({
+      value: `fiat:${price.asset}`,
+      label: price.currency,
+      detail: `${displayAmount(price.perUnit)} ${price.currency} ${t('per')} ${payable.code}`,
+      glyph: displayCurrencyMeta(price.currency).flag,
+    })),
+  ];
+  const selectedUnit = currency ? `fiat:${currency.asset}` : `asset:${payable.code}`;
+  const selectedUnitLabel = currency?.currency ?? payable.code;
+
+  const chooseUnit = (value: string) => {
+    if (value.startsWith('asset:')) {
+      const code = value.slice('asset:'.length);
+      const option = payableAssets.find(entry => entry.code === code);
+      if (!option) return;
+      setPayable(option);
+      // Pricing in the asset means there is no conversion to hold.
+      setCurrency(undefined);
+      return;
+    }
+    const asset = value.slice('fiat:'.length);
+    const price = (currencies.data ?? []).find(entry => entry.asset === asset);
+    // A currency whose quote has since gone is not selectable: converting with
+    // a rate nothing stands behind is how a merchant is paid the wrong amount.
+    if (price) setCurrency(price);
+  };
 
   const createRequest = () => {
     setError(undefined);
@@ -179,47 +227,44 @@ export function MerchantRequestScreen({navigation, route}: Props) {
         <>
           <AnimatedContent delay={110} scaleFrom={0.985}>
             <SurfaceCard accent="amber" style={styles.form}>
-              <Text style={styles.fieldLabel}>{t('PAID IN')}</Text>
-              <View style={styles.currencyRow}>
-                {payableAssets.map(option => (
-                  <CurrencyPill
-                    key={option.code}
-                    label={option.code}
-                    selected={payable.code === option.code}
-                    onPress={() => {
-                      setPayable(option);
-                      // The old rate was quoted against the old asset.
-                      setCurrency(undefined);
-                    }}
-                  />
-                ))}
-              </View>
+              <OptionField
+                label={t('PRICE IN')}
+                onPress={() => setPickingUnit(true)}
+                testID="request-unit"
+                value={selectedUnitLabel}
+                {...(currency ? {glyph: displayCurrencyMeta(currency.currency).flag} : {glyph: '◈'})}
+              />
+
+              {/*
+                Only asked when it still needs asking. A price named in an asset
+                is paid in that asset; a price named in lira could be settled in
+                either, and nothing but the merchant can decide which.
+              */}
+              {currency ? (
+                <>
+                  <Text style={styles.fieldLabel}>{t('CUSTOMER SENDS')}</Text>
+                  <View style={styles.currencyRow}>
+                    {payableAssets.map(option => (
+                      <CurrencyPill
+                        key={option.code}
+                        label={option.code}
+                        selected={payable.code === option.code}
+                        onPress={() => {
+                          setPayable(option);
+                          // The old rate was quoted against the old asset.
+                          setCurrency(undefined);
+                        }}
+                      />
+                    ))}
+                  </View>
+                </>
+              ) : null}
+
               <Text style={styles.assetNote}>
                 {canReceive.data === false
                   ? `${merchantProfile.recipient.slice(0, 4)}…${merchantProfile.recipient.slice(-4)} ${t('has no')} ${payable.code} ${t('trustline, so a payment in it would not arrive. Add one, or receive into this phone instead.')}`
                   : payable.note}
               </Text>
-
-              {currencies.data && currencies.data.length > 0 ? (
-                <Text style={styles.fieldLabel}>{t('PRICED IN')}</Text>
-              ) : null}
-              {currencies.data && currencies.data.length > 0 ? (
-                <View style={styles.currencyRow}>
-                  <CurrencyPill
-                    label={payable.code}
-                    selected={currency === undefined}
-                    onPress={() => setCurrency(undefined)}
-                  />
-                  {currencies.data.slice(0, 3).map(price => (
-                    <CurrencyPill
-                      key={price.asset}
-                      label={price.currency}
-                      selected={currency?.asset === price.asset}
-                      onPress={() => setCurrency(price)}
-                    />
-                  ))}
-                </View>
-              ) : null}
               <TextField
                 keyboardType="decimal-pad"
                 label={`AMOUNT (${currency?.currency ?? payable.code})`}
@@ -265,6 +310,15 @@ export function MerchantRequestScreen({navigation, route}: Props) {
               onPress={createRequest}
               testID="create-request">{t('Create payment request')}</Button>
           </AnimatedContent>
+          <OptionSheet
+            onClose={() => setPickingUnit(false)}
+            onSelect={chooseUnit}
+            options={unitOptions}
+            selected={selectedUnit}
+            testIDPrefix="request-unit"
+            title={t('Name this price in')}
+            visible={pickingUnit}
+          />
         </>
       )}
     </Screen>

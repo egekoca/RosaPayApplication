@@ -14,6 +14,7 @@ import {useBalanceValue} from '../../shared/useBalanceValue';
 import {displayAmount} from '../../shared/displayAmount';
 import {currencySymbol} from '../../shared/priceSource';
 import {useCurrentAccount} from '../wallet/currentAccount';
+import {AssetMark} from '../home/AssetMark';
 import {useAppStore, type PaymentTransport} from '../../state/appStore';
 import {requestCameraPermission} from './cameraPermission';
 import {readPaymentQr} from './readPaymentQr';
@@ -201,22 +202,51 @@ function ScanBalance() {
 
   return (
     <View style={styles.balance}>
-      <Text style={styles.balanceLabel}>{t('YOUR BALANCE')}</Text>
+      {/*
+        The name sits above the money rather than in a navigation bar, because
+        this screen is a camera: it fills itself with whatever it is pointed at,
+        and without the mark there is nothing on it saying which app is about to
+        take a payment.
+      */}
+      <View style={styles.balanceHeader}>
+        <RosaMark size={22} />
+        <Text style={styles.balanceBrand}>{t('ROSA PAY')}</Text>
+        <View style={styles.balanceSpacer} />
+        {value.data ? (
+          <Text style={styles.balanceTotal}>
+            {`≈ ${currencySymbol(value.data.currency)}${value.data.amount}`}
+          </Text>
+        ) : (
+          <Text style={styles.balanceLabel}>{t('YOUR BALANCE')}</Text>
+        )}
+      </View>
+
       {balance.isPending ? (
         <Text style={styles.balanceMuted}>{t('Reading your balance…')}</Text>
       ) : balance.isError ? (
         <Text style={styles.balanceMuted}>{t('Balance unavailable right now')}</Text>
       ) : (
-        <View style={styles.balanceRow}>
-          <Text numberOfLines={1} style={styles.balanceAmount}>
-            {holdings.map(holding => `${displayAmount(holding.amount)} ${holding.code}`).join('  ·  ')}
-          </Text>
-          {value.data ? (
-            <Text style={styles.balanceValue}>
-              {`≈ ${currencySymbol(value.data.currency)}${value.data.amount}`}
-            </Text>
-          ) : null}
-        </View>
+        holdings.map(holding => {
+          // The per-asset lira figure, when the rate covered that asset. A
+          // wallet holding two things is worth two separate amounts, and one
+          // total answers a different question than "how much USDC do I have".
+          const valued = value.data?.holdings.find(entry => entry.code === holding.code);
+          return (
+            <View key={holding.code} style={styles.balanceRow}>
+              {/* Each asset's own mark, so it is recognised before it is read. */}
+              <AssetMark code={holding.code} size={26} />
+              <Text numberOfLines={1} style={styles.balanceAmount}>
+                {`${displayAmount(holding.amount)} ${holding.code}`}
+              </Text>
+              <View style={styles.balanceSpacer} />
+              {valued ? (
+                <Text style={styles.balanceValue}>
+                  {`≈ ${currencySymbol(value.data!.currency)}${valued.value}`}
+                </Text>
+              ) : null}
+            </View>
+          );
+        })
       )}
     </View>
   );
@@ -235,11 +265,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     width: '100%',
   },
+  balanceHeader: {
+    alignItems: 'center',
+    borderBottomColor: colors.line,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  balanceBrand: {...typography.overline, color: colors.gold, fontSize: 10, letterSpacing: 1.6},
+  balanceSpacer: {flex: 1},
+  balanceTotal: {...typography.label, color: colors.ink, fontSize: 14},
   balanceLabel: {...typography.overline, color: colors.inkMuted, fontSize: 9, letterSpacing: 1.4},
-  balanceRow: {alignItems: 'baseline', flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between'},
+  balanceRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, minHeight: 38},
   balanceAmount: {...typography.title, color: colors.ink, flexShrink: 1, fontSize: 17},
   balanceValue: {...typography.label, color: colors.goldDeep, fontSize: 13},
-  balanceMuted: {color: colors.inkMuted, fontSize: 13},
+  balanceMuted: {color: colors.inkMuted, fontSize: 13, paddingVertical: spacing.sm},
   camera: {alignItems: 'center', alignSelf: 'center', aspectRatio: 0.82, backgroundColor: colors.black, borderRadius: radius.md, justifyContent: 'center', gap: spacing.xl, maxWidth: 420, overflow: 'hidden', width: '100%'},
   scanFrame: {alignItems: 'center', borderColor: colors.lemon, borderRadius: radius.md, borderWidth: 2, height: 210, justifyContent: 'center', shadowColor: colors.lemon, shadowOpacity: 0.14, shadowRadius: 22, width: 210},
   cameraText: {...typography.label, color: colors.ink, maxWidth: 260, textAlign: 'center'},

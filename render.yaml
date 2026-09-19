@@ -55,7 +55,31 @@ services:
         sync: false
       - key: STELLAR_WALLET_WASM_HASH
         sync: false
-      # CoinGecko prices the lira figure every converted amount is read in. The
+      # Lira, and lumens through lira. The anchor quotes the asset it ramps —
+      # USDC — and the Soroswap router prices the leg between lumens and that
+      # asset, which is the same swap a settlement would really make. Together
+      # they price a lumen balance in lira without any market feed. Drop any one
+      # of these four and the deployment falls back to CoinGecko alone.
+      - key: ANCHOR_QUOTE_SERVER
+        value: https://tr-mock-anchor.fly.dev/sep38
+      - key: ANCHOR_BRIDGE_ASSET
+        value: stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
+      - key: ANCHOR_BRIDGE_CONTRACT_ID
+        value: CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
+      - key: SOROSWAP_ROUTER_CONTRACT_ID
+        value: CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD
+      # A new wallet starts with this much of the anchor's asset alongside its
+      # lumens, so the ordinary path — a merchant asking for USDC — works before
+      # anyone has deposited. It comes out of the deployer's reserve, which is
+      # filled through the ramp (`npm run testnet:try-ramp` with
+      # ROSAPAY_TRY_RAMP_SECRET). When that reserve empties the transfer is
+      # skipped and the wallet is still created with lumens, logged as
+      # wallet_bridge_funding_skipped. Unset this to stop sending it at all.
+      - key: STELLAR_WALLET_FUNDING_BRIDGE
+        value: "1"
+      # CoinGecko now prices only the currencies no anchor quotes — dollar, euro
+      # and naira. Lira no longer depends on it. Still worth a key if those are
+      # wanted, for the reason below. The
       # keyless tier is rate limited per source IP, which on a shared host is
       # spent by other tenants as much as by this service, and a 429 clears the
       # cached rate rather than serving a stale one — so one throttle removes

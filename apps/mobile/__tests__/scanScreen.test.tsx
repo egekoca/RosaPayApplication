@@ -257,20 +257,52 @@ describe('the balance above the camera', () => {
     valuation.useBalanceValue.mockReturnValue({data: null});
   });
 
-  it('shows each holding and what the wallet is worth in lira', async () => {
+  it('shows each holding, its own lira figure, and the total', async () => {
+    wallet.useWalletBalance.mockReturnValue({
+      data: [
+        {code: 'XLM', amount: '37.3134329'},
+        {code: 'USDC', amount: '25.8054752'},
+      ],
+      isPending: false,
+      isError: false,
+    });
     valuation.useBalanceValue.mockReturnValue({
-      data: {amount: '500.00', currency: 'TRY', holdings: []},
+      data: {
+        amount: '1,437.31',
+        currency: 'TRY',
+        holdings: [
+          {code: 'XLM', amount: '37.3134329', value: '189.31'},
+          {code: 'USDC', amount: '25.8054752', value: '1,248.00'},
+        ],
+      },
     });
 
     const tree = JSON.stringify((await renderScanner(navigation())).toJSON());
 
-    expect(tree).toContain('YOUR BALANCE');
-    // Read, not signed: the balance is rounded for legibility here, unlike the
+    // Read, not signed: balances are rounded for legibility here, unlike the
     // amount on the confirmation screen.
     expect(tree).toContain('37.31 XLM');
-    expect(tree).toContain('₺500.00');
+    expect(tree).toContain('25.81 USDC');
+    // A wallet holding two things is worth two amounts, and a total answers a
+    // different question than "how much USDC do I have".
+    expect(tree).toContain('₺189.31');
+    expect(tree).toContain('₺1,248.00');
+    expect(tree).toContain('₺1,437.31');
     // Marked as an estimate, because a SEP-38 indicative price is one.
     expect(tree).toContain('≈');
+    // The app's own name, because a camera screen otherwise says nothing about
+    // which app is about to take a payment.
+    expect(tree).toContain('ROSA PAY');
+  });
+
+  it('names the strip when no rate is available to summarise it', async () => {
+    valuation.useBalanceValue.mockReturnValue({data: null});
+
+    const tree = JSON.stringify((await renderScanner(navigation())).toJSON());
+
+    // With no total to show, the label is what says what the figures are.
+    expect(tree).toContain('YOUR BALANCE');
+    expect(tree).toContain('ROSA PAY');
   });
 
   it('shows the holdings alone when nothing will quote a rate', async () => {

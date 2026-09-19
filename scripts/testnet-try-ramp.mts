@@ -70,27 +70,45 @@ if (anchor.networkPassphrase !== Networks.TESTNET) {
   throw new Error('This anchor does not serve Stellar Testnet');
 }
 
-// A throwaway customer account: the phrase-derived wallet the app now offers is
-// exactly this shape, and the smart wallet is exactly what cannot do it — a
-// contract account has no key SEP-10 can challenge.
-const customer = Keypair.random();
-log('customer', customer.publicKey());
+/*
+ * By default a throwaway customer account: the phrase-derived wallet the app
+ * now offers is exactly this shape, and the smart wallet is exactly what cannot
+ * do it — a contract account has no key SEP-10 can challenge.
+ *
+ * `ROSAPAY_TRY_RAMP_SECRET` ramps into an account that already exists instead,
+ * which is how the deployer's USDC reserve is filled: new wallets are given a
+ * starting balance in the anchor's asset, and that has to come from somewhere.
+ * Buying it through the ramp rather than swapping lumens for it keeps the
+ * reserve on the same rails a customer uses, and spends no lumens.
+ */
+const existingSecret = process.env.ROSAPAY_TRY_RAMP_SECRET?.trim();
+const customer = existingSecret ? Keypair.fromSecret(existingSecret) : Keypair.random();
+log('customer', `${customer.publicKey()}${existingSecret ? ' (existing account)' : ''}`);
 
-await fetch(`${FRIENDBOT}?addr=${customer.publicKey()}`);
+if (!existingSecret) await fetch(`${FRIENDBOT}?addr=${customer.publicKey()}`);
 const horizon = new Horizon.Server(HORIZON);
 const usdc = anchor.currencies.find(currency => currency.code === 'USDC');
 if (!usdc?.issuer) throw new Error('The anchor lists no USDC issuer');
 
 // Without a trustline the USDC cannot arrive at all, and the anchor's payment
-// would fail after the lira had already been taken.
+// would fail after the lira had already been taken. An existing account may
+// already hold one, and asking for it twice is an error rather than a no-op.
 const account = await horizon.loadAccount(customer.publicKey());
-const trustline = new TransactionBuilder(account, {fee: BASE_FEE, networkPassphrase: Networks.TESTNET})
-  .addOperation(Operation.changeTrust({asset: new Asset('USDC', usdc.issuer)}))
-  .setTimeout(60)
-  .build();
-trustline.sign(customer);
-await horizon.submitTransaction(trustline);
-log('trustline', `USDC:${usdc.issuer.slice(0, 8)}… opened`);
+const hasTrustline = account.balances.some(
+  balance =>
+    'asset_code' in balance && balance.asset_code === 'USDC' && balance.asset_issuer === usdc.issuer,
+);
+if (hasTrustline) {
+  log('trustline', `USDC:${usdc.issuer.slice(0, 8)}… already open`);
+} else {
+  const trustline = new TransactionBuilder(account, {fee: BASE_FEE, networkPassphrase: Networks.TESTNET})
+    .addOperation(Operation.changeTrust({asset: new Asset('USDC', usdc.issuer)}))
+    .setTimeout(60)
+    .build();
+  trustline.sign(customer);
+  await horizon.submitTransaction(trustline);
+  log('trustline', `USDC:${usdc.issuer.slice(0, 8)}… opened`);
+}
 
 const session = await authenticate(anchor, {
   accountId: customer.publicKey(),

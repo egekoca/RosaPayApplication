@@ -1,10 +1,44 @@
+import {Asset, Networks} from '@stellar/stellar-sdk';
 import {buildApp} from './app';
 import {createApiRuntime} from './bootstrap';
 import {DeviceAuthService} from './application/DeviceAuthService';
 import {createDeviceAuthResolver} from './application/AuthContext';
 import {PriceService} from './application/PriceService';
 import {CoinGeckoRateProvider} from './infrastructure/CoinGeckoRateProvider';
+import {
+  AnchorBridgedRateProvider,
+  CompositeRateProvider,
+} from './infrastructure/AnchorBridgedRateProvider';
 import {startReconciler} from '@rosapay/worker';
+
+/**
+ * The anchor-bridged source, when this deployment is configured for one.
+ *
+ * Every part of it is deployment data rather than a constant: the anchor's
+ * quote server, the asset it ramps, and the router that prices the leg between
+ * that asset and lumens. Missing any of them means this deployment has no
+ * anchor to bridge through, and the market feed answers alone.
+ */
+function anchorBridgedProvider(): AnchorBridgedRateProvider | undefined {
+  const quoteServer = process.env.ANCHOR_QUOTE_SERVER?.trim();
+  const bridgeAsset = process.env.ANCHOR_BRIDGE_ASSET?.trim();
+  const bridgeContractId = process.env.ANCHOR_BRIDGE_CONTRACT_ID?.trim();
+  const routerContractId = process.env.SOROSWAP_ROUTER_CONTRACT_ID?.trim();
+  if (!quoteServer || !bridgeAsset || !bridgeContractId || !routerContractId) return undefined;
+
+  const network = process.env.STELLAR_NETWORK === 'pubnet' ? 'pubnet' : 'testnet';
+  return new AnchorBridgedRateProvider({
+    quoteServer,
+    bridgeAsset,
+    bridgeContractId,
+    routerContractId,
+    network,
+    sellAsset: 'stellar:native',
+    sellContractId: Asset.native().contractId(
+      network === 'pubnet' ? Networks.PUBLIC : Networks.TESTNET,
+    ),
+  });
+}
 
 const port = Number.parseInt(process.env.API_PORT ?? '4100', 10);
 const host = process.env.API_HOST ?? '127.0.0.1';
@@ -19,10 +53,21 @@ const deviceAuth = sessionSecret ? new DeviceAuthService(runtime.deviceAuth, ses
  * Both are configuration because the rate feed is: adding a currency here that
  * the feed cannot price would offer a merchant a menu price nothing can convert.
  */
+/*
+ * Lira comes from the anchor, and lumens come from the anchor too — bridged
+ * through the Soroswap pool the settlement contract would really swap in. See
+ * AnchorBridgedRateProvider. CoinGecko sits behind it for the currencies no
+ * anchor quotes (dollar, euro, naira); if it is throttled or keyless those
+ * simply are not offered, while lira keeps working.
+ */
+const bridged = anchorBridgedProvider();
 const prices = new PriceService({
-  provider: new CoinGeckoRateProvider({
-    ...(process.env.RATE_FEED_API_KEY ? {apiKey: process.env.RATE_FEED_API_KEY} : {}),
-  }),
+  provider: new CompositeRateProvider([
+    ...(bridged ? [bridged] : []),
+    new CoinGeckoRateProvider({
+      ...(process.env.RATE_FEED_API_KEY ? {apiKey: process.env.RATE_FEED_API_KEY} : {}),
+    }),
+  ]),
   sellAssets: [
     'stellar:native',
     'stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',

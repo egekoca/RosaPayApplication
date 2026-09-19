@@ -23,6 +23,27 @@ export type WalletProvisioningOptions = {
   deployerSecret?: string;
   /** Starting balance so a new wallet can pay before it ever receives funds. */
   fundingAmount?: string;
+  /**
+   * A second starting balance, in the asset the anchor ramps.
+   *
+   * A wallet holding only lumens can be paid and can pay, but it cannot read
+   * itself in lira without the swap leg, and it cannot settle a USDC bill
+   * without one either. Starting it with some of the anchor's asset makes the
+   * ordinary path — a merchant asking for USDC, a customer holding it — work on
+   * a wallet that has never deposited.
+   *
+   * Left unset, nothing beyond lumens is sent. When the deployer's own reserve
+   * is empty the transfer is skipped rather than failing the provisioning: a
+   * wallet with lumens and no USDC is usable, and a customer who cannot create
+   * a wallet at all is not.
+   */
+  secondaryFunding?: {
+    /** The asset's SAC address. */
+    contractId: string;
+    amount: string;
+  };
+  /** Told when the secondary balance could not be sent, so it is not silent. */
+  onSecondaryFundingFailed?(error: Error): void;
 };
 
 export type ProvisionedWallet = {
@@ -176,7 +197,26 @@ export class WalletProvisioningService {
     }
 
     const fundedAmount = this.options.fundingAmount ?? '25';
-    await this.fund(server, deployer, walletContractId, fundedAmount);
+    await this.fund(
+      server,
+      deployer,
+      walletContractId,
+      fundedAmount,
+      Asset.native().contractId(this.options.config.networkPassphrase),
+    );
+
+    const secondary = this.options.secondaryFunding;
+    if (secondary) {
+      try {
+        await this.fund(server, deployer, walletContractId, secondary.amount, secondary.contractId);
+      } catch (error) {
+        // The deployer's reserve of this asset runs out long before its lumens
+        // do, and that must not be what stops someone creating a wallet.
+        this.options.onSecondaryFundingFailed?.(
+          error instanceof Error ? error : new Error('The secondary balance could not be sent'),
+        );
+      }
+    }
     await this.wallets.save({
       contractAddress: walletContractId,
       publicSigner: signer,
@@ -203,14 +243,21 @@ export class WalletProvisioningService {
     };
   }
 
-  /** Sends the starting balance through the native asset contract. */
+  /**
+   * Sends a starting balance through one asset's contract.
+   *
+   * Asking the token contract works for a contract account, which Horizon does
+   * not index balances for, and it is the same call for lumens as for USDC
+   * because a Stellar Asset Contract presents every asset alike.
+   */
   private async fund(
     server: rpc.Server,
     deployer: Keypair,
     walletContractId: string,
     amount: string,
+    assetContractId: string,
   ): Promise<void> {
-    const nativeContract = new Contract(Asset.native().contractId(this.options.config.networkPassphrase));
+    const nativeContract = new Contract(assetContractId);
     const stroops = parseStroops(amount);
     const source = await server.getAccount(deployer.publicKey());
     const transfer = new TransactionBuilder(source, {
