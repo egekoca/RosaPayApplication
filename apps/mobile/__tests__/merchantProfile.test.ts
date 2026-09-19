@@ -42,10 +42,10 @@ describe('merchant profile', () => {
 
     expect(request.intent.amount).toBe('24.5');
     expect(request.intent.reference).toBe('Table 08');
-    expect(request.intent.expiresAtLedger).toBe(1_500_120);
+    expect(request.intent.expiresAtLedger).toBe(1_500_060);
 
     const scanned = decodePaymentQr(encodePaymentQr(request));
-    validatePaymentIntent(scanned.intent, {network: 'testnet', latestLedger: 1_500_000, maxLedgerLifetime: 1_440});
+    validatePaymentIntent(scanned.intent, {network: 'testnet', latestLedger: 1_500_000, maxLedgerLifetime: 60});
     expect(verifyMerchantSignature(scanned)).toBe(true);
   });
 

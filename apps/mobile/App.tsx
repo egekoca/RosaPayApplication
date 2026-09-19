@@ -6,7 +6,7 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {colors} from '@rosapay/ui';
 
 import {AppErrorBoundary} from './src/app/AppErrorBoundary';
-import {RootNavigator} from './src/app/navigation';
+import {RootNavigator, RootNfcPaymentListener} from './src/app/navigation';
 import {useApiWarmup} from './src/app/useApiWarmup';
 import {useAutoLock} from './src/app/useAutoLock';
 import {UnlockScreen} from './src/features/onboarding/UnlockScreen';
@@ -41,6 +41,10 @@ function App() {
             <UnlockScreen />
           ) : hydrated ? (
             <NavigationContainer>
+              {/* Beside the navigator rather than inside it: a merchant's tap
+                  has to reach the app on whatever screen it is already on, and
+                  only the container knows which route that is. */}
+              <RootNfcPaymentListener />
               <RootNavigator />
             </NavigationContainer>
           ) : (

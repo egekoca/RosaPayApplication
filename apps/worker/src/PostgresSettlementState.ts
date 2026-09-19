@@ -47,7 +47,7 @@ export class PostgresSettlementState implements SettlementConfirmationState {
          FROM settlements s
          JOIN payment_intents i ON i.intent_id = s.intent_id
         WHERE s.status IN ('awaiting_approval', 'authorized')
-          AND i.expires_at_ledger < $1
+          AND i.expires_at_ledger <= $1
         ORDER BY s.intent_id`,
       [latestLedger],
     );

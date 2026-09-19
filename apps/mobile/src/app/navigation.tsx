@@ -1,7 +1,7 @@
 import React from 'react';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {useNavigation, type NavigationProp} from '@react-navigation/native';
+import {useNavigation, type NavigationContainerRef, type NavigationProp} from '@react-navigation/native';
 import {BarChart3, UserRound, WalletCards} from 'lucide-react-native';
 import {colors} from '@rosapay/ui';
 import type {SignedPaymentIntentV1} from '@rosapay/protocol';
@@ -25,6 +25,8 @@ import {MerchantRequestScreen} from '../features/merchant/MerchantRequestScreen'
 import {hasRestorableSession, useAppStore, type LocalReceipt} from '../state/appStore';
 import type {PaymentTransport} from '../state/appStore';
 import {DashboardScreen} from '../features/dashboard/DashboardScreen';
+import {ForegroundNfcPaymentListener} from '../features/payments/ForegroundNfcPaymentListener';
+import {useStellarHealth} from '../shared/useStellarHealth';
 
 export type RootStackParams = {
   Welcome: undefined;
@@ -136,6 +138,87 @@ function MainTabs() {
   );
 }
 
+/**
+ * Keeps the customer side ready for a merchant tap while the app is in a
+ * normal foreground screen. Scan owns its reader session, and MerchantRequest
+ * owns HCE, so neither route is armed here or the two native transports could
+ * compete on the same phone.
+ */
+// `getCurrentRoute()` returns the focused child of the tab navigator, not only
+// the stack's `Main` route. Include all three tab leaves so a tap works while
+// the app is open on Wallet, Dashboard or Profile.
+const foregroundNfcRoutes = new Set<string>([
+  'Main',
+  'WalletTab',
+  'DashboardTab',
+  'ProfileTab',
+  'LiraDeposit',
+  'DeveloperSettings',
+  'AnchorTransfer',
+  'Receipt',
+]);
+
+export function shouldListenForForegroundNfc(routeName: string | undefined, locked: boolean): boolean {
+  return !locked && routeName !== undefined && foregroundNfcRoutes.has(routeName);
+}
+
+/**
+ * A failed React Query refetch may retain its previous `data` value. That value
+ * is useful for ordinary rendering, but it is not a live ledger observation
+ * for an NFC expiry decision. Treat any refetch error or malformed response as
+ * unavailable so the receiver fails closed.
+ */
+export function freshLedgerFromRefetch(result: {
+  data?: {latestLedger?: number} | null;
+  error?: unknown;
+}): number | undefined {
+  const ledger = result.data?.latestLedger;
+  if (result.error || typeof ledger !== 'number' || !Number.isSafeInteger(ledger) || ledger <= 0) return undefined;
+  return ledger;
+}
+
+export function RootNfcPaymentListener() {
+  // This component is deliberately mounted beside the root navigator so it can
+  // keep listening across every customer screen. `useNavigationState` cannot be
+  // used there: it requires a child navigator context. The container ref is
+  // available from NavigationContainer and emits a state event for every root
+  // route transition, including leaving Main for Scan or Confirm.
+  const navigation = useNavigation<NavigationContainerRef<RootStackParams>>();
+  const [routeName, setRouteName] = React.useState<keyof RootStackParams | undefined>(() =>
+    navigation.getCurrentRoute()?.name as keyof RootStackParams | undefined,
+  );
+
+  React.useEffect(() => {
+    const refreshRoute = () => {
+      setRouteName(navigation.getCurrentRoute()?.name as keyof RootStackParams | undefined);
+    };
+    refreshRoute();
+    const unsubscribeState = navigation.addListener('state', refreshRoute);
+    const unsubscribeReady = navigation.addListener('ready', refreshRoute);
+    return () => {
+      unsubscribeState();
+      unsubscribeReady();
+    };
+  }, [navigation]);
+
+  const locked = useAppStore(state => state.locked);
+  const active = shouldListenForForegroundNfc(routeName, locked);
+  const stellarHealth = useStellarHealth(active);
+
+  const refreshLedger = React.useCallback(async () => {
+    const result = await stellarHealth.refetch();
+    return freshLedgerFromRefetch(result);
+  }, [stellarHealth]);
+
+  return (
+    <ForegroundNfcPaymentListener
+      active={active}
+      latestLedger={stellarHealth.data?.latestLedger}
+      refreshLedger={refreshLedger}
+      navigation={navigation}
+    />
+  );
+}
 
 /**
  * There is no tab bar. Paying and looking back at what you paid is the whole

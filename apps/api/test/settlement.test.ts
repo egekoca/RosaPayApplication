@@ -89,4 +89,18 @@ describe('settlement state service', () => {
     expect(outcomes.filter(result => result.status === 'rejected')).toHaveLength(1);
     await expect(service.getSettlement(payload.intent.intentId)).resolves.toMatchObject({status: 'confirmed'});
   });
+
+  it('does not reopen an expired request for a countersignature', async () => {
+    const repository = new InMemoryIntentRepository();
+    const service = new IntentService(repository);
+    await service.create(payload, 'expired-countersignature-key');
+    await repository.compareAndSetSettlement(payload.intent.intentId, 'awaiting_approval', {
+      intentId: payload.intent.intentId,
+      status: 'expired',
+    });
+
+    await expect(
+      service.requestCountersignature(payload.intent.intentId, payload.intent.recipient),
+    ).rejects.toThrow('Cannot claim a payment request in expired state');
+  });
 });

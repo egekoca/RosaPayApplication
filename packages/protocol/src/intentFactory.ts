@@ -7,9 +7,20 @@ import {
 
 export const NATIVE_XLM: PaymentAsset = {type: 'native', code: 'XLM', decimals: 7};
 
-/** ~5 second ledgers, so the default request lives for about ten minutes. */
-export const DEFAULT_INTENT_LIFETIME_LEDGERS = 120;
-export const MAX_INTENT_LIFETIME_LEDGERS = 1_440;
+/** ~5 second ledgers: merchant QR requests are valid for about five minutes. */
+export const DEFAULT_INTENT_LIFETIME_LEDGERS = 60;
+/** Keep caller-provided lifetimes bounded to the same short-lived QR policy. */
+export const MAX_INTENT_LIFETIME_LEDGERS = 60;
+/**
+ * The bound a *reader* applies, which is deliberately looser than the bound a
+ * *writer* is held to. Nobody in the flow shares one clock: the merchant, the
+ * API and the customer each learn `latestLedger` from their own RPC poll, and a
+ * reader whose poll is a few ledgers behind the merchant's sees a lifetime
+ * longer than the one that was actually minted. Rejecting that as
+ * `EXPIRY_TOO_FAR` would fail an honest tap. The slack is a minute of ledgers —
+ * far short of the replay window the bound exists to close.
+ */
+export const MAX_INTENT_ACCEPTANCE_LEDGERS = MAX_INTENT_LIFETIME_LEDGERS + 12;
 
 export class IntentFactoryError extends Error {
   override readonly name = 'IntentFactoryError';

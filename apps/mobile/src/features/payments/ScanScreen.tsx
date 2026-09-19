@@ -4,7 +4,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {Linking, StyleSheet, Text, View} from 'react-native';
 import {Camera, CameraType} from 'react-native-camera-kit';
 import {Button, colors, radius, spacing, typography} from '@rosapay/ui';
-import {encodePaymentQr} from '@rosapay/protocol';
+import {encodePaymentQr, MAX_INTENT_ACCEPTANCE_LEDGERS} from '@rosapay/protocol';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {RosaMark} from '../../shared/RosaMark';
@@ -31,6 +31,7 @@ export function ScanScreen({navigation}: Props) {
   const stellarHealth = useStellarHealth();
   const [error, setError] = useState<string | undefined>();
   const [camera, setCamera] = useState<CameraState>('checking');
+  const [screenFocused, setScreenFocused] = useState(true);
   // A camera fires repeatedly while a code is in frame. Without this the screen
   // would push the confirmation route once per frame.
   const handled = useRef(false);
@@ -52,20 +53,26 @@ export function ScanScreen({navigation}: Props) {
 
   // Coming back from the confirmation screen must re-arm the scanner.
   useEffect(() => {
-    return navigation.addListener('focus', () => {
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      setScreenFocused(true);
       handled.current = false;
       setError(undefined);
       // Permission may have been granted in Settings while this screen was
       // away. Refresh it when returning instead of keeping the old error.
       refreshCamera();
     });
+    const unsubscribeBlur = navigation.addListener('blur', () => setScreenFocused(false));
+    return () => {
+      unsubscribeFocus();
+      unsubscribeBlur();
+    };
   }, [navigation, refreshCamera]);
 
   const scanContext = useCallback(
     () => ({
       network: 'testnet' as const,
       latestLedger: stellarHealth.data?.latestLedger ?? 0,
-      maxLedgerLifetime: 1_440,
+      maxLedgerLifetime: MAX_INTENT_ACCEPTANCE_LEDGERS,
     }),
     [stellarHealth.data?.latestLedger],
   );
@@ -73,6 +80,10 @@ export function ScanScreen({navigation}: Props) {
   const accept = useCallback(
     (value: string, transport: PaymentTransport = 'qr') => {
       if (handled.current) return;
+      if (stellarHealth.data?.latestLedger === undefined) {
+        setError(t('Testnet unavailable, so an expiry cannot be set'));
+        return;
+      }
       const result = readPaymentQr(value, scanContext());
       if (!result.ok) {
         setError(result.message);
@@ -85,12 +96,12 @@ export function ScanScreen({navigation}: Props) {
         transport === 'qr' ? {payload: result.payload} : {payload: result.payload, transport},
       );
     },
-    [navigation, scanContext],
+    [navigation, scanContext, stellarHealth.data?.latestLedger, t],
   );
 
   // A tap and a scan carry the same signed request, so both go through the same
   // verification before anything is confirmed.
-  const nfc = useNfcReader(!handled.current, {
+  const nfc = useNfcReader(screenFocused && !handled.current, {
     onRequest: useCallback((payload: string) => accept(payload, 'nfc'), [accept]),
     onError: useCallback((message: string) => setError(message), []),
   });
@@ -114,7 +125,7 @@ export function ScanScreen({navigation}: Props) {
       */}
       <View style={styles.viewfinder}>
       <View style={styles.camera}>
-        {camera === 'granted' ? (
+        {screenFocused && camera === 'granted' ? (
           <Camera
             style={StyleSheet.absoluteFill}
             cameraType={CameraType.Back}

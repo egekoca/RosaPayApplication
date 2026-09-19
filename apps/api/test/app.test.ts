@@ -78,6 +78,69 @@ describe('API', () => {
     expect(settlement.json()).toMatchObject({intentId: payload.intent.intentId, status: 'awaiting_approval'});
   });
 
+  it('enforces the live five-minute intent policy before persistence', async () => {
+    const app = buildApp({
+      intentPolicy: {
+        network: 'testnet',
+        latestLedger: async () => 1_500_000,
+        maxLedgerLifetime: 60,
+      },
+    });
+    apps.push(app);
+
+    const tooFar = signedIntent('01K36YB37NXM4X4TECF0VKP1M9');
+    tooFar.intent.expiresAtLedger = 1_500_061;
+    const distant = await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': 'policy-too-far-000001'},
+      payload: tooFar,
+    });
+    expect(distant.statusCode).toBe(400);
+    expect(distant.json()).toEqual({code: 'EXPIRY_TOO_FAR', message: 'Payment request lifetime exceeds policy'});
+
+    const expired = signedIntent('01K36YB37NXM4X4TECF0VKP1MA');
+    expired.intent.expiresAtLedger = 1_500_000;
+    const stale = await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': 'policy-expired-000001'},
+      payload: expired,
+    });
+    expect(stale.statusCode).toBe(400);
+    expect(stale.json()).toEqual({code: 'EXPIRED', message: 'Payment request has expired'});
+
+    const valid = signedIntent('01K36YB37NXM4X4TECF0VKP1MB');
+    valid.intent.expiresAtLedger = 1_500_060;
+    const accepted = await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': 'policy-valid-000001'},
+      payload: valid,
+    });
+    expect(accepted.statusCode).toBe(201);
+  });
+
+  it('fails closed when the live ledger cannot be read for an intent', async () => {
+    const app = buildApp({
+      intentPolicy: {
+        network: 'testnet',
+        latestLedger: async () => {
+          throw new Error('offline');
+        },
+      },
+    });
+    apps.push(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': 'policy-rpc-down-0001'},
+      payload: signedIntent(),
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json().code).toBe('STELLAR_UNAVAILABLE');
+  });
+
   it('does not expose a settlement record for an unknown intent', async () => {
     const app = buildApp();
     apps.push(app);
@@ -367,6 +430,30 @@ describe('two devices completing one payment', () => {
     // Two people scanning the same code must not both be told to approve.
     expect(second.statusCode).toBe(409);
     expect(second.json().code).toBe('COUNTERSIGNATURE_CONFLICT');
+  });
+
+  it('keeps one winner when two customers claim the same request concurrently', async () => {
+    const {app, intentId} = await withIntent('counter-key-000000003-race');
+
+    const [first, second] = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: `/v1/payment-intents/${intentId}/countersignature/request`,
+        payload: {customerAddress: customer},
+      }),
+      app.inject({
+        method: 'POST',
+        url: `/v1/payment-intents/${intentId}/countersignature/request`,
+        payload: {customerAddress: otherCustomer},
+      }),
+    ]);
+
+    expect([first.statusCode, second.statusCode].sort()).toEqual([200, 409]);
+    const winner = await app.inject({
+      method: 'GET',
+      url: `/v1/payment-intents/${intentId}/countersignature`,
+    });
+    expect([customer, otherCustomer]).toContain(winner.json().customerAddress);
   });
 
   it('refuses a signature that names someone other than the waiting customer', async () => {

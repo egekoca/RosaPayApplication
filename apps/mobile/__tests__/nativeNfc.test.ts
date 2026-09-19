@@ -108,14 +108,14 @@ describe('the NFC transport', () => {
     });
   });
 
-  it('survives a device that refuses to broadcast', async () => {
+  it('surfaces a device that refuses to broadcast', async () => {
     startBroadcast.mockRejectedValueOnce(new Error('NFC_DISABLED'));
-    await expect(startNfcBroadcast('rosapay://pay/abc')).resolves.toBeUndefined();
+    await expect(startNfcBroadcast('rosapay://pay/abc')).rejects.toThrow('NFC_DISABLED');
   });
 
-  it('refuses to broadcast from an iPhone without taking the screen down', async () => {
+  it('surfaces that an iPhone cannot broadcast while leaving QR available', async () => {
     Platform.OS = 'ios';
     startBroadcast.mockRejectedValueOnce(new Error('iPhone cannot share a request over NFC'));
-    await expect(startNfcBroadcast('rosapay://pay/abc')).resolves.toBeUndefined();
+    await expect(startNfcBroadcast('rosapay://pay/abc')).rejects.toThrow('iPhone cannot share a request over NFC');
   });
 });

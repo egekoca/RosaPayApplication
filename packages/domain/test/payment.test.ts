@@ -14,4 +14,13 @@ describe('payment state machine', () => {
   it('does not permit false success', () => {
     expect(() => transitionPayment(payment, 'confirmed')).toThrow('Cannot transition');
   });
+
+  it('expires an authorization that missed the submission deadline', () => {
+    const authorized = transitionPayment(
+      transitionPayment(payment, 'awaiting_approval'),
+      'authorized',
+    );
+
+    expect(transitionPayment(authorized, 'expired').status).toBe('expired');
+  });
 });

@@ -2,7 +2,7 @@ import {encodePaymentQr} from '@rosapay/protocol';
 import {readPaymentQr} from '../src/features/payments/readPaymentQr';
 import {mockSignedIntent} from './fixtures/signedIntent';
 
-const context = {network: 'testnet' as const, latestLedger: 1_500_000, maxLedgerLifetime: 1_440};
+const context = {network: 'testnet' as const, latestLedger: 1_500_000, maxLedgerLifetime: 60};
 
 describe('readPaymentQr', () => {
   it('accepts a merchant-signed request', () => {

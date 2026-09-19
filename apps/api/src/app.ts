@@ -3,6 +3,11 @@ import type {FastifyRequest} from 'fastify';
 import {ZodError, z} from 'zod';
 import {createStellarConfig, StellarRpcClient} from '@rosapay/stellar';
 import {
+  IntentPolicyError,
+  MAX_INTENT_ACCEPTANCE_LEDGERS,
+  validatePaymentIntent,
+} from '@rosapay/protocol';
+import {
   CountersignatureConflictError,
   CountersignatureNotFoundError,
   IntentConflictError,
@@ -113,7 +118,21 @@ export type BuildAppOptions = {
   auditLog?: AuditLogRepository;
   deviceAuth?: DeviceAuthService;
   prices?: PriceService;
+  /**
+   * Production deployments provide a live ledger policy so an intent cannot
+   * be stored after expiry or with a lifetime longer than the QR/NFC window.
+   * It stays optional for isolated unit tests and local repository tooling.
+   */
+  intentPolicy?: PaymentIntentPolicy;
 };
+
+export type PaymentIntentPolicy = {
+  network: 'testnet' | 'pubnet';
+  latestLedger: () => Promise<number>;
+  maxLedgerLifetime?: number;
+};
+
+export class IntentPolicyUnavailableError extends Error {}
 
 export function buildApp({
   repository = new InMemoryIntentRepository(),
@@ -127,6 +146,7 @@ export function buildApp({
   deviceAuth,
   prices,
   probeDatabase,
+  intentPolicy,
 }: BuildAppOptions = {}) {
   const app = Fastify({logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']}});
   const intents = new IntentService(repository);
@@ -289,6 +309,22 @@ export function buildApp({
   app.post('/v1/payment-intents', async (request, reply) => {
     const idempotencyKey = z.string().min(16).parse(request.headers['idempotency-key']);
     const payload = await authorizeMerchantIntent(request.body, request, authOptions);
+    if (intentPolicy) {
+      let latestLedger: number;
+      try {
+        latestLedger = await intentPolicy.latestLedger();
+      } catch {
+        throw new IntentPolicyUnavailableError('Stellar RPC is unavailable; payment expiry could not be verified');
+      }
+      if (!Number.isSafeInteger(latestLedger) || latestLedger <= 0) {
+        throw new IntentPolicyUnavailableError('Stellar RPC returned an invalid ledger; payment expiry could not be verified');
+      }
+      validatePaymentIntent(payload.intent, {
+        network: intentPolicy.network,
+        latestLedger,
+        maxLedgerLifetime: intentPolicy.maxLedgerLifetime ?? MAX_INTENT_ACCEPTANCE_LEDGERS,
+      });
+    }
     const stored = await intents.create(payload, idempotencyKey);
     await audit.record('payment_intent_created', stored.payload.intent.intentId, {
       actor: stored.payload.intent.merchantSigningKey,
@@ -498,6 +534,12 @@ export function buildApp({
       // No rate is a temporary state of the world, not a bad request: the
       // caller asked a reasonable question and the answer is not available.
       return reply.code(503).send({code: error.code, message: error.message});
+    }
+    if (error instanceof IntentPolicyUnavailableError) {
+      return reply.code(503).send({code: 'STELLAR_UNAVAILABLE', message: error.message});
+    }
+    if (error instanceof IntentPolicyError) {
+      return reply.code(400).send({code: error.code, message: error.message});
     }
     if (error instanceof IntentConflictError) {
       return reply.code(409).send({code: 'INTENT_CONFLICT', message: error.message});

@@ -35,8 +35,8 @@ export class RelayerError extends Error {
 /**
  * Pays the fee for settlements and registers merchants on-chain. The relayer
  * never holds customer keys and never blind-signs: it only signs a transaction
- * whose source is itself and whose single operation invokes `settle_payment` on
- * the configured settlement contract.
+ * whose source is itself and whose single operation invokes one of the configured
+ * settlement entry points on the configured settlement contract.
  */
 export class RelayerService {
   private readonly relayer: Keypair | null;
@@ -89,7 +89,8 @@ export class RelayerService {
     if (invocation.contractId !== contractId) {
       throw new RelayerError('INVALID_TRANSACTION', 'The transaction does not invoke the settlement contract');
     }
-    if (invocation.functionName !== 'settle_payment') {
+    const allowedFunctions = new Set(['settle_payment', 'settle_payment_with_swap']);
+    if (!allowedFunctions.has(invocation.functionName)) {
       throw new RelayerError('INVALID_TRANSACTION', `The relayer does not sign ${invocation.functionName}`);
     }
 

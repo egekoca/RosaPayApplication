@@ -11,7 +11,11 @@ export type PaymentStatus =
 const allowedTransitions: Record<PaymentStatus, readonly PaymentStatus[]> = {
   created: ['awaiting_approval', 'expired', 'failed'],
   awaiting_approval: ['authorized', 'rejected', 'expired', 'failed'],
-  authorized: ['submitted', 'failed'],
+  // A customer can authorize just before the request's ledger deadline while
+  // the relayer is still preparing submission. Once that deadline passes the
+  // authorization is no longer usable and must be closed as expired rather
+  // than leaving the merchant in an "authorized" state forever.
+  authorized: ['submitted', 'expired', 'failed'],
   submitted: ['confirmed', 'failed'],
   confirmed: [],
   rejected: [],

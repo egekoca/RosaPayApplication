@@ -6,7 +6,7 @@
 -->
 <host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/nfc_service_description"
-    android:requireDeviceUnlock="false"
+    android:requireDeviceUnlock="true"
     android:apduServiceBanner="@mipmap/ic_launcher">
     <aid-group android:description="@string/nfc_aid_group_description"
         android:category="other">

@@ -1,5 +1,6 @@
-import {useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useMutation, useQuery} from '@tanstack/react-query';
+import {useIsFocused} from '@react-navigation/native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ArrowLeftRight, BadgeCheck, Fingerprint, ShieldAlert, ShieldCheck} from 'lucide-react-native';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
@@ -20,6 +21,7 @@ import {useCurrentAccount} from '../wallet/currentAccount';
 import {testnetDeployment} from '@rosapay/stellar';
 import {createStellarConfig} from '@rosapay/stellar';
 import {useTranslate} from '../../shared/i18n';
+import {useNfcAutoAuthorization} from './useNfcAutoAuthorization';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Confirm'>;
 
@@ -106,11 +108,42 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
   const latestLedger = stellarHealth.data?.latestLedger;
   const remainingLedgers = latestLedger === undefined ? undefined : intent.expiresAtLedger - latestLedger;
   const expired = remainingLedgers !== undefined && remainingLedgers <= 0;
+  // Confirm can also be reached from merchant preview or a future deep link.
+  // Those paths do not pass through readPaymentQr, so keep the Testnet-only
+  // settlement boundary explicit before a biometric prompt can start.
+  const wrongNetwork = intent.network !== 'testnet';
   // Nothing in this wallet can settle this request. Saying so before the
   // fingerprint is kinder than a failed transaction after it.
   const unaffordable = funding.isSuccess && payable.length === 0;
-  const blocked = !verified || expired || unaffordable || funding.isPending;
+  const blocked =
+    !verified ||
+    wrongNetwork ||
+    expired ||
+    unaffordable ||
+    funding.isPending ||
+    funding.isError ||
+    !selected ||
+    latestLedger === undefined ||
+    stellarHealth.isError ||
+    // `isPending`, not `isFetching`: the ledger is re-read every five seconds,
+    // and blocking on each background refetch would grey out Approve at random
+    // and keep restarting the NFC authorization timer against a ledger the
+    // screen already holds.
+    stellarHealth.isPending;
+  const screenFocused = useIsFocused();
   const issuer = intent.asset.issuer ?? intent.asset.contractId;
+  const {mutate} = mutation;
+  const startAuthorization = useCallback(() => mutate(), [mutate]);
+
+  useNfcAutoAuthorization({
+    intentId: intent.intentId,
+    transport,
+    // A manual approval may finish before the 700 ms NFC affordance delay. A
+    // successful or failed attempt must disarm the timer so it can never submit
+    // a second payment behind the user's back.
+    ready: screenFocused && !blocked && !mutation.isPending && !mutation.isError && !mutation.isSuccess,
+    authorize: startAuthorization,
+  });
 
   return (
     <>
@@ -144,15 +177,27 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
         <Pulse active={false} style={styles.security}><ShieldCheck color={blocked ? colors.inkMuted : colors.success} size={18} /><Text style={[styles.securityText, blocked && styles.securityTextBlocked]}>{blocked ? t('This request cannot be authorized.') : t('Your device will authorize this exact amount.')}</Text></Pulse>
       )}
       {!verified && <Text style={styles.error}>{t('The merchant signature failed verification. Ask for a new payment request.')}</Text>}
+      {verified && wrongNetwork ? <Text style={styles.error}>{t('This request is no longer valid: it has expired or targets another network.')}</Text> : null}
       {verified && !expired && unaffordable ? (
         <Text style={styles.error}>{`${t('This wallet cannot cover this request in')} ${intent.asset.code} ${t('or in anything it can be exchanged for.')}`}</Text>
+      ) : null}
+      {funding.isError ? (
+        <>
+          <Text style={styles.error}>{t('The wallet balance could not be verified, so this payment is paused.')}</Text>
+          <Button tone="secondary" onPress={() => void funding.refetch()} testID="retry-funding-check">
+            {t('Retry balance check')}
+          </Button>
+        </>
+      ) : null}
+      {stellarHealth.isError ? (
+        <Text style={styles.error}>{t('Testnet is unavailable, so this request expiry cannot be verified.')}</Text>
       ) : null}
       {verified && expired && <Text style={styles.error}>{`${t('This request expired at ledger')} ${intent.expiresAtLedger}. ${t('Ask for a new one.')}`}</Text>}
       {submittedHash ? (
         <Text selectable style={styles.submitted}>{t('Sent to Stellar:')} {submittedHash.slice(0, 16)}…</Text>
       ) : null}
       {mutation.error ? <Text style={styles.error}>{t(describeSettlementError(mutation.error, intent.asset.code))}</Text> : null}
-      <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={() => mutation.mutate()} testID="approve-payment">{mutation.isPending ? t(stageLabel(stage)) : t('Approve payment')}</Button>
+      <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={startAuthorization} testID="approve-payment">{mutation.isPending ? t(stageLabel(stage)) : mutation.isError ? t('Retry payment') : t('Approve payment')}</Button>
     </Screen>
     <RosaLoadingOverlay
       detail={t(settlementDetail(stage))}

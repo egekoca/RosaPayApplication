@@ -4,10 +4,13 @@ import {
   createPaymentIntent,
   DEFAULT_INTENT_LIFETIME_LEDGERS,
   IntentFactoryError,
+  MAX_INTENT_ACCEPTANCE_LEDGERS,
+  MAX_INTENT_LIFETIME_LEDGERS,
   normalizePaymentAmount,
   type MerchantProfileSummary,
 } from '../src/intentFactory';
 import {hashPaymentIntent} from '../src/canonical';
+import {validatePaymentIntent} from '../src/validation';
 
 const profile: MerchantProfileSummary = {
   merchantProfileId: '01K36YATYFVQBPR08G2YT29C3S',
@@ -48,7 +51,7 @@ describe('payment intent factory', () => {
   it('accepts an explicit lifetime and rejects one outside policy', () => {
     expect(createPaymentIntent({...base, lifetimeLedgers: 60}).expiresAtLedger).toBe(1_500_060);
     expect(() => createPaymentIntent({...base, lifetimeLedgers: 0})).toThrow(IntentFactoryError);
-    expect(() => createPaymentIntent({...base, lifetimeLedgers: 5_000})).toThrow('between 1 and 1440 ledgers');
+    expect(() => createPaymentIntent({...base, lifetimeLedgers: 5_000})).toThrow('between 1 and 60 ledgers');
   });
 
   it('rejects an unusable latest ledger', () => {
@@ -98,5 +101,28 @@ describe('intent identifiers', () => {
 
   it('refuses a randomness source that returns the wrong size', () => {
     expect(() => createIntentIdentifiers(() => new Uint8Array(4))).toThrow('must return 16 bytes');
+  });
+});
+
+describe('the gap between minting and accepting a lifetime', () => {
+  it('lets a reader a few ledgers behind still accept a freshly minted request', () => {
+    const intent = createPaymentIntent({...base, latestLedger: 1_500_000});
+    // What a receiver polling a slower RPC node would compute for the same request.
+    const behind = 1_500_000 - 5;
+
+    expect(() =>
+      validatePaymentIntent(intent, {
+        network: 'testnet',
+        latestLedger: behind,
+        maxLedgerLifetime: MAX_INTENT_ACCEPTANCE_LEDGERS,
+      }),
+    ).not.toThrow();
+    expect(MAX_INTENT_ACCEPTANCE_LEDGERS).toBeGreaterThan(MAX_INTENT_LIFETIME_LEDGERS);
+  });
+
+  it('still refuses to mint a request that outlives the policy', () => {
+    expect(() =>
+      createPaymentIntent({...base, latestLedger: 1_500_000, lifetimeLedgers: MAX_INTENT_ACCEPTANCE_LEDGERS}),
+    ).toThrow(IntentFactoryError);
   });
 });

@@ -1,4 +1,6 @@
 import {Asset, Networks} from '@stellar/stellar-sdk';
+import {MAX_INTENT_ACCEPTANCE_LEDGERS} from '@rosapay/protocol';
+import {createStellarConfig, StellarRpcClient} from '@rosapay/stellar';
 import {buildApp} from './app';
 import {createApiRuntime} from './bootstrap';
 import {DeviceAuthService} from './application/DeviceAuthService';
@@ -60,6 +62,11 @@ const authRequired = process.env.API_AUTH_REQUIRED === 'true';
 const sessionSecret = process.env.API_SESSION_SECRET;
 if (authRequired && !sessionSecret) throw new Error('API_SESSION_SECRET is required when API_AUTH_REQUIRED is true');
 const deviceAuth = sessionSecret ? new DeviceAuthService(runtime.deviceAuth, sessionSecret) : undefined;
+const intentPolicyConfig = createStellarConfig(process.env.STELLAR_NETWORK ?? 'testnet', {
+  rpcUrl: process.env.STELLAR_RPC_URL,
+  settlementContractId: process.env.STELLAR_SETTLEMENT_CONTRACT_ID,
+});
+const intentPolicyStellar = new StellarRpcClient(intentPolicyConfig);
 
 /**
  * The currencies a merchant may price in, and the assets they may be paid in.
@@ -103,6 +110,11 @@ const app = buildApp({
   walletRepository: runtime.wallets,
   auditLog: runtime.auditLog,
   prices,
+  intentPolicy: {
+    network: intentPolicyConfig.network === 'pubnet' ? 'pubnet' : 'testnet',
+    latestLedger: async () => (await intentPolicyStellar.health()).latestLedger,
+    maxLedgerLifetime: MAX_INTENT_ACCEPTANCE_LEDGERS,
+  },
   ...(deviceAuth ? {
     deviceAuth,
     auth: {

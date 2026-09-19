@@ -37,5 +37,14 @@
 	<array>
 		<string>TAG</string>
 	</array>
+	<!--
+	  This is an entitlement, not an Info.plist setting. Without it a signed
+	  release can open Core NFC but will not pass Rosa Pay's proprietary ISO-7816
+	  tag to the app. Keep it equal to apduservice.xml and RosaPayNfcModule.AID.
+	-->
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>F0526F736150617901</string>
+	</array>
 </dict>
 </plist>

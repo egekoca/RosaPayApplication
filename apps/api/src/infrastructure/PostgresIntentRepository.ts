@@ -117,8 +117,19 @@ export class PostgresIntentRepository implements IntentRepository {
       `INSERT INTO merchant_countersignatures (intent_id, customer_address, signature, requested_at, signed_at)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (intent_id) DO UPDATE SET
-         signature = EXCLUDED.signature,
-         signed_at = EXCLUDED.signed_at`,
+         -- The first customer to claim a request owns it. A concurrent retry
+         -- may fill in that customer's merchant signature, but must never
+         -- replace the address with a second tap's address.
+         signature = CASE
+           WHEN merchant_countersignatures.customer_address = EXCLUDED.customer_address
+             THEN COALESCE(merchant_countersignatures.signature, EXCLUDED.signature)
+           ELSE merchant_countersignatures.signature
+         END,
+         signed_at = CASE
+           WHEN merchant_countersignatures.customer_address = EXCLUDED.customer_address
+             THEN COALESCE(merchant_countersignatures.signed_at, EXCLUDED.signed_at)
+           ELSE merchant_countersignatures.signed_at
+         END`,
       [
         record.intentId,
         record.customerAddress,

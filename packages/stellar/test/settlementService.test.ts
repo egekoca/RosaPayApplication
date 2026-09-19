@@ -25,7 +25,7 @@ function unsignedPayload() {
     amount: '1',
     reference: 'Table 08',
     nonce: 'b9cdb790ee6a4d04a83763c018f532a8',
-    expiresAtLedger: 1_500_120,
+    expiresAtLedger: 1_500_060,
     createdAt: '2026-08-21T00:00:00.000Z',
   };
 }

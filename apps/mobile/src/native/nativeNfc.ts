@@ -25,6 +25,7 @@ export type NfcModule = {
 
 const READ_EVENT = 'RosaPayNfcRequestRead';
 const ERROR_EVENT = 'RosaPayNfcError';
+const SESSION_ENDED_EVENT = 'RosaPayNfcSessionEnded';
 
 /**
  * Tapping works in three of the four directions between the two platforms.
@@ -62,8 +63,8 @@ export function getNfcStatus(): Promise<NfcStatus> {
 
 export function startNfcBroadcast(payload: string): Promise<void> {
   const native = module();
-  if (!native) return Promise.resolve();
-  return native.startBroadcast(payload).catch(() => undefined);
+  if (!native) return Promise.reject(new Error('NFC sharing is unavailable on this device'));
+  return native.startBroadcast(payload);
 }
 
 export function stopNfcBroadcast(): Promise<void> {
@@ -73,6 +74,8 @@ export function stopNfcBroadcast(): Promise<void> {
 export type NfcReaderHandlers = {
   onRequest(payload: string): void;
   onError(message: string): void;
+  /** A one-shot platform reader ended without a payload or actionable error. */
+  onEnded?(): void;
 };
 
 /**
@@ -88,6 +91,7 @@ export function startNfcReader(handlers: NfcReaderHandlers): () => void {
   const subscriptions: EmitterSubscription[] = [
     emitter.addListener(READ_EVENT, (payload: string) => handlers.onRequest(payload)),
     emitter.addListener(ERROR_EVENT, (message: string) => handlers.onError(message)),
+    emitter.addListener(SESSION_ENDED_EVENT, () => handlers.onEnded?.()),
   ];
 
   let stopped = false;

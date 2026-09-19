@@ -215,9 +215,7 @@ export class IntentService {
    * had already been told to approve.
    */
   async requestCountersignature(intentId: string, customerAddress: string): Promise<CountersignatureRecord> {
-    if (!(await this.repository.findByIntentId(intentId))) {
-      throw new SettlementNotFoundError('Payment intent not found');
-    }
+    const settlement = await this.requireCountersignatureSettlement(intentId);
     assertStellarAddress(customerAddress);
 
     const existing = await this.repository.findCountersignature?.(intentId);
@@ -225,7 +223,15 @@ export class IntentService {
       if (existing.customerAddress !== customerAddress) {
         throw new CountersignatureConflictError('Another customer is already paying this request');
       }
+      // A retry after the customer was authorized may reuse the same merchant
+      // signature, but a terminal request must never be reopened by a tap.
+      if (settlement.status !== 'awaiting_approval' && settlement.status !== 'authorized') {
+        throw new SettlementTransitionError(`Cannot claim a payment request in ${settlement.status} state`);
+      }
       return existing;
+    }
+    if (settlement.status !== 'awaiting_approval') {
+      throw new SettlementTransitionError(`Cannot claim a payment request in ${settlement.status} state`);
     }
 
     const record: CountersignatureRecord = {
@@ -234,7 +240,15 @@ export class IntentService {
       requestedAt: new Date().toISOString(),
     };
     await this.repository.saveCountersignature?.(record);
-    return record;
+    // The claim and the read are deliberately separate repository operations:
+    // durable stores use a conflict-safe upsert, and a second phone may race
+    // this request. Return the persisted winner instead of telling a losing
+    // customer that its address owns the request.
+    const persisted = await this.repository.findCountersignature?.(intentId);
+    if (persisted && persisted.customerAddress !== customerAddress) {
+      throw new CountersignatureConflictError('Another customer is already paying this request');
+    }
+    return persisted ?? record;
   }
 
   /**
@@ -249,6 +263,10 @@ export class IntentService {
     customerAddress: string,
     signature: string,
   ): Promise<CountersignatureRecord> {
+    const settlement = await this.requireCountersignatureSettlement(intentId);
+    if (settlement.status !== 'awaiting_approval' && settlement.status !== 'authorized') {
+      throw new SettlementTransitionError(`Cannot sign a payment request in ${settlement.status} state`);
+    }
     const existing = await this.repository.findCountersignature?.(intentId);
     if (!existing) {
       throw new CountersignatureNotFoundError('No customer has asked to pay this request');
@@ -267,7 +285,9 @@ export class IntentService {
       signedAt: new Date().toISOString(),
     };
     await this.repository.saveCountersignature?.(record);
-    return record;
+    // A retry can overlap another signature submission. The first signature
+    // remains authoritative, so return what the repository kept.
+    return (await this.repository.findCountersignature?.(intentId)) ?? record;
   }
 
   getCountersignature(intentId: string): Promise<CountersignatureRecord | null> {
@@ -276,6 +296,15 @@ export class IntentService {
 
   getAuthorization(intentId: string): Promise<AuthorizationRecord | null> {
     return this.repository.findAuthorization?.(intentId) ?? Promise.resolve(null);
+  }
+
+  private async requireCountersignatureSettlement(intentId: string): Promise<SettlementRecord> {
+    if (!(await this.repository.findByIntentId(intentId))) {
+      throw new SettlementNotFoundError('Payment intent not found');
+    }
+    const settlement = await this.repository.findSettlement(intentId);
+    if (!settlement) throw new SettlementNotFoundError('Settlement not found');
+    return settlement;
   }
 
   async submit(intentId: string, transactionHash: string) {

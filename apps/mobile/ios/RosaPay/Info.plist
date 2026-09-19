@@ -41,16 +41,6 @@
 	<string>Rosa Pay uses Face ID to approve a payment with the key stored on this device.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>Rosa Pay reads a merchant's payment request when you hold your phone near theirs.</string>
-	<!--
-	  iOS only hands a tag to the app if the tag answers one of these AIDs, so
-	  this list is what makes an Android merchant running RosaPayApduService
-	  visible at all. It must stay equal to the AID in apduservice.xml and
-	  RosaPayNfcModule.AID: F0 "RosaPay" 01, a proprietary F0-prefixed AID.
-	-->
-	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
-	<array>
-		<string>F0526F736150617901</string>
-	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

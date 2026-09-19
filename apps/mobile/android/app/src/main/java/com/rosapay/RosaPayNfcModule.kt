@@ -12,15 +12,18 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.nio.charset.StandardCharsets
 
 /**
  * The NFC transport for RTP/1. A merchant broadcasts the signed request it is
  * already showing as a QR code, and a customer reads it by tapping.
  *
  * NFC never carries anything a QR code would not: the customer still verifies
- * the merchant signature and the expiry before anything is authorized, so a
- * hostile tap can at worst present a request the customer then rejects.
+ * the merchant signature and the expiry before the device prompts to authorize
+ * anything. A hostile tap can prompt for review, but cannot spend without the
+ * device owner's authentication.
  */
 class RosaPayNfcModule(private val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
@@ -30,7 +33,8 @@ class RosaPayNfcModule(private val reactContext: ReactApplicationContext) :
     const val READ_EVENT = "RosaPayNfcRequestRead"
     const val ERROR_EVENT = "RosaPayNfcError"
     /** Matches `RosaPayApduService.CHUNK_SIZE`; a payload larger than this is not a request. */
-    const val MAX_CHUNKS = 32
+    const val MAX_CHUNKS = RosaPayApduService.MAX_CHUNKS
+    const val MAX_PAYLOAD_BYTES = RosaPayApduService.CHUNK_SIZE * MAX_CHUNKS
   }
 
   private var reading = false
@@ -65,8 +69,21 @@ class RosaPayNfcModule(private val reactContext: ReactApplicationContext) :
       promise.reject("NFC_DISABLED", "Turn on NFC to share this request by tapping")
       return
     }
+    if (payload.toByteArray(StandardCharsets.UTF_8).size > MAX_PAYLOAD_BYTES) {
+      promise.reject("NFC_PAYLOAD_TOO_LARGE", "This payment request is too large to share over NFC")
+      return
+    }
+    if (payload.isEmpty()) {
+      promise.reject("NFC_PAYLOAD_EMPTY", "This payment request is empty")
+      return
+    }
     RosaPayApduService.broadcast(payload)
-    // Without this a wallet app that owns the AID would answer the tap instead.
+    // Ask to win the tap outright, which matters only where another wallet has
+    // claimed this AID. Rosa Pay's AID is proprietary, so ordinary AID routing
+    // already reaches RosaPayApduService and a phone that refuses the request
+    // (an OEM that reports the activity as not resumed, a device with no
+    // preferred-service support) still emulates the card correctly. Treating
+    // that refusal as fatal would take tapping away from a phone it works on.
     preferForegroundService()
     promise.resolve(null)
   }
@@ -96,22 +113,43 @@ class RosaPayNfcModule(private val reactContext: ReactApplicationContext) :
       return
     }
 
-    adapter.enableReaderMode(
-      activity,
-      { tag -> readRequest(tag) },
-      NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
-      null,
-    )
-    reading = true
-    promise.resolve(null)
+    if (reading) {
+      promise.resolve(null)
+      return
+    }
+    activity.runOnUiThread {
+      try {
+        if (reading) {
+          promise.resolve(null)
+          return@runOnUiThread
+        }
+        adapter.enableReaderMode(
+          activity,
+          { tag -> readRequest(tag) },
+          NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+          null,
+        )
+        reading = true
+        promise.resolve(null)
+      } catch (error: RuntimeException) {
+        reading = false
+        promise.reject("NFC_UNAVAILABLE", error.message ?: "The NFC reader could not be started")
+      }
+    }
   }
 
   @ReactMethod
   fun stopReading(promise: Promise) {
     val activity: Activity? = reactContext.currentActivity
-    if (reading && activity != null) adapter()?.disableReaderMode(activity)
     reading = false
-    promise.resolve(null)
+    if (activity == null) {
+      promise.resolve(null)
+      return
+    }
+    activity.runOnUiThread {
+      runCatching { adapter()?.disableReaderMode(activity) }
+      promise.resolve(null)
+    }
   }
 
   /** React Native requires these for `NativeEventEmitter`; the work is in reader mode. */
@@ -142,16 +180,26 @@ class RosaPayNfcModule(private val reactContext: ReactApplicationContext) :
         return
       }
 
-      val payload = StringBuilder()
+      val payload = ByteArrayOutputStream(chunks * RosaPayApduService.CHUNK_SIZE)
       for (index in 0 until chunks) {
         val response = isoDep.transceive(readApdu(index))
         if (!endsWithOk(response)) {
           emit(ERROR_EVENT, "The tap ended before the request was complete")
           return
         }
-        payload.append(String(response.copyOfRange(0, response.size - 2), Charsets.UTF_8))
+        val dataLength = response.size - 2
+        if (dataLength <= 0 || dataLength > RosaPayApduService.CHUNK_SIZE) {
+          emit(ERROR_EVENT, "The tap returned an invalid payment request chunk")
+          return
+        }
+        payload.write(response, 0, dataLength)
       }
-      emit(READ_EVENT, payload.toString())
+      val value = String(payload.toByteArray(), Charsets.UTF_8)
+      if (value.isEmpty()) {
+        emit(ERROR_EVENT, "That device did not share a payment request")
+        return
+      }
+      emit(READ_EVENT, value)
     } catch (error: IOException) {
       // Phones move apart mid-read constantly; this is a retry, not a failure.
       emit(ERROR_EVENT, "Hold the phones together until the request is read")
@@ -182,9 +230,9 @@ class RosaPayNfcModule(private val reactContext: ReactApplicationContext) :
   private fun serviceComponent(): ComponentName =
     ComponentName(reactContext, RosaPayApduService::class.java)
 
-  private fun preferForegroundService() {
-    val activity: Activity = reactContext.currentActivity ?: return
-    runCatching { cardEmulation()?.setPreferredService(activity, serviceComponent()) }
+  private fun preferForegroundService(): Boolean {
+    val activity: Activity = reactContext.currentActivity ?: return false
+    return runCatching { cardEmulation()?.setPreferredService(activity, serviceComponent()) == true }.getOrDefault(false)
   }
 
   private fun releaseForegroundService() {

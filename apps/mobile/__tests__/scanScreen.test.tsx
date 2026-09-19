@@ -4,6 +4,7 @@
 
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
+import {AppState} from 'react-native';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {encodePaymentQr} from '@rosapay/protocol';
 import {ScanScreen} from '../src/features/payments/ScanScreen';
@@ -63,6 +64,10 @@ jest.mock('../src/native/nativeNfc', () => ({
 type Navigation = {navigate: jest.Mock; addListener: jest.Mock};
 
 const activeRenderers = new Set<ReactTestRenderer.ReactTestRenderer>();
+
+beforeEach(() => {
+  Object.defineProperty(AppState, 'currentState', {configurable: true, value: 'active'});
+});
 
 function navigation(): Navigation {
   return {navigate: jest.fn(), addListener: jest.fn().mockReturnValue(jest.fn())};
@@ -194,8 +199,22 @@ describe('the tap path across the two platforms', () => {
     // The payload an Android merchant publishes is the same signed request the
     // QR carries, and it goes through the same verification.
     const handlers = nfcStatus.startNfcReader.mock.calls[0]![0];
+    // A failed CoreNFC session is one-shot. The screen must make the explicit
+    // tap action available again rather than leaving the customer stranded.
     await ReactTestRenderer.act(async () => {
-      handlers.onRequest(encodePaymentQr(mockSignedIntent));
+      handlers.onError('Hold the phones together until the request is read');
+      await Promise.resolve();
+    });
+    expect(renderer.root.findAllByProps({testID: 'scan-start-tap'}).length).toBeGreaterThan(0);
+    await ReactTestRenderer.act(async () => {
+      renderer.root.findByProps({testID: 'scan-start-tap'}).props.onPress();
+      await Promise.resolve();
+    });
+    expect(nfcStatus.startNfcReader).toHaveBeenCalledTimes(2);
+
+    const secondHandlers = nfcStatus.startNfcReader.mock.calls[1]![0];
+    await ReactTestRenderer.act(async () => {
+      secondHandlers.onRequest(encodePaymentQr(mockSignedIntent));
       await Promise.resolve();
     });
 

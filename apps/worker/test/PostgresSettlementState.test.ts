@@ -4,15 +4,31 @@ import {PostgresSettlementState, SettlementStateError} from '../src/PostgresSett
 
 const txHash = 'a'.repeat(64);
 
-function fakeClient(rows: Array<{intent_id: string; status: string; tx_hash: string | null}>, options: {updateRows?: number} = {}) {
+function fakeClient(
+  rows: Array<{intent_id: string; status: string; tx_hash: string | null; expires_at_ledger?: number}>,
+  options: {updateRows?: number} = {},
+) {
   const statements: Array<{text: string; values: readonly unknown[]}> = [];
   const client: PostgresQueryClient & {statements: typeof statements} = {
     statements,
     async query<Row>(text: string, values: readonly unknown[] = []) {
-      statements.push({text, values});
+    statements.push({text, values});
       if (text.trimStart().startsWith('SELECT')) {
-        const intentId = values[0];
-        const matching = intentId === undefined ? rows : rows.filter(row => row.intent_id === intentId);
+        let matching = rows;
+        if (text.includes("status = 'submitted'")) {
+          matching = matching.filter(row => row.status === 'submitted' && row.tx_hash !== null);
+        } else if (text.includes('expires_at_ledger <= $1')) {
+          const latestLedger = Number(values[0]);
+          matching = matching.filter(
+            row =>
+              (row.status === 'awaiting_approval' || row.status === 'authorized') &&
+              row.expires_at_ledger !== undefined &&
+              row.expires_at_ledger <= latestLedger,
+          );
+        } else if (text.includes('WHERE intent_id = $1')) {
+          const intentId = values[0];
+          matching = matching.filter(row => row.intent_id === intentId);
+        }
         return {rows: matching as Row[]};
       }
       const updated = options.updateRows ?? 1;
@@ -84,6 +100,14 @@ describe('Postgres settlement state', () => {
 });
 
 describe('expiring settlements in PostgreSQL', () => {
+  it('includes the exact expiry ledger in the stale-settlement query', async () => {
+    const client = fakeClient([{intent_id: 'intent-1', status: 'awaiting_approval', tx_hash: null, expires_at_ledger: 900}]);
+    await expect(new PostgresSettlementState(client).listExpiredSettlements(900)).resolves.toEqual([
+      {intentId: 'intent-1', expiresAtLedger: 900},
+    ]);
+    expect(client.statements[0]?.text).toContain('expires_at_ledger <= $1');
+  });
+
   it('lists only requests past their expiry and moves them to expired', async () => {
     const client = fakeClient([{intent_id: 'intent-1', status: 'awaiting_approval', tx_hash: null}]);
     const state = new PostgresSettlementState(client);

@@ -75,7 +75,21 @@ export class InMemoryIntentRepository implements IntentRepository {
   }
 
   async saveCountersignature(record: CountersignatureRecord) {
-    this.countersignatures.set(record.intentId, record);
+    const existing = this.countersignatures.get(record.intentId);
+    if (!existing) {
+      this.countersignatures.set(record.intentId, record);
+      return;
+    }
+
+    // Match the durable repository: a request is claimed by its first
+    // customer, while a later retry from that same customer may fill in the
+    // merchant signature. A second customer must never steal the claim.
+    if (existing.customerAddress !== record.customerAddress) return;
+    this.countersignatures.set(record.intentId, {
+      ...existing,
+      ...(existing.signature ? {} : record.signature ? {signature: record.signature} : {}),
+      ...(existing.signedAt ? {} : record.signedAt ? {signedAt: record.signedAt} : {}),
+    });
   }
 
   async findCountersignature(intentId: string) {

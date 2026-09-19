@@ -30,9 +30,11 @@ class RosaPayNfc: RCTEventEmitter {
   /// Matches `apduservice.xml` and `RosaPayNfcModule.AID`.
   private static let aid = Data([0xF0, 0x52, 0x6F, 0x73, 0x61, 0x50, 0x61, 0x79, 0x01])
   /// Matches `RosaPayNfcModule.MAX_CHUNKS`; more than this is not a request.
-  private static let maxChunks = 32
+  /// Matches Android's 24 x 240-byte NFC budget and covers the 4 KiB QR bound.
+  private static let maxChunks = 24
   private static let readEvent = "RosaPayNfcRequestRead"
   private static let errorEvent = "RosaPayNfcError"
+  private static let sessionEndedEvent = "RosaPayNfcSessionEnded"
 
   private var session: NFCTagReaderSession?
 
@@ -41,7 +43,7 @@ class RosaPayNfc: RCTEventEmitter {
   }
 
   override func supportedEvents() -> [String] {
-    [Self.readEvent, Self.errorEvent]
+    [Self.readEvent, Self.errorEvent, Self.sessionEndedEvent]
   }
 
   override func invalidate() {
@@ -143,9 +145,11 @@ extension RosaPayNfc: NFCTagReaderSessionDelegate {
       self.session = nil
     }
     if let code, silent.contains(code) {
+      emit(Self.sessionEndedEvent, "")
       return
     }
     if code == .readerSessionInvalidationErrorFirstNDEFTagRead {
+      emit(Self.sessionEndedEvent, "")
       return
     }
     emit(Self.errorEvent, "The tap was interrupted")

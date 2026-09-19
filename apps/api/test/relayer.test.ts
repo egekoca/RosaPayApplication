@@ -67,6 +67,22 @@ describe('relayer service', () => {
     expect(StrKey.encodeEd25519PublicKey(signed.signatures[0]!.hint())).toContain('');
   });
 
+  it('signs a swap-funded settlement transaction through the API', async () => {
+    const app = buildApp({relayer: service()});
+    apps.push(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/relayer/transactions',
+      payload: {xdr: transaction({functionName: 'settle_payment_with_swap'})},
+    });
+
+    expect(response.statusCode).toBe(200);
+    const signedXdr = response.json().signedXdr;
+    expect(typeof signedXdr).toBe('string');
+    expect(TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET).signatures).toHaveLength(1);
+  });
+
   it('refuses to sign a transaction sourced by someone else', () => {
     expect(() => service().signSettlementTransaction(transaction({source: otherKeypair})))
       .toThrow('only signs transactions it is the source of');

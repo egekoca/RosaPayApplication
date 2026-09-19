@@ -1,4 +1,9 @@
-import {parseSignedPaymentIntent, validatePaymentIntent, type SignedPaymentIntentV1} from '@rosapay/protocol';
+import {
+  MAX_INTENT_ACCEPTANCE_LEDGERS,
+  parseSignedPaymentIntent,
+  validatePaymentIntent,
+  type SignedPaymentIntentV1,
+} from '@rosapay/protocol';
 import {verifyMerchantSignature} from './merchantSignature';
 import {createSettlementClient} from './settlementClient';
 import {
@@ -80,7 +85,7 @@ export async function settleSignedPayment(input: SettlementServiceInput): Promis
     validatePaymentIntent(intent.intent, {
       network: input.config.network === 'pubnet' ? 'pubnet' : 'testnet',
       latestLedger: input.latestLedger,
-      maxLedgerLifetime: input.maxLedgerLifetime,
+      maxLedgerLifetime: input.maxLedgerLifetime ?? MAX_INTENT_ACCEPTANCE_LEDGERS,
     });
   } catch (error) {
     throw new SettlementServiceError('INVALID_INTENT', error instanceof Error ? error.message : 'Payment intent is invalid');
