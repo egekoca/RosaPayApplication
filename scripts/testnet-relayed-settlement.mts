@@ -21,8 +21,13 @@ import {
 
 hashes.sha512 = sha512;
 
+/** The Stellar CLI's global config, which is where `config migrate` puts keys. */
+function defaultConfigDir(): string {
+  return `${process.env.HOME ?? ''}/.config/stellar`;
+}
+
 const deployment = JSON.parse(readFileSync('config/testnet-deployment.json', 'utf8'));
-const configDir = process.env.ROSAPAY_STELLAR_CONFIG_DIR ?? '.stellar';
+const configDir = process.env.ROSAPAY_STELLAR_CONFIG_DIR ?? defaultConfigDir();
 const adminIdentity = process.env.ROSAPAY_ADMIN_IDENTITY ?? 'rosapay-testnet-deployer';
 const customerIdentity = process.env.ROSAPAY_CUSTOMER_IDENTITY ?? 'rosapay-testnet-customer';
 const relayerIdentity = process.env.ROSAPAY_RELAYER_IDENTITY ?? 'rosapay-testnet-relayer';
@@ -36,14 +41,33 @@ function stellarCli(args: string[], {allowFailure = false} = {}) {
   return {status: result.status ?? 1, stdout: result.stdout?.trim() ?? '', output};
 }
 
-function secretOf(identity: string): string {
+/**
+ * Where a signing key comes from.
+ *
+ * The environment wins, because that is how the API and the worker are
+ * configured and a machine should be set up in one place. The Stellar CLI is
+ * the fallback for a checkout that has identities but no env file.
+ *
+ * The CLI's own global config is the default location: `stellar config migrate`
+ * moves identities out of a repository-local `.stellar` and a stale copy left
+ * behind there would otherwise be picked up in preference to the real key.
+ */
+function secretOf(identity: string, envVar?: string): string {
+  const fromEnv = envVar ? process.env[envVar]?.trim() : undefined;
+  if (fromEnv) {
+    if (!/^S[A-Z2-7]{55}$/.test(fromEnv)) throw new Error(`${envVar} is not a Stellar secret key`);
+    return fromEnv;
+  }
   const output = stellarCli(['keys', 'show', identity, '--config-dir', configDir]).output;
   const secret = output.split('\n').map(line => line.trim()).find(line => /^S[A-Z2-7]{55}$/.test(line));
   if (!secret) throw new Error(`Could not read the secret key for ${identity}`);
   return secret;
 }
 
-function ensureIdentity(identity: string): void {
+function ensureIdentity(identity: string, envVar: string): void {
+  // A key supplied by the environment is already the account we mean; asking the
+  // CLI to make one would generate a different key under the same alias.
+  if (process.env[envVar]?.trim()) return;
   const exists = stellarCli(['keys', 'public-key', identity, '--config-dir', configDir], {allowFailure: true});
   if (exists.status === 0) return;
   console.log(`Creating and funding ${identity}`);
@@ -51,10 +75,10 @@ function ensureIdentity(identity: string): void {
 }
 
 async function main() {
-  ensureIdentity(relayerIdentity);
+  ensureIdentity(relayerIdentity, 'STELLAR_RELAYER_SECRET');
   const customer = Keypair.fromSecret(secretOf(customerIdentity));
-  const relayer = Keypair.fromSecret(secretOf(relayerIdentity));
-  const admin = Keypair.fromSecret(secretOf(adminIdentity));
+  const relayer = Keypair.fromSecret(secretOf(relayerIdentity, 'STELLAR_RELAYER_SECRET'));
+  const admin = Keypair.fromSecret(secretOf(adminIdentity, 'STELLAR_ADMIN_SECRET'));
   if (customer.publicKey() === relayer.publicKey()) throw new Error('Customer and relayer must be different accounts');
 
   const config = createStellarConfig('testnet', {

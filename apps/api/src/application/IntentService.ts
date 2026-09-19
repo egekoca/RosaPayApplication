@@ -20,6 +20,25 @@ export type AuthorizationRecord = {
   receivedAt: string;
 };
 
+/**
+ * A merchant's promise that one specific customer may pay one specific request.
+ *
+ * The settlement contract verifies a merchant signature over a digest that names
+ * the payer, so it can only be produced once the payer is known — which is after
+ * the customer has seen the request. The merchant's signing key stays on the
+ * merchant's own device; this record is the meeting point where a customer says
+ * "this is me" and collects the answer.
+ */
+export type CountersignatureRecord = {
+  intentId: string;
+  /** The Stellar address that will pay, classic or contract. */
+  customerAddress: string;
+  /** Base64 Ed25519 signature over the contract digest; absent until signed. */
+  signature?: string;
+  requestedAt: string;
+  signedAt?: string;
+};
+
 export type SettlementRecord = {
   intentId: string;
   status: PaymentStatus;
@@ -77,6 +96,8 @@ export function emptyPaymentMetrics(): PaymentMetrics {
 
 export interface IntentRepository {
   readMetrics?(): Promise<PaymentMetrics>;
+  saveCountersignature?(record: CountersignatureRecord): Promise<void>;
+  findCountersignature?(intentId: string): Promise<CountersignatureRecord | null>;
   findByIntentId(intentId: string): Promise<StoredIntent | null>;
   findByIdempotencyKey(key: string): Promise<StoredIntent | null>;
   save(intent: StoredIntent): Promise<void>;
@@ -90,6 +111,8 @@ export interface IntentRepository {
 }
 
 export class IntentConflictError extends Error {}
+export class CountersignatureConflictError extends Error {}
+export class CountersignatureNotFoundError extends Error {}
 export class SettlementNotFoundError extends Error {}
 export class SettlementInputError extends Error {}
 export class SettlementTransitionError extends Error {}
@@ -157,9 +180,7 @@ export class IntentService {
    */
   async authorize(intentId: string, authorization?: Omit<AuthorizationRecord, 'intentId' | 'receivedAt'>) {
     if (authorization) {
-      if (!/^[GC][A-Z2-7]{55}$/.test(authorization.authorizer)) {
-        throw new SettlementInputError('The authorizer must be a Stellar address');
-      }
+      assertStellarAddress(authorization.authorizer, 'The authorizer must be a Stellar address');
       if (authorization.authorizationHash && !/^[a-f0-9]{64}$/i.test(authorization.authorizationHash)) {
         throw new SettlementInputError('The authorization hash must be a 64-character hexadecimal value');
       }
@@ -176,6 +197,76 @@ export class IntentService {
       });
     }
     return this.transitionSettlement(intentId, 'authorized');
+  }
+
+  /**
+   * Records which customer intends to pay, so the merchant knows who to
+   * countersign for.
+   *
+   * The first customer to claim a request keeps it. Without that, two customers
+   * scanning the same code would race, and the merchant would countersign for
+   * whichever claim landed last while the other waited for a signature naming
+   * someone else — which the contract would reject anyway, after the customer
+   * had already been told to approve.
+   */
+  async requestCountersignature(intentId: string, customerAddress: string): Promise<CountersignatureRecord> {
+    if (!(await this.repository.findByIntentId(intentId))) {
+      throw new SettlementNotFoundError('Payment intent not found');
+    }
+    assertStellarAddress(customerAddress);
+
+    const existing = await this.repository.findCountersignature?.(intentId);
+    if (existing) {
+      if (existing.customerAddress !== customerAddress) {
+        throw new CountersignatureConflictError('Another customer is already paying this request');
+      }
+      return existing;
+    }
+
+    const record: CountersignatureRecord = {
+      intentId,
+      customerAddress,
+      requestedAt: new Date().toISOString(),
+    };
+    await this.repository.saveCountersignature?.(record);
+    return record;
+  }
+
+  /**
+   * Stores the merchant's signature for the customer that asked.
+   *
+   * The address is checked rather than trusted: a signature that names a
+   * different payer than the one waiting would be collected by that waiting
+   * customer and fail on-chain, so it is refused here instead.
+   */
+  async supplyCountersignature(
+    intentId: string,
+    customerAddress: string,
+    signature: string,
+  ): Promise<CountersignatureRecord> {
+    const existing = await this.repository.findCountersignature?.(intentId);
+    if (!existing) {
+      throw new CountersignatureNotFoundError('No customer has asked to pay this request');
+    }
+    if (existing.customerAddress !== customerAddress) {
+      throw new CountersignatureConflictError('This signature names a different customer');
+    }
+    if (!/^[A-Za-z0-9+/]{86}==$/.test(signature)) {
+      throw new SettlementInputError('A countersignature must be a base64 64-byte signature');
+    }
+    if (existing.signature) return existing;
+
+    const record: CountersignatureRecord = {
+      ...existing,
+      signature,
+      signedAt: new Date().toISOString(),
+    };
+    await this.repository.saveCountersignature?.(record);
+    return record;
+  }
+
+  getCountersignature(intentId: string): Promise<CountersignatureRecord | null> {
+    return this.repository.findCountersignature?.(intentId) ?? Promise.resolve(null);
   }
 
   getAuthorization(intentId: string): Promise<AuthorizationRecord | null> {
@@ -234,6 +325,12 @@ export class IntentService {
     const updated: SettlementRecord = {...current, status: next, ...patch};
     await this.repository.saveSettlement(updated);
     return updated;
+  }
+}
+
+function assertStellarAddress(value: string, message = 'A Stellar address is required'): void {
+  if (!/^[GC][A-Z2-7]{55}$/.test(value)) {
+    throw new SettlementInputError(message);
   }
 }
 

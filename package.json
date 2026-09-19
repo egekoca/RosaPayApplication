@@ -23,11 +23,14 @@
     "lint": "npm run lint --workspaces --if-present",
     "contract:test": "cargo +stable test --manifest-path contracts/Cargo.toml",
     "contract:build": "stellar contract build --manifest-path contracts/Cargo.toml",
-    "testnet:smoke": "node scripts/testnet-smoke.mjs",
-    "testnet:relayed": "tsx scripts/testnet-relayed-settlement.mts",
-    "testnet:wallet": "tsx scripts/testnet-wallet-auth.mts",
+    "testnet:smoke": "node --env-file-if-exists=.env scripts/testnet-smoke.mjs",
+    "testnet:relayed": "tsx --env-file-if-exists=.env scripts/testnet-relayed-settlement.mts",
+    "testnet:wallet": "tsx --env-file-if-exists=.env scripts/testnet-wallet-auth.mts",
     "check": "npm run typecheck && npm run test",
-    "testnet:accounts": "tsx scripts/testnet-accounts.mts"
+    "testnet:accounts": "tsx --env-file-if-exists=.env scripts/testnet-accounts.mts",
+    "testnet:demo-pair": "tsx --env-file-if-exists=.env scripts/testnet-demo-pair.mts",
+    "testnet:two-device": "tsx --env-file-if-exists=.env scripts/testnet-two-device.mts",
+    "testnet:offline": "tsx --env-file-if-exists=.env scripts/testnet-offline-customer.mts"
   },
   "devDependencies": {
     "@noble/curves": "^2.3.0",

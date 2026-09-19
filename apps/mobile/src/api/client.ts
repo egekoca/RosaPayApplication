@@ -4,6 +4,7 @@ import {z} from 'zod';
 import {defaultRetryPolicy, isRetryable, retryDelayMs, type RetryPolicy} from './retry';
 import {
   apiErrorResponseSchema,
+  countersignatureSchema,
   healthResponseSchema,
   merchantProfileSchema,
   merchantPaymentsSchema,
@@ -128,6 +129,52 @@ export class RosaPayApiClient {
       headers: {'content-type': 'application/json'},
       body: JSON.stringify(authorization),
     }, this.timeoutMs, true);
+  }
+
+  /**
+   * Tells the merchant who is about to pay, so it can sign the contract digest
+   * that names this exact payer.
+   */
+  requestCountersignature(intentId: string, customerAddress: string) {
+    const id = z.string().min(1).parse(intentId);
+    return this.request(
+      `/v1/payment-intents/${encodeURIComponent(id)}/countersignature/request`,
+      countersignatureSchema,
+      {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({customerAddress}),
+      },
+      this.timeoutMs,
+      true,
+    );
+  }
+
+  /** Leaves the merchant's signature for the customer waiting on it. */
+  supplyCountersignature(intentId: string, customerAddress: string, signature: string) {
+    const id = z.string().min(1).parse(intentId);
+    return this.request(
+      `/v1/payment-intents/${encodeURIComponent(id)}/countersignature`,
+      countersignatureSchema,
+      {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({customerAddress, signature}),
+      },
+      this.timeoutMs,
+      true,
+    );
+  }
+
+  getCountersignature(intentId: string) {
+    const id = z.string().min(1).parse(intentId);
+    return this.request(
+      `/v1/payment-intents/${encodeURIComponent(id)}/countersignature`,
+      countersignatureSchema,
+      {},
+      this.timeoutMs,
+      true,
+    );
   }
 
   /** Records the transaction the relayer sent, so the worker can reconcile it. */

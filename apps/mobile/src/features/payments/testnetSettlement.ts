@@ -3,7 +3,6 @@ import {basicNodeSigner} from '@stellar/stellar-sdk/contract';
 import {createWalletAuthorizeEntry, type HardwareDigestSigner} from '@rosapay/stellar';
 import {Buffer} from 'buffer';
 import type {SignedPaymentIntentV1, RandomBytes} from '@rosapay/protocol';
-import {sign as signEd25519} from '@noble/ed25519';
 import {
   buildSettlementEnvelope,
   createSettlementClient,
@@ -11,7 +10,7 @@ import {
   type SettlementPipelineProgress,
   type StellarConfig,
 } from '@rosapay/stellar';
-import type {MerchantProfile} from '../merchant/merchantProfile';
+import type {Countersigner} from './countersignature';
 
 export type RelayerIdentity = {
   address: string;
@@ -95,12 +94,13 @@ export async function fundTestnetAccount(
 export type TestnetSettlementInput = {
   payload: SignedPaymentIntentV1;
   config: StellarConfig;
-  merchantProfile: MerchantProfile;
   /** Classic demo account, used until the device controls a smart wallet. */
   customer: Keypair;
   /** The device-controlled smart wallet that pays, when one exists. */
   smartWallet?: {contractId: string; signer: HardwareDigestSigner};
   relayer: RelayerIdentity;
+  /** Produces the merchant's signature over a digest naming this exact payer. */
+  countersign: Countersigner;
   relayerSigner: {signTransaction(xdr: string): Promise<{signedTxXdr: string}>};
   latestLedger: number;
   onProgress?: (progress: SettlementPipelineProgress) => void;
@@ -115,12 +115,6 @@ export type TestnetSettlementInput = {
 export async function settleOnTestnet(input: TestnetSettlementInput) {
   const {intent} = input.payload;
   const customerAddress = input.smartWallet?.contractId ?? input.customer.publicKey();
-  if (intent.merchantSigningKey !== input.merchantProfile.signingKey) {
-    throw new TestnetSettlementError(
-      'MERCHANT_KEY_UNAVAILABLE',
-      'This request was signed by another device, so its merchant contract signature cannot be produced here',
-    );
-  }
 
   const envelope = buildSettlementEnvelope(intent, {
     customer: customerAddress,
@@ -132,10 +126,14 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
     {publicKey: input.relayer.address},
   );
   const digest = (await digestClient.intent_digest({intent: envelope.intent}, {simulate: true})).result;
-  const merchantContractSignature = await signEd25519(
-    Uint8Array.from(digest),
-    input.merchantProfile.developmentSigningSecret,
-  );
+  // The digest names the payer, so the merchant can only sign it now. When this
+  // device is the merchant that is a local call; otherwise it is a round trip to
+  // the merchant's own phone, which is the only place its signing key lives.
+  const merchantContractSignature = await input.countersign({
+    intentId: intent.intentId,
+    customerAddress,
+    digest: Uint8Array.from(digest),
+  });
   // A smart wallet authorizes the whole entry with the hardware key; a classic
   // demo account signs the preimage the generated client hands it.
   const customerAuthorizeEntry = input.smartWallet

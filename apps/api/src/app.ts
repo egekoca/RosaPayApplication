@@ -3,7 +3,10 @@ import type {FastifyRequest} from 'fastify';
 import {ZodError, z} from 'zod';
 import {createStellarConfig, StellarRpcClient} from '@rosapay/stellar';
 import {
+  CountersignatureConflictError,
+  CountersignatureNotFoundError,
   IntentConflictError,
+  SettlementNotFoundError,
   type IntentRepository,
   IntentService,
   SettlementInputError,
@@ -43,6 +46,13 @@ const authorizeSchema = z.object({
 });
 const submitSchema = z.object({transactionHash: z.string().regex(/^[a-f0-9]{64}$/i)});
 const walletSchema = z.object({devicePublicKey: z.string().min(64).max(512)});
+const stellarAddress = z.string().regex(/^[GC][A-Z2-7]{55}$/);
+const countersignatureRequestSchema = z.object({customerAddress: stellarAddress});
+const countersignatureSchema = z.object({
+  customerAddress: stellarAddress,
+  // A base64 Ed25519 signature is exactly 64 bytes.
+  signature: z.string().regex(/^[A-Za-z0-9+/]{86}==$/),
+});
 
 export type BuildAppOptions = {
   repository?: IntentRepository;
@@ -221,6 +231,41 @@ export function buildApp({
     await audit.record('payment_submitted', intentId, {detail: {transactionHash}});
     return reply.send(settlement);
   });
+  /**
+   * The meeting point that lets two devices complete one payment.
+   *
+   * The settlement contract verifies a merchant signature over a digest that
+   * names the payer, so the merchant cannot produce it in advance — it has to
+   * learn who is paying first. A customer claims the request here; the merchant
+   * device, which is the only place its signing key lives, leaves the signature
+   * for the customer to collect.
+   */
+  app.post('/v1/payment-intents/:intentId/countersignature/request', async (request, reply) => {
+    const {intentId} = paramsSchema.parse(request.params);
+    await requireAuthenticatedPrincipal(request, authOptions);
+    const {customerAddress} = countersignatureRequestSchema.parse(request.body);
+    const record = await intents.requestCountersignature(intentId, customerAddress);
+    await audit.record('countersignature_requested', intentId, {actor: customerAddress});
+    return reply.send(record);
+  });
+
+  app.post('/v1/payment-intents/:intentId/countersignature', async (request, reply) => {
+    const {intentId} = paramsSchema.parse(request.params);
+    await requireAuthenticatedPrincipal(request, authOptions);
+    const {customerAddress, signature} = countersignatureSchema.parse(request.body);
+    const record = await intents.supplyCountersignature(intentId, customerAddress, signature);
+    await audit.record('countersignature_supplied', intentId, {actor: customerAddress});
+    return reply.send(record);
+  });
+
+  app.get('/v1/payment-intents/:intentId/countersignature', async (request, reply) => {
+    const {intentId} = paramsSchema.parse(request.params);
+    const record = await intents.getCountersignature(intentId);
+    return record
+      ? reply.send(record)
+      : reply.code(404).send({code: 'COUNTERSIGNATURE_NOT_FOUND', message: 'No customer has asked to pay this request'});
+  });
+
   app.get('/v1/payment-intents/:intentId/history', async (request, reply) => {
     const {intentId} = paramsSchema.parse(request.params);
     return reply.send({intentId, events: await audit.history(intentId)});
@@ -242,6 +287,17 @@ export function buildApp({
     }
     if (error instanceof IntentConflictError) {
       return reply.code(409).send({code: 'INTENT_CONFLICT', message: error.message});
+    }
+    if (error instanceof SettlementNotFoundError) {
+      // Asking about a payment that does not exist is the caller being wrong,
+      // not the service failing; this used to fall through to a 500.
+      return reply.code(404).send({code: 'INTENT_NOT_FOUND', message: error.message});
+    }
+    if (error instanceof CountersignatureConflictError) {
+      return reply.code(409).send({code: 'COUNTERSIGNATURE_CONFLICT', message: error.message});
+    }
+    if (error instanceof CountersignatureNotFoundError) {
+      return reply.code(404).send({code: 'COUNTERSIGNATURE_NOT_FOUND', message: error.message});
     }
     if (error instanceof SettlementInputError) {
       return reply.code(400).send({code: 'INVALID_SETTLEMENT', message: error.message});

@@ -3,6 +3,7 @@ import type {SignedPaymentIntentV1} from '@rosapay/protocol';
 import {ApiClientError, RosaPayApiClient} from '../../api';
 import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
+import {fetchRelayerIdentity} from '../payments/testnetSettlement';
 
 
 function apiClient(): RosaPayApiClient {
@@ -42,6 +43,20 @@ export function useMerchantPayments(merchantProfileId: string | undefined) {
     enabled: Boolean(merchantProfileId),
     queryFn: () => apiClient().listMerchantPayments(merchantProfileId!),
     refetchInterval: 15_000,
+    retry: false,
+  });
+}
+
+/**
+ * The relayer this deployment uses. The merchant needs its address to simulate
+ * the contract digest it has to countersign.
+ */
+export function useRelayerIdentity() {
+  const apiBaseUrl = useAppStore(state => state.apiBaseUrl);
+  return useQuery({
+    queryKey: ['relayer', apiBaseUrl],
+    queryFn: () => fetchRelayerIdentity(apiBaseUrl),
+    staleTime: 5 * 60_000,
     retry: false,
   });
 }

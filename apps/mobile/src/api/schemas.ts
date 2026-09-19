@@ -41,6 +41,20 @@ export const merchantRegistrationSchema = z.object({
 export type MerchantProfileResponse = z.infer<typeof merchantProfileSchema>;
 export type MerchantRegistrationResponse = z.infer<typeof merchantRegistrationSchema>;
 
+/**
+ * A merchant's promise that one named customer may pay one request. The
+ * signature is absent until the merchant's device has left it.
+ */
+export const countersignatureSchema = z.object({
+  intentId: z.string().min(1),
+  customerAddress: z.string().regex(/^[GC][A-Z2-7]{55}$/),
+  signature: z.string().regex(/^[A-Za-z0-9+/]{86}==$/).optional(),
+  requestedAt: z.string().min(1),
+  signedAt: z.string().min(1).optional(),
+});
+
+export type CountersignatureResponse = z.infer<typeof countersignatureSchema>;
+
 export const settlementRecordSchema = z.object({
   intentId: z.string().min(1),
   status: z.enum(['created', 'awaiting_approval', 'authorized', 'submitted', 'confirmed', 'rejected', 'expired', 'failed']),

@@ -55,26 +55,6 @@ describe('mobile settlement adapter', () => {
     expect(receipt.transactionHash.startsWith('demo:')).toBe(true);
   });
 
-  it('refuses Testnet settlement without the merchant profile that signed the request', async () => {
-    await expect(settlePaymentIntent(request(profile()), {mode: 'testnet'}))
-      .rejects.toMatchObject({code: 'MERCHANT_KEY_UNAVAILABLE'});
-  });
-
-  it('refuses a request signed by another merchant device', async () => {
-    const merchant = profile();
-    const other = profile();
-
-    await expect(settlePaymentIntent(request(other), {
-      mode: 'testnet',
-      merchantProfile: merchant,
-      relayer,
-      relayerSigner: {signTransaction: async xdr => ({signedTxXdr: xdr})},
-      customer: Keypair.fromRawEd25519Seed(Buffer.alloc(32, 1)),
-      latestLedger: 1_500_000,
-      config: createStellarConfig('testnet', {settlementContractId: relayer.settlementContractId}),
-    })).rejects.toBeInstanceOf(TestnetSettlementError);
-  });
-
   it('reports a missing relayer instead of settling silently', async () => {
     const merchant = profile();
     await expect(settlePaymentIntent(request(merchant), {

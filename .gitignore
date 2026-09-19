@@ -24,3 +24,6 @@ contracts/target/
 # Editors
 .idea/
 .vscode/
+
+# Demo account secrets created by `npm run testnet:demo-pair`.
+config/testnet-demo-pair.json

@@ -6,6 +6,8 @@ export const auditEvents = [
   'merchant_registered_on_chain',
   'wallet_provisioned',
   'relayer_signed_settlement',
+  'countersignature_requested',
+  'countersignature_supplied',
 ] as const;
 
 export type AuditEventName = (typeof auditEvents)[number];

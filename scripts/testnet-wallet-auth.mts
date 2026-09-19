@@ -22,12 +22,28 @@ import {
 
 const deployment = JSON.parse(readFileSync('config/testnet-wallet-deployment.json', 'utf8'));
 const settlement = JSON.parse(readFileSync('config/testnet-deployment.json', 'utf8'));
-const configDir = process.env.ROSAPAY_STELLAR_CONFIG_DIR ?? '.stellar';
+const configDir = process.env.ROSAPAY_STELLAR_CONFIG_DIR ?? `${process.env.HOME ?? ''}/.config/stellar`;
 const relayerIdentity = process.env.ROSAPAY_RELAYER_IDENTITY ?? 'rosapay-testnet-relayer';
 const deviceKeyPath = process.env.ROSAPAY_WALLET_DEVICE_KEY ?? '.stellar/wallet-device-key.json';
 const evidencePath = process.env.ROSAPAY_WALLET_EVIDENCE ?? 'config/testnet-wallet-evidence.json';
 
-function secretOf(identity: string): string {
+/**
+ * Where a signing key comes from.
+ *
+ * The environment wins, because that is how the API and the worker are
+ * configured and a machine should be set up in one place. The Stellar CLI is
+ * the fallback for a checkout that has identities but no env file.
+ *
+ * The CLI's own global config is the default location: `stellar config migrate`
+ * moves identities out of a repository-local `.stellar` and a stale copy left
+ * behind there would otherwise be picked up in preference to the real key.
+ */
+function secretOf(identity: string, envVar?: string): string {
+  const fromEnv = envVar ? process.env[envVar]?.trim() : undefined;
+  if (fromEnv) {
+    if (!/^S[A-Z2-7]{55}$/.test(fromEnv)) throw new Error(`${envVar} is not a Stellar secret key`);
+    return fromEnv;
+  }
   const result = spawnSync('stellar', ['keys', 'show', identity, '--config-dir', configDir], {encoding: 'utf8'});
   const secret = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
     .split('\n')
@@ -67,7 +83,7 @@ function walletSignature(publicKey: Buffer, signature: Buffer): xdr.ScVal {
 }
 
 async function main() {
-  const relayer = Keypair.fromSecret(secretOf(relayerIdentity));
+  const relayer = Keypair.fromSecret(secretOf(relayerIdentity, 'STELLAR_RELAYER_SECRET'));
   const server = new rpc.Server(settlement.rpcUrl);
   const devicePublicKey = Buffer.from(deployment.devicePublicKey, 'hex');
   const deviceKey = await loadDeviceKey();

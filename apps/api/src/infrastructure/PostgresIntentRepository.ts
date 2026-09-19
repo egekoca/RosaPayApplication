@@ -4,6 +4,7 @@ import type {PostgresQueryClient} from '@rosapay/postgres';
 import {
   emptyPaymentMetrics,
   type AuthorizationRecord,
+  type CountersignatureRecord,
   type IntentRepository,
   type MerchantPayment,
   type PaymentMetrics,
@@ -109,6 +110,47 @@ export class PostgresIntentRepository implements IntentRepository {
         authorization.receivedAt,
       ],
     );
+  }
+
+  async saveCountersignature(record: CountersignatureRecord): Promise<void> {
+    await this.client.query(
+      `INSERT INTO merchant_countersignatures (intent_id, customer_address, signature, requested_at, signed_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (intent_id) DO UPDATE SET
+         signature = EXCLUDED.signature,
+         signed_at = EXCLUDED.signed_at`,
+      [
+        record.intentId,
+        record.customerAddress,
+        record.signature ?? null,
+        record.requestedAt,
+        record.signedAt ?? null,
+      ],
+    );
+  }
+
+  async findCountersignature(intentId: string): Promise<CountersignatureRecord | null> {
+    const result = await this.client.query<{
+      intent_id: string;
+      customer_address: string;
+      signature: string | null;
+      requested_at: Date | string;
+      signed_at: Date | string | null;
+    }>(
+      `SELECT intent_id, customer_address, signature, requested_at, signed_at
+         FROM merchant_countersignatures
+        WHERE intent_id = $1`,
+      [intentId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      intentId: row.intent_id,
+      customerAddress: row.customer_address,
+      ...(row.signature ? {signature: row.signature} : {}),
+      requestedAt: toIsoString(row.requested_at),
+      ...(row.signed_at ? {signedAt: toIsoString(row.signed_at)} : {}),
+    };
   }
 
   async findAuthorization(intentId: string): Promise<AuthorizationRecord | null> {

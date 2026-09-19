@@ -293,3 +293,140 @@ describe('confirmation timing', () => {
     ).toBe(true);
   });
 });
+
+describe('two devices completing one payment', () => {
+  const customer = 'GDZ4ZAYGLEACS52ADRTWCDNDGZTWZRGYRV2QICRQ6YQU4Y4HTIQSM5F5';
+  const otherCustomer = 'GAP2SKMN74QKHUXPZZ36LIDVUBEETH56IWUJ62OIAU2OENHGHSSOWLYF';
+  const signature = `${'A'.repeat(86)}==`;
+
+  async function withIntent(key: string) {
+    const app = buildApp();
+    apps.push(app);
+    const intent = signedIntent();
+    await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': key},
+      payload: intent,
+    });
+    return {app, intentId: intent.intent.intentId};
+  }
+
+  it('lets a customer claim a request so the merchant knows who to sign for', async () => {
+    const {app, intentId} = await withIntent('counter-key-000000001');
+
+    const claim = await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature/request`,
+      payload: {customerAddress: customer},
+    });
+
+    expect(claim.statusCode).toBe(200);
+    expect(claim.json()).toMatchObject({intentId, customerAddress: customer});
+    // Nothing to collect yet; the merchant has not signed.
+    expect(claim.json().signature).toBeUndefined();
+  });
+
+  it('hands the signature to the customer that asked', async () => {
+    const {app, intentId} = await withIntent('counter-key-000000002');
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature/request`,
+      payload: {customerAddress: customer},
+    });
+
+    const supplied = await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature`,
+      payload: {customerAddress: customer, signature},
+    });
+    expect(supplied.statusCode).toBe(200);
+
+    const collected = await app.inject({
+      method: 'GET',
+      url: `/v1/payment-intents/${intentId}/countersignature`,
+    });
+    expect(collected.json()).toMatchObject({customerAddress: customer, signature});
+    expect(collected.json().signedAt).toEqual(expect.any(String));
+  });
+
+  it('keeps the request with the first customer to claim it', async () => {
+    const {app, intentId} = await withIntent('counter-key-000000003');
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature/request`,
+      payload: {customerAddress: customer},
+    });
+
+    const second = await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature/request`,
+      payload: {customerAddress: otherCustomer},
+    });
+
+    // Two people scanning the same code must not both be told to approve.
+    expect(second.statusCode).toBe(409);
+    expect(second.json().code).toBe('COUNTERSIGNATURE_CONFLICT');
+  });
+
+  it('refuses a signature that names someone other than the waiting customer', async () => {
+    const {app, intentId} = await withIntent('counter-key-000000004');
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature/request`,
+      payload: {customerAddress: customer},
+    });
+
+    const wrong = await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature`,
+      payload: {customerAddress: otherCustomer, signature},
+    });
+
+    // The waiting customer would collect this and fail on-chain, after being
+    // asked to approve.
+    expect(wrong.statusCode).toBe(409);
+  });
+
+  it('refuses a signature nobody asked for', async () => {
+    const {app, intentId} = await withIntent('counter-key-000000005');
+
+    const orphan = await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature`,
+      payload: {customerAddress: customer, signature},
+    });
+
+    expect(orphan.statusCode).toBe(404);
+  });
+
+  it('says a claim on a payment that does not exist is not found', async () => {
+    const app = buildApp();
+    apps.push(app);
+
+    const missing = await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents/01K36YB37NXM4X4TECF0VKP1M9/countersignature/request',
+      payload: {customerAddress: customer},
+    });
+
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('refuses anything that is not a 64-byte signature', async () => {
+    const {app, intentId} = await withIntent('counter-key-000000006');
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature/request`,
+      payload: {customerAddress: customer},
+    });
+
+    const short = await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/countersignature`,
+      payload: {customerAddress: customer, signature: 'AAAA'},
+    });
+
+    expect(short.statusCode).toBe(400);
+  });
+});

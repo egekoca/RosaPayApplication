@@ -242,6 +242,35 @@ Evidence is in `config/testnet-hardware-wallet-evidence.json`: the wallet is
 debited the amount and nothing else, the merchant is credited it, and the relayer
 pays the fee.
 
+## Why a payment needs both phones
+
+The settlement contract verifies a merchant signature over a digest of the whole
+payment intent — and that intent names the payer. So the merchant cannot sign in
+advance: it has to learn who is paying first.
+
+That is deliberate. It is what stops a signed request from being a bearer token
+that any passer-by could redeem, and it is why "may submit" and "may spend" can
+be held by different actors without the merchant losing control of who pays.
+
+It also means a customer's phone cannot produce that signature. The merchant's
+signing key lives on the merchant's device and nowhere else — not on the
+customer's phone, not in the API. So the two devices meet:
+
+1. The merchant publishes the request. No payer yet, so no countersignature.
+2. The customer claims it, naming the address that will pay.
+3. The merchant's device sees the claim, signs a digest naming that customer,
+   and leaves the signature.
+4. The customer collects it and pays. The relayer is still the source and fee
+   payer.
+
+The first customer to claim a request keeps it. Without that, two people
+scanning the same code would race and the merchant would sign for whichever
+claim landed last, while the other stood waiting for a signature naming someone
+else — which the contract would reject anyway, after they had already approved.
+
+When one phone is both merchant and customer, step 3 is a local call and there
+is no round trip.
+
 ## How a request reaches a customer
 
 A payment request is one signed RTP/1 payload, and the transport is only how it

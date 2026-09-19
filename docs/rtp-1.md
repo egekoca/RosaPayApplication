@@ -66,3 +66,38 @@ The mobile fixture uses a real Ed25519 public key/signature pair and exercises a
 ## On-chain mapping
 
 RTP/1 does not directly encode XDR or a contract invocation. The settlement adapter must construct a typed envelope with the exact network ID, settlement contract, customer, registered merchant, recipient, token, amount, nonce and expiry. The merchant then signs the contract digest. This prevents a valid QR signature from being replayed against a different contract or asset.
+
+## Authorizing without a network
+
+A customer's phone does not need a connection to take part in a payment. The
+merchant is the side that is online, so it does the simulation and hands over
+the one thing the customer has to sign.
+
+**`UnsignedAuthRequest`** — what crosses to the customer:
+
+| Field | Meaning |
+| --- | --- |
+| `version` | `RTP/1` |
+| `networkPassphrase` | Which network this authorization is for |
+| `settlementContractId` | The contract the invocation must name |
+| `entryXdr` | The customer's unsigned `SorobanAuthorizationEntry`, base64 |
+| `signatureExpirationLedger` | The ledger after which it is worthless |
+
+**`PaymentAuthorization`** — what comes back: the same entry with the device's
+signature and that expiry set in its credentials.
+
+The customer cannot ask the network what it is signing, so it rebuilds the
+expected invocation locally from the merchant-signed intent and compares it field
+by field: contract, function, payer, amount, recipient, asset, expiry. A merchant
+that swapped any of them produces an invocation that no longer matches the intent
+it signed, and the device is never asked to sign. Verification happens before the
+prompt, so an approval the customer sees is always for the payment on screen.
+
+Ordering matters: the invocation names the payer, so the merchant can only build
+the request once the customer has identified itself. Over a tap that is an extra
+exchange — intent out, address back, request out, signature back — and the
+protocol allows a second tap for it.
+
+Proven on Testnet by `npm run testnet:offline`, which runs the customer's half
+with `fetch` removed from its global scope, so reaching for the network fails
+rather than passing unnoticed.

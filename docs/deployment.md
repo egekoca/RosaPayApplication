@@ -67,6 +67,29 @@ A small always-on host — Fly.io, Railway, Render, or a VM — runs both proces
 as they are written. Deploy the API and the worker separately so the worker can
 restart without interrupting payments.
 
+## Configuring a machine
+
+The API, the worker and the Testnet proof scripts all read the same `.env` at
+the repository root, through Node's own `--env-file-if-exists`. One file, one
+place, no exported shell variables to forget:
+
+```
+cp .env.example .env
+# then fill in DATABASE_URL, STELLAR_SETTLEMENT_CONTRACT_ID,
+# STELLAR_RELAYER_SECRET and STELLAR_ADMIN_SECRET
+```
+
+Without `STELLAR_RELAYER_SECRET` the API answers `RELAYER_DISABLED` and the app
+reports "The Rosa Pay relayer is unreachable, so no fee payer could sign.
+Nothing was sent." That is the fail-closed path working: no fee payer, no
+transaction, nothing half-sent. It is also the most common reason a Testnet
+payment stops at Prepare on a fresh checkout.
+
+Secrets may also come from the Stellar CLI's identity store, which is the
+fallback when no env file is present. The environment wins, because a stale
+identity left in a repository-local `.stellar` after `stellar config migrate`
+would otherwise be preferred over the real key.
+
 ## Secrets
 
 `STELLAR_RELAYER_SECRET` and `STELLAR_ADMIN_SECRET` move real value: the relayer

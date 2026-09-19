@@ -1,6 +1,7 @@
 import {
   emptyPaymentMetrics,
   type AuthorizationRecord,
+  type CountersignatureRecord,
   type MerchantPayment,
   type IntentRepository,
   type PaymentMetrics,
@@ -14,6 +15,7 @@ export class InMemoryIntentRepository implements IntentRepository {
   private readonly byIdempotencyKey = new Map<string, StoredIntent>();
   private readonly settlements = new Map<string, SettlementRecord>();
   private readonly authorizations = new Map<string, AuthorizationRecord>();
+  private readonly countersignatures = new Map<string, CountersignatureRecord>();
   /** When this process saw each intent, so timings are not a client's clock. */
   private readonly createdAt = new Map<string, number>();
 
@@ -70,6 +72,14 @@ export class InMemoryIntentRepository implements IntentRepository {
 
   async findAuthorization(intentId: string) {
     return this.authorizations.get(intentId) ?? null;
+  }
+
+  async saveCountersignature(record: CountersignatureRecord) {
+    this.countersignatures.set(record.intentId, record);
+  }
+
+  async findCountersignature(intentId: string) {
+    return this.countersignatures.get(intentId) ?? null;
   }
 
   async listMerchantPayments(merchantProfileId: string, limit: number): Promise<MerchantPayment[]> {

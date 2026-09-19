@@ -14,7 +14,8 @@ import {mobileSettlementMode} from '../payments/settlementAdapter';
 import {useNfcBroadcast} from '../payments/useNfc';
 import {createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
 import {registerMerchantForTestnet} from './merchantRegistration';
-import {publishPaymentRequest, usePaymentRequestStatus} from './merchantRequestStatus';
+import {publishPaymentRequest, useRelayerIdentity, usePaymentRequestStatus} from './merchantRequestStatus';
+import {useMerchantCountersigning} from './merchantCountersigning';
 
 type Props = NativeStackScreenProps<RootStackParams, 'MerchantRequest'>;
 
@@ -33,6 +34,16 @@ export function MerchantRequestScreen({navigation}: Props) {
   const settlement = usePaymentRequestStatus(
     settlementMode === 'testnet' ? pendingRequest?.intent.intentId ?? '' : '',
   );
+  const relayer = useRelayerIdentity();
+  // A customer on another phone cannot produce the merchant's signature, so this
+  // device signs for them as soon as they claim the request.
+  useMerchantCountersigning({
+    request: pendingRequest,
+    profile: merchantProfile,
+    relayerAddress: relayer.data?.address,
+    settlementContractId: relayer.data?.settlementContractId,
+    enabled: settlementMode === 'testnet' && settlement.data?.status === 'awaiting_approval',
+  });
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
   const [error, setError] = useState<string | undefined>();

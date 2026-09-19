@@ -13,6 +13,7 @@ import {useAppStore} from '../../state/appStore';
 import {useAppStore as useStore} from '../../state/appStore';
 import {createRandomBytes} from '../../shared/randomBytes';
 import type {MerchantProfile} from '../merchant/merchantProfile';
+import {selectCountersigner, type Countersigner} from './countersignature';
 import {createLifecycleReporter} from './paymentLifecycle';
 import {createHardwareDigestSigner, ensureSmartWallet, SmartWalletError} from './smartWalletSettlement';
 import {settleMockPayment} from './mockSettlement';
@@ -41,6 +42,7 @@ export type MobileSettlementDependencies = {
   customer?: Keypair;
   relayer?: RelayerIdentity;
   relayerSigner?: {signTransaction(xdr: string): Promise<{signedTxXdr: string}>};
+  countersign?: Countersigner;
   baseUrl?: string;
   onProgress?: (progress: SettlementPipelineProgress) => void;
 };
@@ -99,12 +101,16 @@ export async function settlePaymentIntent(
 
   const baseUrl = dependencies.baseUrl ?? useStore.getState().apiBaseUrl;
   const merchantProfile = dependencies.merchantProfile ?? useAppStore.getState().merchantProfile;
-  if (!merchantProfile) {
-    throw new TestnetSettlementError(
-      'MERCHANT_KEY_UNAVAILABLE',
-      'Testnet settlement needs the merchant profile that signed this request',
-    );
-  }
+  // A payment between two phones is the normal case, and the customer's phone
+  // does not hold the merchant's signing key. It signs locally only when this
+  // device is the merchant that made the request.
+  const countersign =
+    dependencies.countersign ??
+    selectCountersigner({
+      merchantProfile,
+      merchantSigningKey: payload.intent.merchantSigningKey,
+      baseUrl,
+    });
 
   const config = dependencies.config ?? createStellarConfig('testnet');
   const relayer = dependencies.relayer ?? (await fetchRelayerIdentity(baseUrl));
@@ -139,7 +145,7 @@ export async function settlePaymentIntent(
   const receipt = await settleOnTestnet({
     payload,
     config,
-    merchantProfile,
+    countersign,
     customer,
     relayer,
     relayerSigner,
