@@ -293,3 +293,124 @@ export async function pollTransaction({
   // type honest if the loop is ever refactored.
   throw new InteractiveError('UNKNOWN_TRANSACTION', 'The anchor transaction could not be read');
 }
+
+export const nativeAsset = 'stellar:native';
+
+export type IndicativePrice = {
+  /** SEP-38 asset identifier, e.g. `iso4217:USD` or `stellar:USDC:G…`. */
+  asset: string;
+  /** How much of `asset` one unit of the sold asset is worth. */
+  price: string;
+  decimals?: number;
+};
+
+/**
+ * SEP-38 indicative prices: what an anchor would give for an asset right now.
+ *
+ * Indicative, not a quote — it commits the anchor to nothing and is only good
+ * for telling someone roughly what their balance is worth. A firm number needs
+ * `/quote`, which requires an authenticated session and reserves a rate.
+ */
+export async function readIndicativePrices(input: {
+  anchor: AnchorInfo;
+  sellAsset?: string;
+  sellAmount: string;
+  fetcher?: typeof fetch;
+}): Promise<IndicativePrice[]> {
+  const {anchor, sellAsset = nativeAsset, sellAmount, fetcher = fetch} = input;
+  if (!anchor.quoteServer) return [];
+
+  const url = new URL(`${anchor.quoteServer}/prices`);
+  url.searchParams.set('sell_asset', sellAsset);
+  url.searchParams.set('sell_amount', sellAmount);
+
+  const response = await fetcher(url.toString());
+  if (!response.ok) return [];
+
+  const body = (await response.json()) as {buy_assets?: unknown};
+  const parsed = z
+    .array(
+      z.object({
+        asset: z.string().min(1),
+        price: z.string().min(1),
+        decimals: z.number().optional(),
+      }),
+    )
+    .safeParse(body.buy_assets);
+  return parsed.success ? parsed.data : [];
+}
+
+/** The human label an anchor's asset identifier stands for, e.g. `USD`. */
+export function assetCodeOf(asset: string): string {
+  const [scheme, code] = asset.split(':');
+  if (scheme === 'iso4217') return code ?? asset;
+  // `stellar:native` is the lumen; every other stellar asset names its code.
+  if (scheme === 'stellar') return !code || code === 'native' ? 'XLM' : code;
+  return asset;
+}
+
+export type CurrencyPrice = {
+  /** The currency a merchant would name a price in, e.g. `USD`. */
+  currency: string;
+  /** SEP-38 identifier the anchor used, kept so a quote can be requested later. */
+  asset: string;
+  /** How many units of `currency` one unit of the sold asset is worth. */
+  perUnit: string;
+};
+
+/**
+ * The currencies an anchor will price an asset in.
+ *
+ * A merchant thinks in the money on their menu, not in lumens. This asks the
+ * anchor which of those currencies it can actually price, so the app offers the
+ * real list rather than a hardcoded one that may quote nothing.
+ */
+export async function readCurrencyPrices(input: {
+  anchor: AnchorInfo;
+  sellAsset?: string;
+  fetcher?: typeof fetch;
+}): Promise<CurrencyPrice[]> {
+  const prices = await readIndicativePrices({
+    anchor: input.anchor,
+    sellAsset: input.sellAsset ?? nativeAsset,
+    sellAmount: '1',
+    ...(input.fetcher ? {fetcher: input.fetcher} : {}),
+  });
+
+  return prices
+    .filter(price => Number(price.price) > 0)
+    .map(price => ({currency: assetCodeOf(price.asset), asset: price.asset, perUnit: price.price}));
+}
+
+export class PriceConversionError extends Error {}
+
+/**
+ * How much of the asset settles a price named in a currency.
+ *
+ * Rounded up, never down: rounding down would hand the merchant fractionally
+ * less than the price on their menu, and doing that on every payment is a
+ * shortfall they never agreed to. Stellar amounts carry seven decimals, so that
+ * is the precision the result is emitted at.
+ */
+export function assetAmountForPrice(input: {
+  amount: string;
+  perUnit: string;
+  decimals?: number;
+}): string {
+  const decimals = input.decimals ?? 7;
+  const amount = Number(input.amount);
+  const perUnit = Number(input.perUnit);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new PriceConversionError('A price must be a positive amount');
+  }
+  if (!Number.isFinite(perUnit) || perUnit <= 0) {
+    throw new PriceConversionError('A rate must be a positive number');
+  }
+
+  const scale = 10 ** decimals;
+  const units = Math.ceil((amount / perUnit) * scale);
+  if (!Number.isFinite(units)) {
+    throw new PriceConversionError('That price does not convert to a payable amount');
+  }
+  return (units / scale).toFixed(decimals);
+}

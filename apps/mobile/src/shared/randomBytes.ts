@@ -17,10 +17,10 @@ export function hasSecureRandomness(): boolean {
 }
 
 /**
- * React Native ships no `crypto.getRandomValues`, so a real CSPRNG only exists
- * once a native module provides one. The insecure fallback is therefore an
- * explicit, logged decision that only the mock demo may take: anything that can
- * move real value must fail instead of inventing entropy.
+ * `polyfills.ts` installs the platform CSPRNG, so `getRandomValues` is there on
+ * both platforms. This still refuses rather than inventing entropy when it is
+ * missing — a bundle that failed to load the polyfill must fail loudly, not sign
+ * a real payment with `Math.random`.
  */
 export function createRandomBytes({allowInsecureFallback}: {allowInsecureFallback: boolean}): RandomBytes {
   return size => {
@@ -34,7 +34,7 @@ export function createRandomBytes({allowInsecureFallback}: {allowInsecureFallbac
       );
     }
 
-    logger.info('insecure_randomness_used', {size, reason: 'demo_mode_only'});
+    logger.info('insecure_randomness_used', {size, reason: 'explicitly_allowed'});
     const bytes = new Uint8Array(size);
     for (let index = 0; index < size; index += 1) {
       bytes[index] = Math.floor(Math.random() * 256);

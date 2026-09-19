@@ -145,6 +145,21 @@ Still open on this path:
 - Carrying the exchange over NFC needs a stateful APDU session: intent out,
   customer address back, authorization request out, signature back.
 
+## One screen
+
+Paying and looking back at what you paid is the whole job a customer has, so
+both live on one screen and the tab bar is gone. A bar promising Home, Activity
+and Wallet was three doors into the same room.
+
+The balance is a card rather than a dashboard panel. People already know what a
+payment card tells them — whose it is, what is on it, and its number along the
+bottom — so the balance needs no label and the contract address stops reading as
+a technical field.
+
+Everything else on that screen is one row: scan to pay, the payments below it,
+and a quiet line to add merchant tools. The network no longer gets its own row,
+because the card already says which network it is on.
+
 ## Getting in
 
 Lumenade Pay is non-custodial, so there is no server account for an email and

@@ -334,6 +334,134 @@ h1 em, h2 em { color: var(--ink); font-style: normal; position: relative; }
 /* ---------- problem / solution ---------- */
 .compare { align-items: stretch; display: grid; gap: 18px; grid-template-columns: 1fr 60px 1fr; }
 /*
+ * The lead argument of the page, and the only one a restaurant owner already
+ * feels: they are owed money they cannot touch. Two cards, same shape, so the
+ * comparison is the wait itself rather than a list of features — a bar that
+ * crawls across forty days beside one that is over before it is read.
+ *
+ * The bars carry the meaning, so they are given a label and the numbers stay
+ * legible; a reader who never looks at the paragraph still gets the point.
+ */
+.wait { display: grid; gap: 16px; grid-template-columns: 1fr; margin-bottom: 56px; }
+@media (min-width: 860px) { .wait { grid-template-columns: 1fr 1fr; gap: 20px; } }
+
+.wait-card {
+  border: 1px solid var(--rule);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 30px 30px 32px;
+}
+.wait-card--then { background: var(--paper-raised); }
+.wait-card--now { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+.wait-tag {
+  align-items: center;
+  display: flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.wait-tag .i { font-size: 15px; stroke-width: 1.7; }
+.wait-card--then .wait-tag { color: var(--ink-muted); }
+.wait-card--now .wait-tag { color: var(--lemon); }
+
+.wait-lead { font-size: clamp(20px, 2.2vw, 25px); font-weight: 640; letter-spacing: -0.03em; line-height: 1.2; }
+.wait-note { font-size: 15px; line-height: 1.55; margin-top: auto; }
+.wait-card--then .wait-note { color: var(--ink-muted); }
+.wait-card--now .wait-note { color: rgba(242, 239, 228, 0.68); }
+
+.wait-meter { display: grid; gap: 12px; }
+.wait-track {
+  background: rgba(20, 19, 15, 0.1);
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+  position: relative;
+}
+.wait-track--now { background: rgba(242, 239, 228, 0.16); }
+.wait-fill {
+  background: var(--rule-strong);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--w, 1));
+  width: 100%;
+}
+.wait-track--now .wait-fill { background: var(--lemon); }
+
+.wait-scale {
+  color: var(--ink-faint);
+  display: flex;
+  font-size: 11px;
+  font-weight: 600;
+  justify-content: space-between;
+  letter-spacing: 0.1em;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wait-figure { align-items: baseline; display: flex; gap: 10px; }
+.wait-figure > span:first-child { font-size: clamp(46px, 6vw, 68px); font-weight: 700; letter-spacing: -0.05em; line-height: 0.9; }
+.wait-unit { color: rgba(242, 239, 228, 0.6); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+
+/*
+ * The bars fill only once the block is on screen. Animating them on load meant
+ * the forty-day crawl had already finished by the time anyone scrolled to it,
+ * which is precisely the thing being illustrated.
+ */
+.wait-fill { transition: transform 1400ms var(--ease); }
+.wait:not([data-visible]) .wait-fill { transform: scaleX(0); }
+.wait-card--now .wait-fill { transition-duration: 320ms; }
+@media (prefers-reduced-motion: reduce) {
+  .wait-fill { transition: none; }
+  .wait:not([data-visible]) .wait-fill { transform: scaleX(var(--w, 1)); }
+}
+
+/*
+ * The conversion, shown once and literally. Explaining an exchange rate in a
+ * sentence makes a reader do arithmetic to believe it; showing the two numbers
+ * with an arrow between them is the whole claim, and the long lumen amount is
+ * left at full precision because that is what the app actually signs.
+ */
+.priced {
+  align-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 20px;
+  display: grid;
+  gap: 28px;
+  grid-template-columns: 1fr;
+  margin-bottom: 56px;
+  padding: 32px;
+}
+@media (min-width: 860px) { .priced { grid-template-columns: 1.15fr 0.85fr; gap: 44px; padding: 40px; } }
+
+.priced-tag { color: var(--lemon-ink); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; margin-bottom: 14px; text-transform: uppercase; }
+.priced-copy h3 { font-size: clamp(23px, 2.6vw, 31px); font-weight: 680; letter-spacing: -0.035em; line-height: 1.14; margin: 0 0 14px; max-width: 20ch; }
+.priced-note { color: var(--ink-muted); font-size: 15px; line-height: 1.6; margin: 0; max-width: 54ch; }
+
+.priced-convert {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 30px 22px 24px;
+  text-align: center;
+}
+.priced-from, .priced-to { align-items: baseline; display: flex; gap: 8px; justify-content: center; }
+.priced-from span { font-size: clamp(30px, 3.6vw, 40px); font-weight: 700; letter-spacing: -0.04em; }
+.priced-to span { font-size: clamp(19px, 2.2vw, 24px); font-weight: 640; letter-spacing: -0.03em; word-break: break-all; }
+.priced-from em, .priced-to em { color: var(--ink-faint); font-size: 12px; font-style: normal; font-weight: 700; letter-spacing: 0.14em; }
+.priced-arrow { color: var(--lemon-ink); font-size: 20px; transform: rotate(90deg); }
+.priced-rate { color: var(--ink-faint); font-size: 12px; letter-spacing: 0.06em; margin: 4px 0 0; }
+
+/*
  * One row per friction, with its fix beside it. Two mirrored lists made a reader
  * hold three problems in their head and pair them up themselves; here the pair
  * is the unit, so "a 56-character address" and "scan the code" are one thought.

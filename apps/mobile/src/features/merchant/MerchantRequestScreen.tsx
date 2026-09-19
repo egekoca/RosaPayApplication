@@ -2,16 +2,19 @@ import {useState, type ReactNode} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Nfc, Store} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
-import {StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Button, colors, radius, spacing, StatusPill, SurfaceCard, TextField, typography} from '@rosapay/ui';
 import {encodePaymentQr, type SignedPaymentIntentV1} from '@rosapay/protocol';
+import type {CurrencyPrice} from '@rosapay/anchor';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {createRandomBytes} from '../../shared/randomBytes';
 import {useStellarHealth} from '../../shared/useStellarHealth';
+import {useCurrencyPrices} from '../../shared/useCurrencyPrices';
 import {useAppStore} from '../../state/appStore';
 import {useNfcBroadcast} from '../payments/useNfc';
 import {createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
+import {priceRequest, referenceForRequest} from './pricedRequest';
 import {registerMerchantForTestnet} from './merchantRegistration';
 import {publishPaymentRequest, useRelayerIdentity, usePaymentRequestStatus} from './merchantRequestStatus';
 import {useMerchantCountersigning} from './merchantCountersigning';
@@ -45,6 +48,10 @@ export function MerchantRequestScreen({navigation}: Props) {
   });
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
+  // Which money the merchant is naming the price in. `undefined` means the
+  // asset itself, which is the only option until an anchor answers.
+  const [currency, setCurrency] = useState<CurrencyPrice | undefined>();
+  const currencies = useCurrencyPrices();
   const [error, setError] = useState<string | undefined>();
   const [registering, setRegistering] = useState(false);
 
@@ -71,12 +78,29 @@ export function MerchantRequestScreen({navigation}: Props) {
     }
   };
 
+  /**
+   * What the customer will actually be asked to send.
+   *
+   * A price named in lira has to become an amount of the asset before it is
+   * signed, because the asset is what the contract moves. The rate is the
+   * anchor's; when it will not quote, the currency is not offered at all.
+   */
+  const priced = priceRequest({amount, currency});
+
   const createRequest = () => {
     setError(undefined);
+    if (currency && !priced) {
+      setError(`Enter a price in ${currency.currency} to convert`);
+      return;
+    }
     try {
       const request = createSignedPaymentRequest(
         merchantProfile,
-        {amount, reference, latestLedger: stellarHealth.data?.latestLedger},
+        {
+          amount: priced ? priced.assetAmount : amount,
+          reference: referenceForRequest(reference, priced),
+          latestLedger: stellarHealth.data?.latestLedger,
+        },
         randomBytes,
       );
       setPendingRequest(request);
@@ -130,15 +154,39 @@ export function MerchantRequestScreen({navigation}: Props) {
       ) : (
         <>
           <SurfaceCard style={styles.form}>
+            {currencies.data && currencies.data.length > 0 ? (
+              <View style={styles.currencyRow}>
+                <CurrencyPill
+                  label="XLM"
+                  selected={currency === undefined}
+                  onPress={() => setCurrency(undefined)}
+                />
+                {currencies.data.slice(0, 3).map(price => (
+                  <CurrencyPill
+                    key={price.asset}
+                    label={price.currency}
+                    selected={currency?.asset === price.asset}
+                    onPress={() => setCurrency(price)}
+                  />
+                ))}
+              </View>
+            ) : null}
             <TextField
               keyboardType="decimal-pad"
-              label="AMOUNT (XLM)"
+              label={`AMOUNT (${currency?.currency ?? 'XLM'})`}
               maxLength={20}
               onChangeText={setAmount}
-              placeholder="24.5"
+              placeholder={currency ? '500' : '24.5'}
               testID="request-amount"
               value={amount}
             />
+            {currency ? (
+              <Text style={styles.conversion} testID="request-conversion">
+                {priced
+                  ? `Customer sends ${priced.assetAmount} XLM · ${currency.perUnit} ${currency.currency} per XLM`
+                  : `Rate ${currency.perUnit} ${currency.currency} per XLM, from the anchor`}
+              </Text>
+            ) : null}
             <TextField
               label="REFERENCE"
               maxLength={120}
@@ -163,6 +211,20 @@ export function MerchantRequestScreen({navigation}: Props) {
         </>
       )}
     </Screen>
+  );
+}
+
+/** One currency a merchant can price in. Plain, because it is a choice, not a feature. */
+function CurrencyPill({label, selected, onPress}: {label: string; selected: boolean; onPress(): void}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{selected}}
+      onPress={onPress}
+      style={[styles.pill, selected && styles.pillSelected]}
+      testID={`currency-${label}`}>
+      <Text style={[styles.pillText, selected && styles.pillTextSelected]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -270,6 +332,12 @@ const styles = StyleSheet.create({
   requestCard: {gap: spacing.md, marginTop: spacing.sm},
   requestHeader: {alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between'},
   amount: {color: colors.ink, fontSize: 28, fontWeight: '700'},
+  currencyRow: {flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.sm},
+  pill: {borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.xs},
+  pillSelected: {backgroundColor: colors.amber, borderColor: colors.amber},
+  pillText: {color: colors.inkMuted, fontSize: 13, fontWeight: '600'},
+  pillTextSelected: {color: colors.ink},
+  conversion: {color: colors.inkMuted, fontSize: 13, lineHeight: 18, marginTop: spacing.xs},
   asset: {color: colors.amber, fontSize: 15},
   reference: {color: colors.inkMuted, fontSize: 12, marginTop: spacing.xs},
   nfcRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},

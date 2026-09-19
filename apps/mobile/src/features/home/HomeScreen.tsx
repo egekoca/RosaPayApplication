@@ -1,25 +1,22 @@
-import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
-import type {CompositeScreenProps} from '@react-navigation/native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ArrowUpRight, ChevronRight, Copy, QrCode, ScanLine, ShieldCheck, SlidersHorizontal, Store, TrendingUp} from 'lucide-react-native';
+import {ChevronRight, Copy, QrCode, ReceiptText, ScanLine, ShieldCheck, SlidersHorizontal, Store} from 'lucide-react-native';
 import {Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import type {ReactNode} from 'react';
 import {AnimatedContent, Button, colors, CountUp, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
-import type {MainTabsParams, RootStackParams} from '../../app/navigation';
+import type {RootStackParams} from '../../app/navigation';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
 import {LumenadeMark} from '../../shared/LumenadeMark';
 import {useMerchantPayments} from '../merchant/merchantRequestStatus';
 import {Screen} from '../../shared/Screen';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useWalletBalance} from '../../shared/useWalletBalance';
+import {useBalanceValue} from '../../shared/useBalanceValue';
 import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
 import {greetingFor} from './greeting';
+import {PaymentCard} from './PaymentCard';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<MainTabsParams, 'Home'>,
-  NativeStackScreenProps<RootStackParams>
->;
+type Props = NativeStackScreenProps<RootStackParams, 'Main'>;
 
 export function HomeScreen({navigation}: Props) {
   const {width} = useWindowDimensions();
@@ -35,10 +32,9 @@ export function HomeScreen({navigation}: Props) {
         </View>
         <Pressable accessibilityLabel="Developer settings" onPress={() => navigation.navigate('DeveloperSettings')} style={styles.iconButton} testID="open-developer-settings"><SlidersHorizontal color={colors.inkMuted} size={19} /></Pressable>
       </View>
-      <View style={styles.networkRow}><View style={styles.network}><View style={[styles.dot, stellarHealth.isError && styles.dotError]} /><Text style={styles.networkText}>{stellarHealth.isPending ? 'Checking Testnet' : stellarHealth.isError ? 'Testnet unavailable' : 'Stellar Testnet'}</Text><ChevronRight color={colors.inkMuted} size={15} /></View><StatusPill tone="success">TESTNET</StatusPill></View>
-      <ModeSwitcher />
+      {merchantEnabled ? <ModeSwitcher /> : null}
       {mode === 'customer' ? (
-        <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} isNarrow={width < 360} />
+        <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} />
       ) : (
         <MerchantHome navigation={navigation} recipient={merchantProfile?.recipient} />
       )}
@@ -46,50 +42,94 @@ export function HomeScreen({navigation}: Props) {
   );
 }
 
-function CustomerHome({navigation, merchantEnabled, isNarrow}: {navigation: Props['navigation']; merchantEnabled: boolean; isNarrow: boolean}) {
+/**
+ * Everything a customer does, on one screen.
+ *
+ * Paying and looking back at what you paid is the whole job, so the card, the
+ * one action and the history sit together rather than behind three tabs. A tab
+ * bar is a promise of somewhere else to go, and there is nowhere else.
+ */
+function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigation']; merchantEnabled: boolean}) {
   const smartWallet = useAppStore(state => state.smartWallet);
+  const receipts = useAppStore(state => state.receipts);
   const balance = useWalletBalance();
+  const value = useBalanceValue(balance.data);
   const address = smartWallet?.contractId;
 
   return (
     <>
-      <AnimatedContent><SurfaceCard accent="amber" style={styles.balanceCard}>
-        <View style={styles.cardHeader}><Text style={styles.cardLabel}>TOTAL BALANCE</Text><View style={styles.balanceNetwork}><View style={[styles.dot, balance.isError && styles.dotError]} /><Text style={styles.balanceNetworkText}>XLM</Text></View></View>
-        <View style={styles.balanceLine}><CountUp value={Number(balance.data ?? 0)} decimals={2} style={styles.balance} /><Text style={styles.balanceAsset}>XLM</Text></View>
-        <Text style={styles.balanceValue}>
-          {!smartWallet
-            ? 'Your wallet is created the first time you pay on Testnet.'
-            : balance.isPending
-              ? 'Reading your balance from Stellar'
-              : balance.isError
-                ? 'Stellar could not be reached, so this balance may be stale.'
-                : 'Held by your device wallet on Stellar Testnet'}
-        </Text>
-        <View style={styles.addressRow}>
-          <Text selectable style={styles.address}>{address ? `${address.slice(0, 8)}...${address.slice(-6)}` : 'No wallet yet'}</Text>
+      <AnimatedContent>
+        <PaymentCard
+          holdings={balance.data === undefined ? [] : [{code: 'XLM', amount: balance.data}]}
+          {...(value.data ? {value: value.data} : {})}
+          {...(address === undefined ? {} : {address})}
+          state={
+            !smartWallet ? 'no-wallet' : balance.isPending ? 'loading' : balance.isError ? 'error' : 'ready'
+          }
+          onCopy={() => address && void shareValue('My Lumenade Pay wallet', address)}
+        />
+      </AnimatedContent>
+
+      <AnimatedContent delay={90}>
+        <PressScale>
           <Pressable
-            accessibilityLabel="Share wallet address"
-            disabled={!address}
-            onPress={() => address && void shareValue('My Lumenade Pay wallet', address)}
-            testID="share-wallet-address">
-            <Copy color={address ? colors.amber : colors.inkMuted} size={16} />
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('Scan')}
+            style={styles.scanAction}
+            testID="scan-to-pay">
+            <View style={styles.scanIcon}>
+              <ScanLine color={colors.black} size={24} />
+            </View>
+            <View style={styles.scanCopy}>
+              <Text style={styles.scanTitle}>Scan to pay</Text>
+              <Text style={styles.scanHint}>Point at the code, or hold the phones together</Text>
+            </View>
+            <ChevronRight color={colors.inkMuted} size={19} />
           </Pressable>
-        </View>
-      </SurfaceCard></AnimatedContent>
-      <View style={[styles.quickGrid, isNarrow && styles.quickGridStacked]}>
-        <QuickAction stacked={isNarrow} icon={<ScanLine color={colors.amber} size={22} />} title="Scan to pay" hint="Use a merchant QR" onPress={() => navigation.navigate('Scan')} />
-        <QuickAction stacked={isNarrow} disabled icon={<ArrowUpRight color={colors.inkMuted} size={22} />} title="Send" hint="Coming soon" />
-      </View>
-      <SectionTitle title="Recent activity" action="View all" onAction={() => navigation.navigate('Activity')} />
-      <SurfaceCard padded={false} style={styles.activityCard}>
-        <View style={styles.activityRow}><View style={styles.activityIcon}><TrendingUp color={colors.success} size={18} /></View><View style={styles.activityCopy}><Text style={styles.activityTitle}>No payments yet</Text><Text style={styles.activityHint}>Your confirmed payments will appear here.</Text></View><ChevronRight color={colors.inkMuted} size={17} /></View>
-      </SurfaceCard>
+        </PressScale>
+      </AnimatedContent>
+
+      <AnimatedContent delay={160}>
+        <Text style={styles.listTitle}>Payments</Text>
+        {receipts.length === 0 ? (
+          <View style={styles.emptyRow}>
+            <Text style={styles.emptyTitle}>Nothing yet</Text>
+            <Text style={styles.emptyHint}>What you pay for shows up here, with a link to the transaction.</Text>
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {receipts.slice(0, 6).map(receipt => (
+              <Pressable
+                key={receipt.intentId}
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('Receipt', {receipt})}
+                style={styles.listRow}>
+                <View style={styles.listIcon}>
+                  <ReceiptText color={colors.success} size={17} />
+                </View>
+                <View style={styles.listCopy}>
+                  <Text style={styles.listName} numberOfLines={1}>{receipt.merchantName}</Text>
+                  <Text style={styles.listWhen}>{new Date(receipt.createdAt).toLocaleDateString()}</Text>
+                </View>
+                <Text style={styles.listAmount}>−{receipt.amount} {receipt.assetCode}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </AnimatedContent>
+
       {!merchantEnabled && (
-        <SurfaceCard accent="amber" style={styles.capabilityCard}>
-          <View style={styles.capabilityIcon}><Store color={colors.lemon} size={20} /></View>
-          <View style={styles.capabilityCopy}><Text style={styles.capabilityTitle}>Accept payments</Text><Text style={styles.capabilityBody}>Add merchant tools to this account.</Text></View>
-          <Button tone="ghost" onPress={() => navigation.navigate('MerchantOnboarding')}>Activate</Button>
-        </SurfaceCard>
+        <AnimatedContent delay={230}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('MerchantOnboarding')}
+            style={styles.merchantRow}
+            testID="activate-merchant">
+            <Store color={colors.amber} size={18} />
+            <Text style={styles.merchantText}>Get paid with this account</Text>
+            <ChevronRight color={colors.inkMuted} size={17} />
+          </Pressable>
+        </AnimatedContent>
       )}
     </>
   );
@@ -149,6 +189,73 @@ function SectionTitle({title, action, onAction}: {title: string; action?: string
 }
 
 const styles = StyleSheet.create({
+  scanAction: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.lg,
+    marginTop: spacing.xl,
+    padding: spacing.lg,
+  },
+  scanIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.amber,
+    borderRadius: radius.md,
+    height: 50,
+    justifyContent: 'center',
+    width: 50,
+  },
+  scanCopy: {flex: 1, gap: 3},
+  scanTitle: {...typography.title, color: colors.ink, fontSize: 18},
+  scanHint: {color: colors.inkMuted, fontSize: 13, lineHeight: 18},
+
+  listTitle: {...typography.overline, color: colors.inkFaint, marginBottom: spacing.md, marginTop: spacing.xxl},
+  list: {gap: 2},
+  listRow: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  listIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.sm,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  listCopy: {flex: 1, gap: 2},
+  listName: {...typography.label, color: colors.ink, fontSize: 15},
+  listWhen: {color: colors.inkFaint, fontSize: 12},
+  listAmount: {...typography.label, color: colors.ink, fontSize: 14},
+
+  emptyRow: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    gap: spacing.xs,
+    padding: spacing.xl,
+  },
+  emptyTitle: {...typography.label, color: colors.ink, fontSize: 15},
+  emptyHint: {color: colors.inkMuted, fontSize: 13, lineHeight: 19},
+
+  merchantRow: {
+    alignItems: 'center',
+    borderTopColor: colors.lineSoft,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.xxl,
+    paddingTop: spacing.xl,
+  },
+  merchantText: {...typography.label, color: colors.ink, flex: 1, fontSize: 14},
+
+
   header: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
   identity: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
   iconButton: {alignItems: 'center', backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, height: 38, justifyContent: 'center', width: 38},
