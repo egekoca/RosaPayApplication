@@ -6,6 +6,7 @@ import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import {CreateAccountScreen} from '../src/features/onboarding/CreateAccountScreen';
 import {MerchantOnboardingScreen} from '../src/features/merchant/MerchantOnboardingScreen';
+import {registerMerchantForTestnet} from '../src/features/merchant/merchantRegistration';
 import {createHardwareSigner} from '../src/features/settings/hardwareSigner';
 import {useAppStore} from '../src/state/appStore';
 
@@ -65,6 +66,7 @@ it('creates no account until the wallet behind it exists', async () => {
     await Promise.resolve();
   });
 
+  expect(renderer.root.findAllByProps({testID: 'account-email'})).toHaveLength(0);
   expect(useAppStore.getState().account).toBeNull();
   const [screen, params] = navigation.replace.mock.calls[0] as [string, {phrase: string; name: string}];
   expect(screen).toBe('RecoveryPhrase');
@@ -115,13 +117,7 @@ it('does not ask a merchant for an address it already knows', async () => {
   expect(renderer.root.findAllByProps({testID: 'merchant-recipient'})).toHaveLength(0);
   expect(JSON.stringify(renderer.toJSON())).toContain(smartWallet.contractId.slice(0, 8));
 
-  // A merchant who wants to be paid somewhere else still can, and the field
-  // opens already holding the address rather than empty.
-  await ReactTestRenderer.act(() => {
-    renderer.root.findByProps({testID: 'change-recipient'}).props.onPress();
-  });
-
-  expect(renderer.root.findByProps({testID: 'merchant-recipient'}).props.value).toBe(smartWallet.contractId);
+  expect(renderer.root.findAllByProps({testID: 'change-recipient'})).toHaveLength(0);
   expect(smartWallet.contractId).toMatch(/^C[A-Z2-7]{55}$/);
 });
 
@@ -139,8 +135,37 @@ it('uses the recovery-phrase account when that is what this phone holds', async 
   });
   renderers.push(renderer);
 
+  expect(JSON.stringify(renderer.toJSON())).toContain(address);
+  expect(renderer.root.findAllByProps({testID: 'merchant-recipient'})).toHaveLength(0);
+});
+
+
+it('requires business email and completes a saved profile without replacing its signer or wallet', async () => {
+  const profile = {
+    merchantProfileId: 'existing-profile', displayName: 'Rose Coffee',
+    recipient: smartWallet.contractId, signingKey: 'existing-key', network: 'testnet' as const,
+    developmentSigningSecret: Uint8Array.from(Buffer.alloc(32, 7)),
+  };
+  useAppStore.setState({smartWallet, merchantProfile: profile});
+  jest.mocked(registerMerchantForTestnet).mockResolvedValue({transactionHash: 'registered'});
+  const navigation = {replace: jest.fn()};
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
   await ReactTestRenderer.act(() => {
-    renderer.root.findByProps({testID: 'change-recipient'}).props.onPress();
+    renderer = ReactTestRenderer.create(<MerchantOnboardingScreen navigation={navigation as never} route={{} as never} />);
   });
-  expect(renderer.root.findByProps({testID: 'merchant-recipient'}).props.value).toBe(address);
+  renderers.push(renderer);
+  await ReactTestRenderer.act(async () => {
+    await renderer.root.findByProps({testID: 'merchant-save-profile'}).props.onPress();
+  });
+  expect(registerMerchantForTestnet).not.toHaveBeenCalled();
+  expect(renderer.root.findByProps({testID: 'merchant-email'}).props.error).toContain('valid business email');
+  await ReactTestRenderer.act(() => {
+    renderer.root.findByProps({testID: 'merchant-email'}).props.onChangeText(' shop@example.com ');
+  });
+  await ReactTestRenderer.act(async () => {
+    await renderer.root.findByProps({testID: 'merchant-save-profile'}).props.onPress();
+  });
+  expect(useAppStore.getState().merchantProfile).toEqual({...profile, email: 'shop@example.com'});
+  expect(useAppStore.getState().smartWallet).toBe(smartWallet);
+  expect(navigation.replace).toHaveBeenCalledWith('Main');
 });

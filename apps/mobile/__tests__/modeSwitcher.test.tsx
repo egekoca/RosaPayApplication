@@ -15,7 +15,7 @@ it('presents payment capabilities without implying separate wallets or accounts'
   useAppStore.setState({
     merchantProfile: {
       merchantProfileId: 'merchant-1',
-      displayName: 'Lemon Stand',
+      displayName: 'Lemon Stand', email: 'hello@example.com',
       recipient: 'CAFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUTSM',
       signingKey: 'public-key',
       network: 'testnet',

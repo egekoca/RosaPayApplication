@@ -14,7 +14,7 @@ import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useCurrencyPrices} from '../../shared/useCurrencyPrices';
 import {useAppStore} from '../../state/appStore';
 import {useNfcBroadcast} from '../payments/useNfc';
-import {createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
+import {businessEmailSchema, createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
 import {priceRequest, referenceForRequest} from './pricedRequest';
 import {defaultPayableAsset, payableAssets, type PayableAsset} from '../payments/assets';
 import {useRecipientCanReceive} from './useRecipientCanReceive';
@@ -28,7 +28,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'MerchantRequest'>;
 // Nothing insecure may sign a real payment, so there is no fallback to allow.
 const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
-export function MerchantRequestScreen({navigation}: Props) {
+export function MerchantRequestScreen({navigation, route}: Props) {
   const t = useTranslate();
   const {
     merchantProfile,
@@ -62,9 +62,14 @@ export function MerchantRequestScreen({navigation}: Props) {
   const currencies = useCurrencyPrices(payable.sep38);
   const canReceive = useRecipientCanReceive(merchantProfile?.recipient, payable);
   const [error, setError] = useState<string | undefined>();
+  // Kept apart from `error` so it can be shown beside the retry it belongs to.
+  // Registration fails at the top of this screen; the shared error line sits
+  // below the whole pricing form, off the bottom of the phone, where the reason
+  // a merchant cannot be paid is the last thing they would ever scroll to.
+  const [registerError, setRegisterError] = useState<string | undefined>(route.params?.registrationError);
   const [registering, setRegistering] = useState(false);
 
-  if (!merchantProfile) {
+  if (!merchantProfile || !businessEmailSchema.safeParse(merchantProfile.email).success) {
     return (
       <Screen contentStyle={styles.centered}>
         <Text style={styles.subtitle}>{t('Set up your business profile before creating a payment request.')}</Text>
@@ -75,13 +80,13 @@ export function MerchantRequestScreen({navigation}: Props) {
 
   const registerOnChain = async () => {
     if (!merchantProfile) return;
-    setError(undefined);
+    setRegisterError(undefined);
     setRegistering(true);
     try {
       await registerMerchantForTestnet(merchantProfile);
       setMerchantRegisteredOnChain(true);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t('Testnet registration failed'));
+      setRegisterError(failure instanceof Error ? failure.message : t('Testnet registration failed'));
     } finally {
       setRegistering(false);
     }
@@ -151,6 +156,7 @@ export function MerchantRequestScreen({navigation}: Props) {
           <SurfaceCard accent="amber" style={styles.warning}>
             <Text style={styles.warningTitle}>{t('Not registered on Testnet')}</Text>
             <Text style={styles.warningBody}>{t('The settlement contract only accepts requests from a registered merchant key.')}</Text>
+            {registerError ? <Text style={styles.error} testID="register-merchant-error">{registerError}</Text> : null}
             <Button loading={registering} tone="ghost" onPress={() => void registerOnChain()} testID="register-merchant">
               {registering ? t('Registering') : t('Register this business')}
             </Button>

@@ -176,6 +176,7 @@ export function dropUnusableSecrets(state: Partial<AppState>): Partial<AppState>
     : [];
   return {
     ...state,
+    mode: 'customer',
     merchantProfile,
     pendingAnchorTransfer,
     smartWallet,

@@ -89,6 +89,7 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 
 ## P2 - Reliability and Evidence
 
+- [x] Bring the website up to what the product does. It now carries the custody story the app is actually built on — a key the phone cannot give away, a passkey that carries the wallet to a new phone, and a contract that lets that passkey rescue but never spend — with the rotation transaction linked on-chain beside it. The anchor tiles name SEP-6 and SEP-10, which is what the lira rail really speaks, rather than SEP-24 and SEP-45, which it does not.
 - [x] Publish a responsive product website at `https://lumenade-pay.vercel.app` with mobile-source links and independently inspectable Testnet contract, transaction and manifest evidence.
 - [~] Implement the worker confirmation port and safe interval lifecycle: the runtime reconciles submitted settlements through the RPC receipt guard and closes out requests whose expiry ledger has passed, on a non-overlapping interval with graceful shutdown; durable indexing, retry and notification hooks remain.
 - [x] Add offline-safe retry using API idempotency keys; a dropped connection, a timeout, a 5xx or a 429 is tried again with backoff, every retried call is idempotent on the server, and the two that spend funds — wallet provisioning and on-chain merchant registration — are deliberately left alone.
@@ -115,6 +116,15 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
 - [ ] Write the three-minute demo script and the failure-path demo.
 
 ## Interface review
+
+- [x] Open Pay on each launch and keep the same persisted wallet/profile across Pay and Get paid.
+- [x] Remove customer email collection; require business name and email only when activating Get paid, with mobile/API validation and PostgreSQL migration `010_merchant_email.sql`. Legacy profiles complete email without replacing their signer.
+- [x] Bind new mobile merchant profiles to the current wallet; remove alternate recipient entry.
+- [ ] Add merchant photo, location/map and PDF invoices in a later scope.
+
+- [x] Keep a single mounted balance card directly below the home header on both
+  platforms. Pay/Get paid changes only the content below the card; currency
+  selection and the card's interaction state survive the mode change.
 
 - Every control on screen does something: the receipt and wallet addresses share
   through the platform sheet, activity filters by all/on-chain/demo, and "View

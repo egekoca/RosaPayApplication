@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
+import {businessEmailSchema} from '../merchant/merchantProfile';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
 import {LumenadeMark} from '../../shared/LumenadeMark';
 import {useMerchantPayments} from '../merchant/merchantRequestStatus';
@@ -28,7 +29,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'Main'>;
 export function HomeScreen({navigation}: Props) {
   const {mode, merchantProfile, account} = useAppStore();
   const t = useTranslate();
-  const merchantEnabled = merchantProfile !== null;
+  const merchantEnabled = Boolean(merchantProfile && businessEmailSchema.safeParse(merchantProfile.email).success);
   const greeting = greetingFor(account?.name);
   const [greetingPart, ...greetingName] = greeting.split(', ');
   return (
@@ -40,9 +41,10 @@ export function HomeScreen({navigation}: Props) {
         </View>
 
       </View>
+      <WalletOverview />
       {merchantEnabled ? <ModeSwitcher /> : null}
       <AnimatedContent key={mode} delay={60} distance={14} scaleFrom={0.99} style={styles.modeStage}>
-        {mode === 'customer' ? (
+        {mode === 'customer' || !merchantEnabled ? (
           <CustomerHome navigation={navigation} merchantEnabled={merchantEnabled} />
         ) : (
           <MerchantHome navigation={navigation} />
@@ -52,42 +54,15 @@ export function HomeScreen({navigation}: Props) {
   );
 }
 
-/**
- * Everything a customer does, on one screen.
- *
- * Paying and looking back at what you paid is the whole job, so the card, the
- * one action and the history sit together rather than behind three tabs. A tab
- * bar is a promise of somewhere else to go, and there is nowhere else.
- */
-function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigation']; merchantEnabled: boolean}) {
-  const t = useTranslate();
+/** Stays mounted in the same position while the task below it changes. */
+function WalletOverview() {
   const account = useCurrentAccount();
-  // The person's own record, which outlives whatever wallet it is attached to.
-  const identity = useAppStore(state => state.account);
-  const receipts = useAppStore(state => state.receipts);
   const displayCurrency = useAppStore(state => state.displayCurrency);
   const setDisplayCurrency = useAppStore(state => state.setDisplayCurrency);
-  // Opens the list rather than stepping to the next one. Cycling hid the
-  // options and made reaching the fourth cost three rate lookups.
   const [pickingCurrency, setPickingCurrency] = useState(false);
   const balance = useWalletBalance();
   const value = useBalanceValue(balance.data);
   const address = account?.address;
-
-  /*
-   * An account can outlive its wallet — a setup that failed part way, or a key
-   * the screen lock destroyed. It used to be offered a smart wallet here,
-   * which is now the one thing a new account never gets and the one wallet
-   * that cannot hold lira. It gets the same twelve words as everyone else.
-   */
-  const finishWalletSetup = () => {
-    navigation.replace('RecoveryPhrase', {
-      phrase: generateRecoveryPhrase(),
-      name: identity?.name ?? 'You',
-      ...(identity?.email ? {email: identity.email} : {}),
-    });
-  };
-
   return (
     <>
       <AnimatedContent>
@@ -103,6 +78,33 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
           onCopy={() => address && void shareValue('My Lumenade Pay wallet', address)}
         />
       </AnimatedContent>
+      <CurrencyPicker
+        onClose={() => setPickingCurrency(false)}
+        onSelect={setDisplayCurrency}
+        selected={displayCurrency}
+        visible={pickingCurrency}
+      />
+    </>
+  );
+}
+
+function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigation']; merchantEnabled: boolean}) {
+  const t = useTranslate();
+  const account = useCurrentAccount();
+  const identity = useAppStore(state => state.account);
+  const receipts = useAppStore(state => state.receipts);
+  const balance = useWalletBalance();
+  const value = useBalanceValue(balance.data);
+  const finishWalletSetup = () => {
+    navigation.replace('RecoveryPhrase', {
+      phrase: generateRecoveryPhrase(),
+      name: identity?.name ?? 'You',
+      ...(identity?.email ? {email: identity.email} : {}),
+    });
+  };
+
+  return (
+    <>
 
       {/*
         Only a phone that chose device custody can finish setup this way; a
@@ -179,13 +181,6 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
           </PressScale>
         </AnimatedContent>
       ) : null}
-
-      <CurrencyPicker
-        onClose={() => setPickingCurrency(false)}
-        onSelect={setDisplayCurrency}
-        selected={displayCurrency}
-        visible={pickingCurrency}
-      />
 
       {/*
         What the total is made of. The card answers "what is this worth"; two
@@ -268,18 +263,11 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
 
 function MerchantHome({navigation}: {navigation: Props['navigation']}) {
   const t = useTranslate();
-  const account = useCurrentAccount();
   const receipts = useAppStore(state => state.receipts);
-  const displayCurrency = useAppStore(state => state.displayCurrency);
-  const setDisplayCurrency = useAppStore(state => state.setDisplayCurrency);
-  // The same wallet the Pay view reads. One account, so one balance.
-  const balance = useWalletBalance();
-  const value = useBalanceValue(balance.data);
   const merchantProfile = useAppStore(state => state.merchantProfile);
   const merchantRegisteredOnChain = useAppStore(state => state.merchantRegisteredOnChain);
   const pendingRequest = useAppStore(state => state.pendingRequest);
   const payments = useMerchantPayments(merchantProfile?.merchantProfileId);
-  const [pickingCurrency, setPickingCurrency] = useState(false);
 
   // On Testnet the API knows every request this merchant made, from any device;
   // a device on its own only has what it recorded itself.
@@ -303,27 +291,6 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
           </View>
         </View>
       </AnimatedContent>
-
-      <AnimatedContent delay={70} scaleFrom={0.985}>
-        <PaymentCard
-          holdings={balance.data ?? []}
-          currency={displayCurrency}
-          onChangeCurrency={() => setPickingCurrency(true)}
-          {...(value.data ? {value: value.data} : {})}
-          {...(account?.address === undefined ? {} : {address: account.address})}
-          state={
-            !account ? 'no-wallet' : balance.isPending ? 'loading' : balance.isError ? 'error' : 'ready'
-          }
-          onCopy={() => account?.address && void shareValue('My Lumenade Pay wallet', account.address)}
-        />
-      </AnimatedContent>
-
-      <CurrencyPicker
-        onClose={() => setPickingCurrency(false)}
-        onSelect={setDisplayCurrency}
-        selected={displayCurrency}
-        visible={pickingCurrency}
-      />
 
       <AnimatedContent delay={140}>
         <Button icon={<QrCode color={colors.black} size={20} />} onPress={() => navigation.navigate('MerchantRequest')}>

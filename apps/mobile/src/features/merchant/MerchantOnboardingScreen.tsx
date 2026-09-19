@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {ShieldCheck, Smartphone, Store} from 'lucide-react-native';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, radius, spacing, SurfaceCard, TextField, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
@@ -9,7 +9,7 @@ import {logger} from '../../shared/logger';
 import {createRandomBytes} from '../../shared/randomBytes';
 import {useAppStore} from '../../state/appStore';
 import {useCurrentAccount} from '../wallet/currentAccount';
-import {createMerchantProfile, MerchantProfileError} from './merchantProfile';
+import {createMerchantProfile, MerchantProfileError, requireBusinessEmail} from './merchantProfile';
 import {registerMerchantForTestnet} from './merchantRegistration';
 import {useTranslate} from '../../shared/i18n';
 
@@ -20,24 +20,24 @@ const randomBytes = createRandomBytes({allowInsecureFallback: false});
 
 export function MerchantOnboardingScreen({navigation}: Props) {
   const t = useTranslate();
-  const {saveMerchantProfile, setMerchantRegisteredOnChain} = useAppStore();
+  const {merchantProfile, saveMerchantProfile, setMerchantRegisteredOnChain} = useAppStore();
   const account = useCurrentAccount();
-  const [displayName, setDisplayName] = useState('');
-  // The account this phone already pays from is the account it gets paid into.
-  // Asking for an address here made a second setup out of what is one wallet,
-  // and the answer was always the address already on the screen behind.
-  const [recipient, setRecipient] = useState(account?.address ?? '');
-  const [editingRecipient, setEditingRecipient] = useState(!account);
-  const [errors, setErrors] = useState<{displayName?: string; recipient?: string; general?: string}>({});
+  const [displayName, setDisplayName] = useState(merchantProfile?.displayName ?? '');
+  const [email, setEmail] = useState(merchantProfile?.email ?? '');
+  const recipient = account?.address ?? '';
+  const [errors, setErrors] = useState<{displayName?: string; email?: string; recipient?: string; general?: string}>({});
   const [registering, setRegistering] = useState(false);
 
   const submit = async () => {
     setErrors({});
     let profile;
     try {
-      profile = createMerchantProfile({displayName, recipient}, randomBytes);
+      if (!account) throw new Error('Create or import a wallet before setting up your business');
+      profile = merchantProfile
+        ? {...merchantProfile, email: requireBusinessEmail(email)}
+        : createMerchantProfile({displayName, email, recipient}, randomBytes);
     } catch (error) {
-      if (error instanceof MerchantProfileError && (error.field === 'displayName' || error.field === 'recipient')) {
+      if (error instanceof MerchantProfileError && (error.field === 'displayName' || error.field === 'recipient' || error.field === 'email')) {
         setErrors({[error.field]: error.message});
         return;
       }
@@ -49,22 +49,23 @@ export function MerchantOnboardingScreen({navigation}: Props) {
     logger.info('merchant_profile_created', {merchantProfileId: profile.merchantProfileId});
 
     // Testnet settlement is rejected until the contract knows this merchant key.
-    let registered = false;
+    let registrationError: string | undefined;
     setRegistering(true);
     try {
       await registerMerchantForTestnet(profile);
       setMerchantRegisteredOnChain(true);
-      registered = true;
     } catch (error) {
-      setErrors({
-        general: `Profile saved, but Testnet registration failed: ${
-          error instanceof Error ? error.message : t('unknown error')
-        }. You can retry it from the payment request screen.`,
-      });
+      registrationError = error instanceof Error ? error.message : t('unknown error');
     } finally {
       setRegistering(false);
     }
-    navigation.replace(registered ? 'Main' : 'MerchantRequest');
+    // The reason travels to the next screen rather than into state this replace
+    // is about to discard, because that screen is where the retry lives.
+    if (registrationError) {
+      navigation.replace('MerchantRequest', {registrationError});
+      return;
+    }
+    navigation.replace('Main');
   };
 
   return (
@@ -82,6 +83,7 @@ export function MerchantOnboardingScreen({navigation}: Props) {
           <TextField
             label={t('BUSINESS NAME')}
             maxLength={80}
+            editable={!merchantProfile}
             onChangeText={value => {
               setDisplayName(value);
               if (errors.displayName) setErrors(current => ({...current, displayName: undefined}));
@@ -91,38 +93,27 @@ export function MerchantOnboardingScreen({navigation}: Props) {
             value={displayName}
             {...(errors.displayName ? {error: errors.displayName} : {})}
           />
-          {account && !editingRecipient ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setEditingRecipient(true)}
-              style={styles.useWallet}
-              testID="change-recipient">
-              <Smartphone color={colors.goldBright} size={18} />
-              <View style={styles.useWalletCopy}>
-                <Text style={styles.useWalletTitle}>{t('Paid into this wallet')}</Text>
-                <Text style={styles.useWalletBody}>
-                  {`${account.address.slice(0, 8)}…${account.address.slice(-6)} — ${t('The account this phone already uses. Tap to be paid somewhere else instead.')}`}
-                </Text>
-              </View>
-            </Pressable>
-          ) : (
-            <TextField
-              autoCapitalize="characters"
-              hint={t('Stellar account or contract address that receives payments')}
-              label={t('RECEIVING ADDRESS')}
-              maxLength={56}
-              mono
-              multiline
-              onChangeText={value => {
-                setRecipient(value);
-                if (errors.recipient) setErrors(current => ({...current, recipient: undefined}));
-              }}
-              placeholder="GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
-              testID="merchant-recipient"
-              value={recipient}
-              {...(errors.recipient ? {error: errors.recipient} : {})}
-            />
-          )}
+          <TextField
+            label={t('BUSINESS EMAIL')}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            maxLength={254}
+            onChangeText={value => {
+              setEmail(value);
+              if (errors.email) setErrors(current => ({...current, email: undefined}));
+            }}
+            placeholder="hello@example.com"
+            testID="merchant-email"
+            value={email}
+            {...(errors.email ? {error: errors.email} : {})}
+          />
+          <View style={styles.useWallet}>
+            <Smartphone color={colors.goldBright} size={18} />
+            <View style={styles.useWalletCopy}>
+              <Text style={styles.useWalletTitle}>{t('Paid into this wallet')}</Text>
+              <Text selectable style={styles.useWalletBody}>{recipient}</Text>
+            </View>
+          </View>
         </SurfaceCard>
       </AnimatedContent>
       <AnimatedContent delay={160}>

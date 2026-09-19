@@ -8,7 +8,7 @@ import {useAppStore} from '../src/state/appStore';
 const randomBytes = createRandomBytes({allowInsecureFallback: true});
 function profile() {
   return createMerchantProfile(
-    {displayName: 'Rose Coffee', recipient: 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57'},
+    {displayName: 'Rose Coffee', email: 'hello@example.com', recipient: 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57'},
     randomBytes,
   );
 }

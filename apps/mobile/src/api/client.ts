@@ -109,6 +109,7 @@ export class RosaPayApiClient {
   createMerchantProfile(profile: {
     id: string;
     displayName: string;
+    email: string;
     recipient: string;
     signingKey: string;
     network: 'testnet' | 'pubnet';

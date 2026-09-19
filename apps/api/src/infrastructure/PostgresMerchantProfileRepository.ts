@@ -9,13 +9,14 @@ type ProfileRow = {
   id: string;
   user_id: string | null;
   display_name: string;
+  email: string | null;
   recipient: string;
   signing_key: string;
   network: string;
   status: string;
 };
 
-const SELECT_COLUMNS = 'id, user_id, display_name, recipient, signing_key, network, status';
+const SELECT_COLUMNS = 'id, user_id, display_name, email, recipient, signing_key, network, status';
 
 export class PostgresMerchantProfileRepository implements MerchantProfileRepository {
   constructor(private readonly client: PostgresQueryClient) {}
@@ -38,12 +39,15 @@ export class PostgresMerchantProfileRepository implements MerchantProfileReposit
 
   async save(profile: MerchantProfile): Promise<void> {
     await this.client.query(
-      `INSERT INTO merchant_profiles (id, user_id, display_name, recipient, signing_key, network, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO merchant_profiles (id, user_id, display_name, email, recipient, signing_key, network, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email
+       WHERE merchant_profiles.email IS NULL`,
       [
         profile.id,
         profile.userId ?? null,
         profile.displayName,
+        profile.email ?? null,
         profile.recipient,
         profile.signingKey,
         profile.network,
@@ -64,6 +68,7 @@ function mapProfile(row: ProfileRow): MerchantProfile {
     id: row.id,
     ...(row.user_id === null ? {} : {userId: row.user_id}),
     displayName: row.display_name,
+    ...(row.email == null ? {} : {email: row.email}),
     recipient: row.recipient,
     signingKey: row.signing_key,
     network: row.network as MerchantProfileNetwork,

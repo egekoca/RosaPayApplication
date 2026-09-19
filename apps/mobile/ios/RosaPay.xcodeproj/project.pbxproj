@@ -274,6 +274,8 @@
 					"-lc++",
 				);
 				CODE_SIGN_ENTITLEMENTS = RosaPay/RosaPay.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 55MGRGT98B;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rosapay;
 				PRODUCT_NAME = RosaPay;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -304,6 +306,8 @@
 					"-lc++",
 				);
 				CODE_SIGN_ENTITLEMENTS = RosaPay/RosaPay.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 55MGRGT98B;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rosapay;
 				PRODUCT_NAME = RosaPay;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

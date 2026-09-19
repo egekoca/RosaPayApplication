@@ -9,8 +9,21 @@ export async function ensureDeviceSession(
   client: RosaPayApiClient = new RosaPayApiClient({baseUrl: useAppStore.getState().apiBaseUrl}),
 ): Promise<ApiSession | null> {
   const signer = createNativeRosaPaySigner();
-  const identity = await signer.getIdentity();
-  if (!identity?.publicKey) throw new Error('No payment key exists on this device');
+  // Minting it here rather than demanding it is what makes a recovery-phrase
+  // account able to get paid. That path never touches the smart wallet, so
+  // nothing else would ever create the key this session is signed with, and a
+  // merchant who onboarded with twelve words could not register on the
+  // contract or publish a request.
+  let identity = await signer.getIdentity().catch(() => null);
+  if (!identity?.publicKey) {
+    // The native layer knows why it cannot mint one - no screen lock, no
+    // module - and says so in words worth showing, so let that reason travel
+    // rather than replacing it with a guess.
+    identity = await signer.createIdentity('Lumenade Pay');
+  }
+  if (!identity?.publicKey) {
+    throw new Error('Set a screen lock on this phone so it can hold a payment key, then try again');
+  }
 
   const saved = useAppStore.getState().apiSession;
   if (saved?.publicSigner === identity.publicKey && Date.parse(saved.expiresAt) > Date.now() + 30_000) {

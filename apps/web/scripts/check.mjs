@@ -24,8 +24,13 @@ const requiredCopy = [
   'CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO',
   'b4a0cc9b8c7e3a3beb4b7a24c93517465ac2b731862451917c4ff24f2bcd1513',
   // The page must keep saying the product is more than a QR reader; the
-  // integration and the fiat rail are what make that true.
+  // integration, the fiat rail and the custody model are what make that true.
   'Soroswap',
+  'SEP-6',
+  // Losing a phone without losing the wallet is the claim a reader is most
+  // likely to disbelieve, so the page must keep making it — with evidence.
+  "Losing your phone doesn't lose it.",
+  '2ed61aba82b4331ae0992d74d335deff6b61e7ce7abea6dc0009382200ee599d',
 ];
 
 for (const value of requiredCopy) {

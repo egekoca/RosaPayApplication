@@ -82,6 +82,7 @@
         <div class="nav-links" data-menu data-open="false">
           <a href="#why">Why</a>
           <a href="#pay">Pay</a>
+          <a href="#keys">Keys</a>
           <a href="#anchors">Anchors</a>
             <a href="#proof">Proof</a>
           <a class="pill" href="https://github.com/egekoca/LumenadePay" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
@@ -99,7 +100,7 @@
               <span data-rise style="--d: 200ms">Approve.</span>
               <em data-rise style="--d: 280ms">Settled.</em>
             </h1>
-            <p class="lede" data-rise style="--d: 380ms">Fast in-person payments. No addresses, no checkout. The QR is the last inch: underneath it, a merchant-signed request a Soroban contract enforces, lira in and out through a real anchor, and a bill that settles out of whatever you happen to be holding.</p>
+            <p class="lede" data-rise style="--d: 380ms">Fast in-person payments. No addresses, no checkout. The QR is the last inch: underneath it, a merchant-signed request a Soroban contract enforces, lira in and out through an anchor, a bill that settles out of whatever you happen to be holding — and a key your phone cannot give away, that a lost phone does not take with it.</p>
 
             <div class="store-row" data-rise style="--d: 460ms" aria-label="Mobile app availability">
               <a class="store-button" href="https://apps.apple.com/us/search?term=Lumenade%20Pay" target="_blank" rel="noreferrer" aria-label="Lumenade Pay on the App Store, coming soon">
@@ -461,6 +462,71 @@
         </div>
       </section>
 
+      <section class="section shell" id="keys">
+        <div class="section-heading centered" data-rise>
+          <span class="section-index">Your keys</span>
+          <h2 data-split>Only your phone can spend it.<br /><em>Losing your phone doesn't lose it.</em></h2>
+        </div>
+
+        <ul class="anchors" data-rise>
+          <li class="anchor-tile">
+            <svg class="i"><use href="#i-vault" /></svg>
+            <b>Nothing to write down</b>
+            <span>
+              The key that spends your money is made inside your phone's security chip and cannot
+              leave it. There is no phrase to photograph, paste, or be talked out of.
+            </span>
+            <em>Secure Enclave · Keystore</em>
+          </li>
+          <li class="anchor-tile">
+            <svg class="i"><use href="#i-fingerprint" /></svg>
+            <b>Your face approves it</b>
+            <span>
+              Every payment is signed for that exact amount and that exact shop. Approving one
+              cannot approve another.
+            </span>
+            <em>secp256r1</em>
+          </li>
+          <li class="anchor-tile">
+            <svg class="i"><use href="#i-key" /></svg>
+            <b>A passkey carries it over</b>
+            <span>
+              Your passkey lives on your other devices too, because Apple and Google put it there.
+              It is what a new phone shows to claim the wallet.
+            </span>
+            <em>WebAuthn</em>
+          </li>
+          <li class="anchor-tile">
+            <svg class="i"><use href="#i-lock" /></svg>
+            <b>It can rescue, never spend</b>
+            <span>
+              The contract lets that passkey do exactly one thing: hand the wallet to a new phone.
+              It cannot move a single lira.
+            </span>
+            <em>rotate() only</em>
+          </li>
+        </ul>
+
+        <div class="priced" data-rise>
+          <div class="priced-copy">
+            <p class="priced-tag">If the phone is gone</p>
+            <h3>A new phone makes its own key. The old one stops working.</h3>
+            <p class="priced-note">
+              There is nothing to type, because there never was anything to write down. Your passkey
+              says which wallet is yours; the new phone's key takes over; and whoever finds the old
+              handset cannot spend from it afterwards. Every step of that is enforced by the contract
+              on Stellar, not by us — and it is checked against the live network on every build.
+            </p>
+          </div>
+          <div class="priced-convert" aria-hidden="true">
+            <p class="priced-from"><span>Old phone</span><em>LOST</em></p>
+            <span class="priced-arrow"><svg class="i"><use href="#i-arrow" /></svg></span>
+            <p class="priced-to"><span>New phone</span><em>YOURS</em></p>
+            <p class="priced-rate">one passkey, no phrase</p>
+          </div>
+        </div>
+      </section>
+
       <section class="section shell" id="anchors">
         <div class="section-heading centered" data-rise>
           <span class="section-index">Anchors</span>
@@ -477,14 +543,14 @@
           <li class="anchor-tile">
             <svg class="i"><use href="#i-shield" /></svg>
             <b>Signed in with the phone</b>
-            <span>No password to the anchor. The device key answers its challenge.</span>
-            <em>SEP-10 · SEP-45</em>
+            <span>No password to the anchor. A key on this phone answers its challenge.</span>
+            <em>SEP-10</em>
           </li>
           <li class="anchor-tile">
             <svg class="i"><use href="#i-wallet" /></svg>
             <b>Cash in, cash out</b>
-            <span>Deposit and withdraw run in the anchor's own flow, not a copy of it.</span>
-            <em>SEP-24</em>
+            <span>Lira arrives by bank transfer and leaves to an IBAN, in the anchor's own flow.</span>
+            <em>SEP-6</em>
           </li>
           <li class="anchor-tile">
             <svg class="i"><use href="#i-percent" /></svg>
@@ -496,7 +562,8 @@
 
         <p class="anchors-note" data-rise>
           An anchor is the door between Stellar and a bank account. Lumenade Pay talks to them through the
-          standards every Stellar wallet uses, so a merchant is never tied to ours.
+          standards every Stellar wallet uses, so a merchant is never tied to ours — and no API key is
+          involved, because a wallet that speaks one company's private API is welded to that company.
         </p>
       </section>
 
@@ -516,6 +583,24 @@
             <span class="hidden-evidence">CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO</span>
           </div>
         </div>
+
+        <ul class="swaps" data-rise>
+          <li class="swaps-item">
+            <p class="swaps-old"><svg class="i"><use href="#i-key" /></svg> A passkey authorized a payment</p>
+            <span class="swaps-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
+            <p class="swaps-new"><a href="https://stellar.expert/explorer/testnet/tx/6208731aecf16315d4a46878e6b09f873d16c010dde81468889d59d90eaa4f6b" target="_blank" rel="noreferrer">On chain ↗</a></p>
+          </li>
+          <li class="swaps-item">
+            <p class="swaps-old"><svg class="i"><use href="#i-unlock" /></svg> A lost phone was replaced</p>
+            <span class="swaps-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
+            <p class="swaps-new"><a href="https://stellar.expert/explorer/testnet/tx/2ed61aba82b4331ae0992d74d335deff6b61e7ce7abea6dc0009382200ee599d" target="_blank" rel="noreferrer">On chain ↗</a></p>
+          </li>
+          <li class="swaps-item">
+            <p class="swaps-old"><svg class="i"><use href="#i-store" /></svg> 300&nbsp;₺ in, 148,50&nbsp;₺ out</p>
+            <span class="swaps-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
+            <p class="swaps-new"><a href="https://github.com/egekoca/LumenadePay/blob/main/config/testnet-bridge-evidence.json" target="_blank" rel="noreferrer">Evidence ↗</a></p>
+          </li>
+        </ul>
       </section>
 
       <section class="download shell" id="download" data-rise>

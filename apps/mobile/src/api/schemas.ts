@@ -37,6 +37,7 @@ export const merchantProfileSchema = z.object({
   id: z.string().min(1),
   userId: z.string().min(1).optional(),
   displayName: z.string().min(1),
+  email: z.string().email().optional(),
   recipient: z.string().min(1),
   signingKey: z.string().min(1),
   network: z.enum(['testnet', 'pubnet']),

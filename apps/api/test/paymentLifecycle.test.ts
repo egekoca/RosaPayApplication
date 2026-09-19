@@ -178,7 +178,7 @@ describe('merchant payment history', () => {
       url: '/v1/merchant-profiles',
       payload: {
         id: '01K36YATYFVQBPR08G2YT29C3S',
-        displayName: 'Rose Coffee',
+        displayName: 'Rose Coffee', email: 'hello@example.com',
         recipient: customer,
         signingKey: customer,
         network: 'testnet',
@@ -214,7 +214,7 @@ describe('merchant payment history', () => {
       url: '/v1/merchant-profiles',
       payload: {
         id: '01K36YATYFVQBPR08G2YT29C3S',
-        displayName: 'Rose Coffee',
+        displayName: 'Rose Coffee', email: 'hello@example.com',
         recipient: customer,
         signingKey: customer,
         network: 'testnet',

@@ -1,7 +1,7 @@
 import {RosaPayApiClient} from '../../api';
 import {useAppStore} from '../../state/appStore';
 import {logger} from '../../shared/logger';
-import type {MerchantProfile} from './merchantProfile';
+import {requireBusinessEmail, type MerchantProfile} from './merchantProfile';
 import {ensureDeviceSession} from '../../api/deviceSession';
 
 /**
@@ -17,6 +17,7 @@ export async function registerMerchantForTestnet(
   await client.createMerchantProfile({
     id: profile.merchantProfileId,
     displayName: profile.displayName,
+    email: requireBusinessEmail(profile.email),
     recipient: profile.recipient,
     signingKey: profile.signingKey,
     network: profile.network,

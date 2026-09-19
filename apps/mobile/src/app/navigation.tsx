@@ -47,7 +47,12 @@ export type RootStackParams = {
   Receipt: {receipt: LocalReceipt};
   DeveloperSettings: undefined;
   MerchantOnboarding: undefined;
-  MerchantRequest: undefined;
+  /**
+   * `registrationError` carries the reason on-chain registration failed during
+   * onboarding. Without it the screen that follows can only say a merchant is
+   * unregistered, not why — and the onboarding screen that knew is already gone.
+   */
+  MerchantRequest: {registrationError?: string} | undefined;
   AnchorTransfer: {kind: 'deposit' | 'withdraw'};
 };
 
@@ -182,14 +187,14 @@ export function RootNavigator() {
       <Stack.Screen
         name="MerchantOnboarding"
         component={MerchantOnboardingScreen}
-        options={{title: 'Business profile', animation: 'slide_from_bottom'}}
+        options={{title: t('Business profile'), animation: 'slide_from_bottom'}}
       />
       <Stack.Screen
         name="MerchantRequest"
         component={MerchantRequestScreen}
         options={{title: t('Payment request'), animation: 'slide_from_right'}}
       />
-      <Stack.Screen name="AnchorTransfer" component={AnchorTransferScreen} options={{title: 'Anchor transfer'}} />
+      <Stack.Screen name="AnchorTransfer" component={AnchorTransferScreen} options={{title: t('Anchor transfer')}} />
     </Stack.Navigator>
   );
 }

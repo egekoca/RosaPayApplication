@@ -6,7 +6,7 @@ afterEach(async () => Promise.all(apps.splice(0).map(app => app.close())));
 
 const profile = {
   id: '01K36YATYFVQBPR08G2YT29C3S',
-  displayName: 'Rose Coffee',
+  displayName: 'Rose Coffee', email: 'hello@example.com',
   recipient: 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57',
   signingKey: 'GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57',
   network: 'testnet' as const,
@@ -27,7 +27,7 @@ describe('merchant profiles', () => {
 
     const fetched = await app.inject({method: 'GET', url: `/v1/merchant-profiles/${profile.id}`});
     expect(fetched.statusCode).toBe(200);
-    expect(fetched.json()).toMatchObject({displayName: 'Rose Coffee', status: 'active'});
+    expect(fetched.json()).toMatchObject({displayName: 'Rose Coffee', email: 'hello@example.com', status: 'active'});
   });
 
   it('rejects a malformed receiving address before any customer can pay', async () => {
@@ -120,4 +120,30 @@ describe('merchant profiles', () => {
     expect(response.statusCode).toBe(403);
     expect(response.json().message).toContain('not owned by the authenticated user');
   });
+});
+
+
+it.each([undefined, '', ' ', 'invalid', 'a@b', 'a b@example.com'])('rejects invalid business email %s at the API', async email => {
+  const app = buildApp();
+  apps.push(app);
+  const response = await app.inject({method: 'POST', url: '/v1/merchant-profiles', payload: {...profile, email}});
+  expect(response.statusCode).toBe(400);
+});
+
+it('completes legacy email only for its owner and keeps the original merchant identity', async () => {
+  const {InMemoryMerchantProfileRepository} = await import('../src/infrastructure/InMemoryMerchantProfileRepository');
+  const repository = new InMemoryMerchantProfileRepository();
+  const {email: _email, ...legacy} = profile;
+  await repository.save({...legacy, userId: 'user-1', status: 'active'});
+  const other = buildApp({merchantProfiles: repository, auth: merchantAuth('user-2')});
+  const owner = buildApp({merchantProfiles: repository, auth: merchantAuth('user-1')});
+  apps.push(other, owner);
+  const denied = await other.inject({method: 'POST', url: '/v1/merchant-profiles', payload: profile});
+  expect(denied.statusCode).toBe(409);
+  expect((await repository.findById(profile.id))?.email).toBeUndefined();
+  const completed = await owner.inject({method: 'POST', url: '/v1/merchant-profiles', payload: {...profile, email: ' hello@example.com '}});
+  expect(completed.statusCode).toBe(201);
+  expect(completed.json()).toEqual({...profile, userId: 'user-1', status: 'active'});
+  const changed = await owner.inject({method: 'POST', url: '/v1/merchant-profiles', payload: {...profile, email: 'different@example.com'}});
+  expect(changed.statusCode).toBe(409);
 });

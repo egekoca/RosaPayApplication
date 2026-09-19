@@ -31,31 +31,23 @@ export function CreateAccountScreen({navigation, route}: Props) {
   const t = useTranslate();
   const importing = route.params?.intent === 'import';
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [nameError, setNameError] = useState<string | undefined>();
-  const [emailError, setEmailError] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     const trimmedName = name.trim();
-    const trimmedEmail = email.trim();
     setNameError(undefined);
-    setEmailError(undefined);
     setError(undefined);
 
     if (trimmedName.length < 2) {
       setNameError(t('Please enter the name a merchant should see'));
       return;
     }
-    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmedEmail)) {
-      setEmailError(t('That does not look like an email address'));
-      return;
-    }
 
     // Carried onward rather than saved here. The account is recorded only once
     // a wallet exists, so a setup that fails leaves nothing half-made behind.
-    const identity = {name: trimmedName, ...(trimmedEmail ? {email: trimmedEmail} : {})};
+    const identity = {name: trimmedName};
 
     setBusy(true);
     try {
@@ -103,18 +95,7 @@ export function CreateAccountScreen({navigation, route}: Props) {
                 error={nameError}
                 testID="account-name"
               />
-              <TextField
-                label={t('Email (optional)')}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                maxLength={120}
-                hint={t('Only used to send you a receipt. It is not a login.')}
-                error={emailError}
-                testID="account-email"
-              />
+
             </View>
           </AnimatedContent>
 

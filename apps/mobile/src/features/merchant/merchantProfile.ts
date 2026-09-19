@@ -6,17 +6,20 @@ import {
   type RandomBytes,
   type SignedPaymentIntentV1,
 } from '@rosapay/protocol';
+import {z} from 'zod';
 import {isValidStellarAddress} from '@rosapay/stellar';
 import {merchantSigningKeyFromSecret, signMerchantIntent} from '@rosapay/stellar/merchant-signature';
 
 export type MerchantProfileDraft = {
   displayName: string;
+  email: string;
   recipient: string;
 };
 
 export type MerchantProfile = {
   merchantProfileId: string;
   displayName: string;
+  email?: string; // Absent only on profiles saved before business email was required.
   recipient: string;
   signingKey: string;
   network: PaymentIntentV1['network'];
@@ -31,9 +34,17 @@ export type MerchantProfile = {
 export class MerchantProfileError extends Error {
   override readonly name = 'MerchantProfileError';
 
-  constructor(readonly field: 'displayName' | 'recipient' | 'amount' | 'reference' | 'ledger', message: string) {
+  constructor(readonly field: 'email' | 'displayName' | 'recipient' | 'amount' | 'reference' | 'ledger', message: string) {
     super(message);
   }
+}
+
+export const businessEmailSchema = z.string().trim().max(254).email();
+
+export function requireBusinessEmail(value: unknown): string {
+  const parsed = businessEmailSchema.safeParse(value);
+  if (!parsed.success) throw new MerchantProfileError('email', 'Enter a valid business email address');
+  return parsed.data;
 }
 
 /** Creates the local merchant identity that signs payment requests. */
@@ -42,6 +53,7 @@ export function createMerchantProfile(
   randomBytes: RandomBytes,
   network: PaymentIntentV1['network'] = 'testnet',
 ): MerchantProfile {
+  const email = requireBusinessEmail(draft.email);
   const displayName = draft.displayName.trim();
   const recipient = draft.recipient.trim().toUpperCase();
   if (displayName.length < 1 || displayName.length > 80) {
@@ -56,6 +68,7 @@ export function createMerchantProfile(
   return {
     merchantProfileId: intentId,
     displayName,
+    email,
     recipient,
     signingKey: merchantSigningKeyFromSecret(developmentSigningSecret),
     network,

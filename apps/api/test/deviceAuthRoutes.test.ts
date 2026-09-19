@@ -107,7 +107,7 @@ async function bindWallet(
 function merchantProfile(id: string, recipient: string) {
   return {
     id,
-    displayName: id === merchantProfileId ? 'Rose Coffee' : 'Other Shop',
+    displayName: id === merchantProfileId ? 'Rose Coffee' : 'Other Shop', email: 'hello@example.com',
     recipient,
     signingKey: Keypair.random().publicKey(),
     network: 'testnet',

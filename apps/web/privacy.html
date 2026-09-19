@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Rosa Pay</title>
+<meta name="description" content="What Rosa Pay stores, what it never sees, and who else receives data when you use the app.">
+<style>
+  :root {
+    --canvas:#050505;
+    --surface:#10100F;
+    --ink:#FFFFFF;
+    --ink-muted:#B8B4AA;
+    --ink-faint:#7D786D;
+    --line:#38342C;
+    --line-soft:#25231E;
+    --gold:#E0B45D;
+    --gold-bright:#F5D182;
+    --gold-mid:#C68C22;
+    --gold-soft:#2C2008;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0;
+    background:var(--canvas);
+    color:var(--ink);
+    font:16px/1.7 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:760px; margin:0 auto; padding:56px 24px 96px; }
+  .eyebrow {
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--gold-mid); margin:0 0 14px;
+  }
+  h1 {
+    font-size:clamp(30px,5vw,44px); line-height:1.1; letter-spacing:-.02em;
+    margin:0 0 16px; text-wrap:balance;
+  }
+  .lede { font-size:18px; color:var(--ink-muted); margin:0; max-width:62ch; }
+  header { border-bottom:1px solid var(--line); padding-bottom:32px; }
+  h2 {
+    font-size:22px; letter-spacing:-.01em; margin:48px 0 10px; text-wrap:balance;
+  }
+  h3 { font-size:16px; margin:26px 0 6px; color:var(--gold-bright); }
+  p, li { color:var(--ink-muted); max-width:66ch; }
+  strong { color:var(--ink); font-weight:600; }
+  ul { padding-left:20px; }
+  li { margin:7px 0; }
+  a { color:var(--gold); }
+  a:hover { color:var(--gold-bright); }
+  .callout {
+    background:var(--surface); border:1px solid var(--line-soft);
+    border-left:3px solid var(--gold-mid);
+    border-radius:12px; padding:18px 22px; margin:28px 0;
+  }
+  .callout p { margin:0; }
+  code {
+    font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:.88em; background:#0A0908; border:1px solid var(--line-soft);
+    padding:1.5px 6px; border-radius:6px; color:var(--gold-bright);
+  }
+  footer {
+    margin-top:64px; padding-top:24px; border-top:1px solid var(--line);
+    color:var(--ink-faint); font-size:14px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Rosa Pay</p>
+  <h1>Privacy Policy</h1>
+  <p class="lede">
+    What the app stores, what it never sees, and who else receives data when you
+    use it. Last updated 13 September 2026.
+  </p>
+</header>
+
+<div class="callout">
+  <p>
+    <strong>Rosa Pay currently runs on the Stellar test network.</strong> Balances
+    are test tokens with no monetary value, and no real funds can be moved. This
+    policy describes the app as it behaves today.
+  </p>
+</div>
+
+<h2>The short version</h2>
+<ul>
+  <li>Your wallet's private key is created inside your device's secure hardware and <strong>never leaves it</strong>. We cannot read it, copy it, or recover it.</li>
+  <li>We run <strong>no analytics, advertising or tracking SDKs</strong>. There is no third-party profiling of your behaviour in the app.</li>
+  <li>Payment records we store are <strong>public blockchain facts</strong> plus the request that produced them.</li>
+  <li>If you use the Turkish lira transfer feature, your <strong>bank details go directly to the anchor</strong> that moves the money — they never reach our servers.</li>
+</ul>
+
+<h2>What we store</h2>
+
+<h3>Your wallet</h3>
+<p>
+  The public address of your account, its network, and the public half of the key
+  that signs on your device. Public keys and addresses are, by design, already
+  visible to anyone on the Stellar ledger.
+</p>
+
+<h3>Business profile, if you accept payments</h3>
+<p>
+  The display name you choose, the Stellar address you want to be paid at, and —
+  optionally — an email address you provide. You are not asked for a business
+  registration, tax number, or identity document.
+</p>
+
+<h3>Payments</h3>
+<p>
+  For each payment request: the amount, the asset, the merchant and recipient
+  addresses, a reference line, an expiry, and the signatures that authorize it.
+  Once settled, we also store the transaction hash, the ledger number and the
+  outcome. Nearly all of this is published on the Stellar ledger by the payment
+  itself.
+</p>
+
+<h3>Sessions</h3>
+<p>
+  To keep one phone from acting for another, the app proves possession of its key
+  and receives a short-lived session. We store the public signer, a single-use
+  challenge, and expiry timestamps.
+</p>
+
+<h3>Operational records</h3>
+<p>
+  A log of what happened to each payment, for support and reconciliation. It is
+  built to refuse anything that names a secret, and authorization and signature
+  fields are redacted from our logs.
+</p>
+
+<h2>What we never receive</h2>
+<ul>
+  <li><strong>Private keys or recovery phrases.</strong> They stay in the device's secure hardware, or in your own keeping.</li>
+  <li><strong>Biometric data.</strong> Face ID and fingerprint checks happen on your device; the app only learns whether the check passed.</li>
+  <li><strong>Bank account numbers and IBANs.</strong> When you deposit or withdraw Turkish lira, those details are sent from your phone to the anchor providing that service. They do not pass through our servers.</li>
+  <li><strong>Contacts, photos, or location.</strong> The app does not request them.</li>
+</ul>
+
+<h2>Camera and NFC</h2>
+<p>
+  The camera is used only to read a payment QR code, and what it reads is processed
+  on your device. NFC, where available, is used only to exchange the same payment
+  request with a nearby phone. Neither produces images or recordings that are sent
+  anywhere or stored.
+</p>
+
+<h2>Who else receives data</h2>
+<ul>
+  <li><strong>The Stellar network.</strong> A payment is a public transaction. Its addresses, amount, and timing are permanently visible to anyone, and we cannot delete or alter them.</li>
+  <li><strong>The lira anchor.</strong> If you use the deposit or withdrawal feature, the anchor receives the identity and bank details it requires to move the money, under its own privacy policy.</li>
+  <li><strong>Our hosting and database providers</strong>, strictly to run the service.</li>
+</ul>
+<p>We do not sell personal data, and we do not share it for advertising.</p>
+
+<h2>What is on the ledger cannot be deleted</h2>
+<p>
+  You can ask us to delete the records we hold — your business profile, the email
+  you gave us, and the server-side history of your payments. What is already
+  written to the Stellar ledger is outside anyone's control, including ours, and
+  will remain public.
+</p>
+<p>
+  Signing out of the app deletes the device identity and session from your phone.
+  The wallet itself lives on the ledger and survives.
+</p>
+
+<h2>Children</h2>
+<p>Rosa Pay is not directed at children under 13, and we do not knowingly collect their data.</p>
+
+<h2>Changes</h2>
+<p>
+  If this policy changes materially, the date at the top of this page changes with
+  it, and the new version is published here before it takes effect.
+</p>
+
+<h2>Contact</h2>
+<p>
+  Questions about this policy, or a request to delete your data:
+  <a href="mailto:egeyenikale@gmail.com">egeyenikale@gmail.com</a>
+</p>
+
+<footer>
+  Rosa Pay · <a href="/">Back to the site</a>
+</footer>
+
+</div>
+</body>
+</html>

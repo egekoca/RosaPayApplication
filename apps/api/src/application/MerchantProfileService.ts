@@ -8,6 +8,7 @@ export type MerchantProfile = {
   id: string;
   userId?: string;
   displayName: string;
+  email?: string; // Legacy profiles complete this on their next Get paid visit.
   recipient: string;
   signingKey: string;
   network: MerchantProfileNetwork;
@@ -27,6 +28,7 @@ export class MerchantProfileNotFoundError extends Error {}
 export const createMerchantProfileSchema = z.object({
   id: z.union([z.string().uuid(), z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/i)]),
   displayName: z.string().trim().min(1).max(80),
+  email: z.string().trim().max(254).email(),
   recipient: z.string().trim().min(1),
   signingKey: z.string().trim().min(1),
   network: z.enum(merchantProfileNetworks),
@@ -54,12 +56,18 @@ export class MerchantProfileService {
     if (existing) {
       if (
         existing.displayName !== parsed.displayName ||
+        (existing.email !== undefined && existing.email !== parsed.email) ||
         existing.recipient !== parsed.recipient ||
         existing.signingKey !== parsed.signingKey ||
         existing.network !== parsed.network ||
         existing.userId !== userId
       ) {
         throw new MerchantProfileConflictError('Merchant profile ID already exists with different details');
+      }
+      if (!existing.email) {
+        const completed = {...existing, email: parsed.email};
+        await this.repository.save(completed);
+        return completed;
       }
       return existing;
     }
@@ -68,6 +76,7 @@ export class MerchantProfileService {
       id: parsed.id,
       ...(userId === undefined ? {} : {userId}),
       displayName: parsed.displayName,
+      email: parsed.email,
       recipient: parsed.recipient,
       signingKey: parsed.signingKey,
       network: parsed.network,

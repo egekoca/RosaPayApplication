@@ -8,7 +8,7 @@ import {
 import {createRandomBytes, RandomnessUnavailableError} from '../src/shared/randomBytes';
 
 const randomBytes = createRandomBytes({allowInsecureFallback: true});
-const draft = {displayName: '  Rose Coffee ', recipient: 'gdveu3dd4kofecv66vihwezoyx4zkr3wv27l464siipou2iui3jcza57'};
+const draft = {displayName: '  Rose Coffee ', email: 'hello@example.com', recipient: 'gdveu3dd4kofecv66vihwezoyx4zkr3wv27l464siipou2iui3jcza57'};
 
 describe('merchant profile', () => {
   it('normalizes the draft and derives a Stellar signing key', () => {
@@ -23,6 +23,17 @@ describe('merchant profile', () => {
   it('rejects an empty name and an invalid receiving address', () => {
     expect(() => createMerchantProfile({...draft, displayName: '   '}, randomBytes)).toThrow(MerchantProfileError);
     expect(() => createMerchantProfile({...draft, recipient: 'GNOTREAL'}, randomBytes)).toThrow('valid Stellar address');
+  });
+
+  it.each(['', ' ', 'missing-at', 'a@', 'a@b', 'a b@example.com'])('rejects invalid business email %s', email => {
+    expect(() => createMerchantProfile({...draft, email}, randomBytes)).toThrow('valid business email');
+  });
+
+  it('trims business email and keeps it out of the payment QR', () => {
+    const profile = createMerchantProfile({...draft, email: ' hello@example.com '}, randomBytes);
+    expect(profile.email).toBe('hello@example.com');
+    const request = createSignedPaymentRequest(profile, {amount: '1', reference: 'Order', latestLedger: 100}, randomBytes);
+    expect(JSON.stringify(request)).not.toContain(profile.email);
   });
 
   it('creates a request the customer path decodes, validates and verifies', () => {

@@ -1,0 +1,200 @@
+================================================================
+ROSA PAY — İKİ TELEFONLU DEMO PLANI
+Güncelleme: 13 Eylül 2026
+================================================================
+
+Rosa Pay nerede duruyor ve iki TestFlight kullanıcısının uygulamayı
+kurup birbirine ödeme yapabilmesi için ne kaldı.
+
+
+================================================================
+1) ZİNCİRDE KANITLANANLAR
+================================================================
+
+Aşağıdaki her işlem, onu üreten script'e güvenilmeden ayrıca
+Horizon'dan sorgulandı.
+
+Settlement sözleşmesi:
+  CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO
+
+  * İki taraf, anahtar paylaşmadan tek ödemeyi kapatıyor
+    tx 9cbc3e37...c019bf   ledger 4.647.137
+    https://stellar.expert/explorer/testnet/tx/9cbc3e37176a24a7c595c54c45f6a0d63aedd14228b9d612c62e9b1380c019bf
+
+  * Sözleşme reddetmesi gerekeni reddediyor
+    tx 3d18ead5...bb3989   ledger 4.647.169
+    12 kontrol, bunların 9'u ret: replay, tutar kurcalama, süre
+    dolması, yanlış alıcı, yanlış varlık, geçersiz tutar, yanlış
+    ağ, yanlış sözleşme, sahte merchant
+
+  * Cüzdan açma mümkün
+    Hem settlement hem wallet WASM hash'i testnet'te yüklü
+
+  * Auth açıkken iki cihaz birbirine karışmıyor
+    Üretim şeklindeki konteynerde, gerçek PostgreSQL'e karşı
+    challenge/session el sıkışması. Challenge tekrarı, anonim
+    çağrı ve kurcalanmış bearer: üçü de 401.
+
+  * Dağıtılabilir imaj çalışıyor
+    Dockerfile burada derlendi ve API, Render yapılandırmasıyla
+    konteynerin içinde ayağa kalktı.
+
+  * npm run check bütün workspace'lerde geçiyor.
+
+
+================================================================
+2) BULUNAN VE DÜZELTİLEN ÜÇ SESSİZ HATA
+================================================================
+
+Üçü de demo sırasında ortaya çıkardı, hiçbiri testlerde
+görünmüyordu.
+
+A) API EMEKLİYE AYRILMIŞ SÖZLEŞMEYE BAKIYORDU
+   .env relayer'ı CBX7XUIE...'ye bağlıyordu; manifest ise
+   CAV65DKN...'ye geçmişti. Telefon manifesti okuduğu için ödeme
+   bir sözleşmeyi adresleyip API başkasına gönderecekti.
+   npm run testnet:two-device bunu yakalamıyor, çünkü envelope'u
+   kendisi kuruyor.
+
+B) CİHAZ GİRİŞİNİN TABLOLARI HİÇ OLUŞTURULMAMIŞTI
+   008_device_auth.sql, 009_wallet_recovery.sql ve
+   010_merchant_email.sql uygulanmamıştı. 008, tam da
+   API_AUTH_REQUIRED=true modunun ihtiyaç duyduğu tabloları
+   kuruyor. /v1/health sadece ping attığı için API sağlıklı
+   görünüyordu; ilk gerçek girişte çökerdi.
+
+   Bunları uygulayabilmek için önce 006_intent_created_at.sql'in
+   saklanan checksum'ını hizalamak gerekti: bir rebrand commit'i,
+   migration uygulandıktan sonra içindeki yorum satırını
+   değiştirmiş. DDL bayt bayt aynı. Bu kayma yalnızca yerel
+   geliştirme veritabanına özgü.
+
+C) KANIT DOSYASI EMEKLİ SÖZLEŞMEDENDİ
+   "Settle ediyor ve mutasyonları reddediyor" iddiası artık
+   kullanılmayan bir sözleşmeye dayanıyordu. Güncel sözleşmede
+   yeniden üretildi.
+
+
+================================================================
+3) APPLE TARAFI — TAMAMLANDI
+================================================================
+
+  Takım             55MGRGT98B — MUHAMMED EMIN KARAGOZ
+                    Individual, ücretli üyelik
+  App ID            com.rosapay, Associated Domains açık
+  App Store Connect Rosa Pay, Apple ID 6811478154
+  Projede imzalama  DEVELOPMENT_TEAM hem Debug hem Release'de
+  AASA              55MGRGT98B.com.rosapay
+  Ekip üyeleri      3 aktif — ikisi tester olarak kullanılabilir
+
+Internal Testing iki testeri karşılıyor, yani Beta App Review'a
+girilmiyor ve bekleme süresi yok.
+
+Listeleme metinleri:  docs/appstore-listing.txt
+Gizlilik sayfası:     apps/web/privacy.html
+
+
+================================================================
+4) KALANLAR — SIRA ÖNEMLİ
+================================================================
+
+Her adım bir öncekinin çıktısını kullanıyor. 6 ve 7'yi 1-4'ten
+önce yapmanın anlamı yok; API yayında değilken uygulama hiçbir
+yere bağlanamaz.
+
+  1. NEON YA DA SUPABASE'DE VERİTABANI AÇ
+     Render'ın ücretsiz web planında kalıcı PostgreSQL yok.
+     Pooled connection string'i al.
+     >>> BUNU SADECE HESAP SAHİBİ YAPABİLİR <<<
+
+  2. RENDER'A BLUEPRINT OLARAK DEPLOY ET
+     render.yaml ve Dockerfile hazır. Panele sync:false olan
+     beş değeri gir.
+
+  3. MIGRATION'LARI HOSTED VERİTABANINDA ÇALIŞTIR
+     Taze veritabanında onunun da temiz uygulanması gerekir.
+
+  4. DÖNEN HTTPS ADRESİNİ MANİFESTE YAZ
+     config/testnet-deployment.json -> apiBaseUrl
+     Şu an boş; uygulama bu yüzden loopback'e düşüyor.
+
+  5. SİTEYİ YENİDEN YAYINLA
+     Canlı site çok geride. Şu an hem
+     /.well-known/apple-app-site-association hem /privacy
+     404 dönüyor — yani passkey çalışmaz ve privacy URL'si
+     App Store Connect'e yazılamaz.
+
+  6. XCODE'DA BUILD ALIP YÜKLE
+     Otomatik imzalama, eksik olan development sertifikasını
+     ilk build'de kendisi oluşturur; bu takım için henüz yok.
+
+  7. INTERNAL TESTING GRUBUNU KUR
+     İki testeri içine ekle.
+
+Android tarafı: passkey'in çalışması için imza sertifikasının
+SHA-256'sı assetlinks.json'a girmeli. Onboarding'de
+kurtarma-cümlesi hesabı seçilirse o yola hiç girilmez.
+
+
+================================================================
+5) DEMOYU BOZABİLECEK ŞEYLER
+================================================================
+
+  * iOS düz HTTP'yi reddeder. NSAllowsArbitraryLoads kapalı,
+    yani apiBaseUrl mutlaka HTTPS olmalı.
+
+  * Çalışan geliştirme API'si eski sözleşmeyi bellekte tutar.
+    .env'i düzeltmek, çoktan başlamış bir süreci değiştirmez.
+
+  * Render'ın ücretsiz planı uykuya dalar. Demodan hemen önce
+    /v1/health'i bir kez vurup ısıt.
+
+  * Geliştirme veritabanında eski demo verisi var: 7 merchant
+    profili, 13 intent, 13 settlement. Hosted veritabanına
+    sıfırdan başlamak bunu çözer.
+
+  * iOS AKIŞI HİÇ UÇTAN UCA DENENMEDİ. Keychain düzeltmesi
+    doğrulandı ve uygulama çalışıyor, ama kurtarma-cümlesi
+    kontrolünden sonraki ekranlar gerçek cihazda hiç yürünmedi.
+    Sürprizler için zaman ayır.
+
+  * Uygulamanın telefonda görünen adı hâlâ "Lumenade Pay", App
+    Store Connect'te ise "Rosa Pay". Test için zararsız; isme
+    karar verilince tek satırda hizalanır.
+
+
+================================================================
+6) İKİ TELEFONDA AKIŞ
+================================================================
+
+  TELEFON A   Hesap oluştur, işletme profilini kur.
+              Kurtarma-cümlesi hesabı en az sürtünmeli yol.
+
+  TELEFON B   Hesap oluştur, cüzdanı fonla.
+              Ayrı cihaz, ayrı anahtar.
+
+  TELEFON A   Tutarı gir, QR'ı göster. Lira ile fiyatlarsan
+              anchor kuru çekilir; istek imzalı yayınlanır.
+
+  TELEFON B   Tara, merchant imzasını ve süreyi doğrula, onayla.
+              İmza tutmazsa ya da süre dolmuşsa onay açılmaz.
+
+  HER İKİSİ   Hazırla -> Yetkilendir -> Gönder -> Onayla
+              adımlarını izle. Onay yalnızca RPC SUCCESS ve
+              kesinleşmiş ledger ile gelir.
+
+  KANIT       Fişteki tx hash'ini stellar.expert'te aç ve
+              demoyu orada bitir.
+
+
+================================================================
+7) KANITLARI YENİDEN ÜRETMEK
+================================================================
+
+  npm run check            # typecheck + testler, tüm workspace'ler
+  npm run testnet:smoke    # bir kez settle eder, dokuz reddi kanıtlar
+  npm run testnet:two-device
+  npm run deploy:check     # TestFlight için neyin eksik olduğunu söyler
+
+deploy:check mevcut ortamı okur; bir dağıtımı doğrulamak için
+hosted değerler yüklüyken çalıştır, geliştirme makinesiyle değil.

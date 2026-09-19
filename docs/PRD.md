@@ -101,13 +101,13 @@ A technical evaluator who must be able to inspect the protocol, run the app, obs
 ### 8.1 Single account flow
 
 1. A new user selects `Create a new wallet` or `I already have a wallet`; a returning user is recognized from encrypted device state.
-2. Creating asks how the key is held: in this phone's secure hardware, or from a twelve-word recovery phrase. Both produce one account and one wallet; neither is a default dressed up as advice.
+2. Creating generates a twelve-word recovery phrase and one wallet; existing device-protected wallets remain usable.
 3. `I already have a wallet` imports an existing Stellar account from its recovery phrase.
 4. The account is recorded only once a wallet actually exists, so a failed setup leaves nothing behind.
-5. The default home view is `Pay`.
+5. Every launch opens `Pay`, including returning merchant users. Customer setup and payment do not ask for email; wallet authorization identifies the payer.
 6. The user may select `Get paid with this account`.
-7. Business onboarding asks only for the business name; payments arrive in the account the phone already has, and a merchant who wants a different address may still supply one.
-8. The user can switch between `Pay` and `Get paid` from the app header without changing accounts or signing keys. Both views show the same wallet balance; takings are shown as takings.
+7. The first `Get paid` visit requires a business name and a valid business email. The profile is saved and reused; legacy profiles complete email without replacing their profile ID or signing key. New profiles receive into the existing wallet, with no alternate receiving-address field.
+8. The user can switch between `Pay` and `Get paid` below the shared balance card without changing accounts or signing keys. The card stays mounted directly below the header in both modes on iOS and Android; only the task content below it changes. Business activity stays separate from the wallet balance.
 
 There must be no separate customer and merchant passwords, no role-specific duplicate accounts, and no hidden role switch that changes signing keys.
 
@@ -174,9 +174,10 @@ The customer must never approve a payment from an opaque serialized payload or a
 
 Fields:
 
-- Business display name.
-- Optional logo or initials.
-- Stellar receiving address or Lumenade Pay smart-wallet address.
+- Required business display name (1–80 characters).
+- Required business email (validated format, up to 254 characters; no email verification or delivery claim).
+- Existing wallet receiving address, shown for confirmation.
+- Photo/logo upload, location, map and PDF invoices are deferred.
 - Default asset (`XLM` initially; `USDC` after asset verification).
 - Optional default payment amount for a reusable demo QR.
 
@@ -391,7 +392,7 @@ AuditEvent
 `users`: id, created_at, status  
 `wallets`: id, user_id, contract_address, network, public_signer, status  
 `devices`: id, user_id, platform, device_key_id, last_seen_at  
-`merchant_profiles`: id, user_id, display_name, recipient, network, status  
+`merchant_profiles`: id, user_id, display_name, email, recipient, network, status
 `merchant_keys`: id, merchant_profile_id, public_key, status, created_at, revoked_at  
 `payment_intents`: id, intent_id, merchant_profile_id, payload_hash, payload_json, status, expires_at_ledger, idempotency_key  
 `authorizations`: id, intent_id, wallet_id, auth_hash, status, created_at  

@@ -28,7 +28,7 @@ describe('unusable restored secrets', () => {
     const restored = dropUnusableSecrets({mode: 'merchant', merchantProfile: profile, receipts: []});
 
     expect(restored.merchantProfile).toBe(profile);
-    expect(restored.mode).toBe('merchant');
+    expect(restored.mode).toBe('customer');
   });
 
   it('drops a profile whose signer bytes did not survive, and leaves merchant mode', () => {

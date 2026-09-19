@@ -6,6 +6,7 @@ describe('session persistence', () => {
     const state = {
       merchantProfile: {
         displayName: 'Rose Coffee',
+        email: 'shop@example.com',
         developmentSigningSecret: Uint8Array.from([1, 2, 3, 250, 255]),
       },
       customerWallet: {publicKey: 'GABC', seed: Uint8Array.from(Buffer.alloc(32, 7)), funded: true},
@@ -14,6 +15,7 @@ describe('session persistence', () => {
 
     const restored = decodeSecrets(JSON.parse(JSON.stringify(encodeSecrets(state)))) as typeof state;
 
+    expect(restored.merchantProfile.email).toBe('shop@example.com');
     expect(restored.merchantProfile.developmentSigningSecret).toBeInstanceOf(Uint8Array);
     expect(Array.from(restored.merchantProfile.developmentSigningSecret)).toEqual([1, 2, 3, 250, 255]);
     expect(restored.customerWallet.seed).toHaveLength(32);
