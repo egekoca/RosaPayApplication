@@ -1,6 +1,7 @@
 import {signedPaymentIntentV1Schema} from '@rosapay/protocol';
 import {z} from 'zod';
 
+import {defaultRetryPolicy, isRetryable, retryDelayMs, type RetryPolicy} from './retry';
 import {
   apiErrorResponseSchema,
   healthResponseSchema,
@@ -18,6 +19,9 @@ export type ApiClientOptions = {
   baseUrl: string;
   fetcher?: Fetcher;
   timeoutMs?: number;
+  retryPolicy?: RetryPolicy;
+  /** Injected so tests do not have to wait out the backoff. */
+  sleep?: (ms: number) => Promise<void>;
 };
 
 export type ApiClientErrorCode =
@@ -50,15 +54,25 @@ export class RosaPayApiClient {
   private readonly baseUrl: string;
   private readonly fetcher: Fetcher;
   private readonly timeoutMs: number;
+  private readonly retryPolicy: RetryPolicy;
+  private readonly sleep: (ms: number) => Promise<void>;
 
-  constructor({baseUrl, fetcher = fetch, timeoutMs = 10_000}: ApiClientOptions) {
+  constructor({
+    baseUrl,
+    fetcher = fetch,
+    timeoutMs = 10_000,
+    retryPolicy = defaultRetryPolicy,
+    sleep = ms => new Promise<void>(resolve => setTimeout(resolve, ms)),
+  }: ApiClientOptions) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.fetcher = fetcher;
     this.timeoutMs = z.number().int().positive().parse(timeoutMs);
+    this.retryPolicy = retryPolicy;
+    this.sleep = sleep;
   }
 
   health() {
-    return this.request('/v1/health', healthResponseSchema);
+    return this.request('/v1/health', healthResponseSchema, {}, this.timeoutMs, true);
   }
 
   createPaymentIntent(payload: unknown, idempotencyKey: string) {
@@ -68,7 +82,7 @@ export class RosaPayApiClient {
       method: 'POST',
       headers: {'content-type': 'application/json', 'idempotency-key': key},
       body: JSON.stringify(intent),
-    });
+    }, this.timeoutMs, true);
   }
 
   createMerchantProfile(profile: {
@@ -78,14 +92,21 @@ export class RosaPayApiClient {
     signingKey: string;
     network: 'testnet' | 'pubnet';
   }) {
+    // The server keys a profile by its ID and returns the existing one when the
+    // details match, so a repeat is the same profile rather than a second one.
     return this.request('/v1/merchant-profiles', merchantProfileSchema, {
       method: 'POST',
       headers: {'content-type': 'application/json'},
       body: JSON.stringify(profile),
-    });
+    }, this.timeoutMs, true);
   }
 
-  /** Registers the merchant on-chain so the settlement contract accepts its key. */
+  /**
+   * Registers the merchant on-chain so the settlement contract accepts its key.
+   * Deliberately not retried: every attempt is a real transaction the admin pays
+   * for, and the endpoint is rate limited, so a retry storm would spend the
+   * budget on a call the merchant can simply make again.
+   */
   registerMerchantOnChain(merchantProfileId: string) {
     const id = z.string().min(1).parse(merchantProfileId);
     // No body: sending a JSON content type without one makes Fastify reject it.
@@ -96,7 +117,7 @@ export class RosaPayApiClient {
 
   getPaymentIntent(intentId: string) {
     const id = z.string().min(1).parse(intentId);
-    return this.request(`/v1/payment-intents/${encodeURIComponent(id)}`, storedIntentSchema);
+    return this.request(`/v1/payment-intents/${encodeURIComponent(id)}`, storedIntentSchema, {}, this.timeoutMs, true);
   }
 
   /** Records who authorized the payment before it is submitted. */
@@ -106,7 +127,7 @@ export class RosaPayApiClient {
       method: 'POST',
       headers: {'content-type': 'application/json'},
       body: JSON.stringify(authorization),
-    });
+    }, this.timeoutMs, true);
   }
 
   /** Records the transaction the relayer sent, so the worker can reconcile it. */
@@ -116,13 +137,15 @@ export class RosaPayApiClient {
       method: 'POST',
       headers: {'content-type': 'application/json'},
       body: JSON.stringify({transactionHash}),
-    });
+    }, this.timeoutMs, true);
   }
 
   /** Deploys and funds a smart wallet controlled by this device's key. */
   provisionWallet(devicePublicKey: string) {
     // Deploying and funding a wallet is two Testnet transactions, so this call
-    // legitimately takes far longer than a normal request.
+    // legitimately takes far longer than a normal request. It is not retried:
+    // the endpoint allows three calls an hour, and spending that budget on a
+    // request that may already have deployed a wallet would strand the device.
     return this.request(
       '/v1/wallets',
       provisionedWalletSchema,
@@ -138,19 +161,52 @@ export class RosaPayApiClient {
   /** What this merchant has been asked to be paid, across every device. */
   listMerchantPayments(merchantProfileId: string) {
     const id = z.string().min(1).parse(merchantProfileId);
-    return this.request(`/v1/merchant-profiles/${encodeURIComponent(id)}/payments`, merchantPaymentsSchema);
+    return this.request(`/v1/merchant-profiles/${encodeURIComponent(id)}/payments`, merchantPaymentsSchema, {}, this.timeoutMs, true);
   }
 
   getSettlement(intentId: string) {
     const id = z.string().min(1).parse(intentId);
-    return this.request(`/v1/payment-intents/${encodeURIComponent(id)}/settlement`, settlementRecordSchema);
+    return this.request(`/v1/payment-intents/${encodeURIComponent(id)}/settlement`, settlementRecordSchema, {}, this.timeoutMs, true);
   }
 
+  /**
+   * Sends a request, trying again when the failure was the network rather than
+   * the server's answer.
+   *
+   * Only calls marked `retryable` are repeated. Every one of them is idempotent
+   * on the server — an intent by its idempotency key, a profile by its ID, a
+   * settlement transition that returns the current state when it is already
+   * there — so a request that in fact arrived before the connection dropped
+   * produces the same result rather than a second payment.
+   */
   private async request<T>(
     path: string,
     schema: z.ZodType<T>,
     init: RequestInit = {},
     timeoutMs: number = this.timeoutMs,
+    retryable = false,
+  ): Promise<T> {
+    const attempts = retryable ? this.retryPolicy.attempts : 1;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await this.attempt(path, schema, init, timeoutMs);
+      } catch (error) {
+        lastError = error;
+        if (attempt === attempts || !isRetryable(error)) throw error;
+        await this.sleep(retryDelayMs(attempt, this.retryPolicy));
+      }
+    }
+
+    throw lastError;
+  }
+
+  private async attempt<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    init: RequestInit,
+    timeoutMs: number,
   ): Promise<T> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);

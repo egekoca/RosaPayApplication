@@ -22,15 +22,22 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-test('renders the Rosa Pay onboarding screen', async () => {
+test('offers one way into the app, in words a customer would use', async () => {
   const Screen = WelcomeScreen as unknown as React.ComponentType<{
-    navigation: {replace: jest.Mock};
+    navigation: {navigate: jest.Mock};
   }>;
   let renderer: ReactTestRenderer.ReactTestRenderer;
   await ReactTestRenderer.act(() => {
-    renderer = ReactTestRenderer.create(<Screen navigation={{replace: jest.fn()}} />);
+    renderer = ReactTestRenderer.create(<Screen navigation={{navigate: jest.fn()}} />);
   });
   const tree = JSON.stringify(renderer!.toJSON());
-  expect(tree).toContain('Payments that feel certain.');
-  expect(tree).toContain('Create your wallet');
+
+  expect(tree).toContain('Pay by scanning.');
+  expect(tree).toContain('Get started');
+
+  // The screen used to offer "Create your wallet" and "Sign in with passkey"
+  // side by side. Both did exactly the same thing, and neither told a customer
+  // which one was theirs.
+  expect(tree).not.toContain('passkey');
+  expect(tree).not.toContain('Create your wallet');
 });

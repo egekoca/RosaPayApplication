@@ -1,6 +1,6 @@
 import type {ReactNode} from 'react';
 import {ActivityIndicator, Pressable, StyleSheet, Text, View} from 'react-native';
-import {colors, radius, spacing, typography} from './theme';
+import {colors, elevation, radius, spacing, typography} from './theme';
 
 type ButtonProps = {
   children: ReactNode;
@@ -44,19 +44,20 @@ export function Button({
 const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     flexDirection: 'row',
     gap: spacing.sm,
     justifyContent: 'center',
-    minHeight: 52,
-    paddingHorizontal: spacing.lg,
+    minHeight: 56,
+    paddingHorizontal: spacing.xl,
   },
-  primary: {backgroundColor: colors.amber},
-  secondary: {backgroundColor: colors.surface, borderColor: colors.amber, borderWidth: 1},
+  primary: {backgroundColor: colors.amber, ...elevation.card, shadowColor: colors.amber, shadowOpacity: 0.22},
+  secondary: {backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderWidth: 1},
   ghost: {backgroundColor: 'transparent'},
-  pressed: {opacity: 0.82},
-  disabled: {opacity: 0.45},
+  // A press should feel like the control moved, not like it faded out.
+  pressed: {opacity: 0.9, transform: [{scale: 0.985}]},
+  disabled: {opacity: 0.4},
   labelWrap: {flexShrink: 1},
-  label: {...typography.label, color: colors.ink, textAlign: 'center'},
+  label: {...typography.label, color: colors.ink, fontSize: 15, textAlign: 'center'},
   primaryLabel: {color: colors.black},
 });

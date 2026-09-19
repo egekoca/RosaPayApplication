@@ -242,6 +242,25 @@ Evidence is in `config/testnet-hardware-wallet-evidence.json`: the wallet is
 debited the amount and nothing else, the merchant is credited it, and the relayer
 pays the fee.
 
+## How a request reaches a customer
+
+A payment request is one signed RTP/1 payload, and the transport is only how it
+travels. QR is the universal path: every phone with a camera can read it, and it
+is the whole story on iOS, which gives no app the ability to emulate a card. On
+Android the same payload is also offered over NFC, so a customer can tap instead
+of aiming.
+
+Neither transport is trusted. Whatever arrives — scanned, tapped, or read from
+this device's own request — goes through the same check before a customer sees an
+approval screen: the payload must decode, the intent must be valid for this
+network and unexpired against the live ledger, and the merchant signature must
+verify against the key the request names. A hostile QR or a hostile tap can at
+worst present a request the customer then declines.
+
+The merchant side keeps the two in step. A request stops being broadcast the
+moment it is paid or expires, so what NFC hands out never disagrees with the code
+on screen.
+
 ## Where state lives
 
 Three places hold state, and they fail independently.

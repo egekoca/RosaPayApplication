@@ -1,0 +1,94 @@
+import {useAppStore} from '../src/state/appStore';
+
+const initial = useAppStore.getState();
+
+describe('the account and its lock', () => {
+  beforeEach(() => {
+    useAppStore.setState({...initial, account: null, locked: false, receipts: []});
+  });
+
+  it('records who the person is without pretending it is a login', () => {
+    useAppStore.getState().createAccount({name: 'Ege Koca', email: 'ege@example.com'});
+    const {account, locked} = useAppStore.getState();
+
+    expect(account).toMatchObject({name: 'Ege Koca', email: 'ege@example.com'});
+    expect(account?.createdAt).toEqual(expect.any(String));
+    // Setting up is itself the proof of presence; asking again straight away
+    // would be a prompt with nothing behind it.
+    expect(locked).toBe(false);
+  });
+
+  it('keeps an account without an email, because email is optional', () => {
+    useAppStore.getState().createAccount({name: 'Ege'});
+    expect(useAppStore.getState().account).toMatchObject({name: 'Ege'});
+    expect(useAppStore.getState().account?.email).toBeUndefined();
+  });
+
+  it('locks only when there is an account to lock', () => {
+    useAppStore.getState().lock();
+    expect(useAppStore.getState().locked).toBe(false);
+
+    useAppStore.getState().createAccount({name: 'Ege'});
+    useAppStore.getState().lock();
+    expect(useAppStore.getState().locked).toBe(true);
+
+    useAppStore.getState().unlock();
+    expect(useAppStore.getState().locked).toBe(false);
+  });
+
+  it('leaves nothing behind when the account is erased', () => {
+    useAppStore.getState().createAccount({name: 'Ege'});
+    useAppStore.setState({
+      receipts: [
+        {
+          intentId: 'i',
+          merchantName: 'Rose Coffee',
+          recipient: 'G',
+          amount: '1',
+          assetCode: 'XLM',
+          network: 'testnet',
+          payloadHash: 'h',
+          status: 'confirmed',
+          transactionHash: 't',
+          createdAt: '2026-08-24T00:00:00.000Z',
+          settlementMode: 'testnet',
+        },
+      ],
+      merchantRegisteredOnChain: true,
+    });
+
+    useAppStore.getState().signOut();
+    const state = useAppStore.getState();
+
+    expect(state.account).toBeNull();
+    expect(state.receipts).toEqual([]);
+    expect(state.merchantProfile).toBeNull();
+    expect(state.smartWallet).toBeNull();
+    expect(state.merchantRegisteredOnChain).toBe(false);
+    expect(state.mode).toBe('customer');
+    // Nothing is left locked either, or the next person would face a prompt
+    // for an account that no longer exists.
+    expect(state.locked).toBe(false);
+  });
+
+  it('treats an account alone as a session worth returning to', () => {
+    const {hasRestorableSession} = require('../src/state/appStore');
+    useAppStore.getState().createAccount({name: 'Ege'});
+    expect(hasRestorableSession(useAppStore.getState())).toBe(true);
+  });
+});
+
+describe('what the lock protects', () => {
+  it('keeps the session while locked, so unlocking restores rather than rebuilds', () => {
+    useAppStore.getState().createAccount({name: 'Ege'});
+    useAppStore.setState({smartWallet: {contractId: 'C', devicePublicKey: 'k'}});
+
+    useAppStore.getState().lock();
+    const locked = useAppStore.getState();
+
+    expect(locked.locked).toBe(true);
+    // Locking hides the session; it must never quietly discard it.
+    expect(locked.account).not.toBeNull();
+    expect(locked.smartWallet).not.toBeNull();
+  });
+});

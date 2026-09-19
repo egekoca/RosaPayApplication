@@ -97,6 +97,17 @@ export function buildApp({
   // The storage mode is part of health because in-memory data disappears on
   // restart, and a client that records payments deserves to know that.
   app.get('/v1/health', async () => ({status: 'ok', storage}));
+  /**
+   * What the service has handled. Read-only and free of anything that
+   * identifies a person or a payment: counts by outcome and one duration, so it
+   * can be watched by an operator or shown in a demo without exposing a
+   * customer, a merchant or an amount.
+   */
+  app.get('/v1/metrics', async () => {
+    const metrics = await intents.readMetrics();
+    return {...metrics, storage};
+  });
+
   app.get('/v1/health/stellar', async (_request, reply) => {
     try {
       return await stellar.health();

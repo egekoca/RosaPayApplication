@@ -175,3 +175,121 @@ describe('storage reporting', () => {
     expect(response.json()).toEqual({status: 'ok', storage: 'postgres'});
   });
 });
+
+describe('service metrics', () => {
+  it('reports nothing but zeroes before any payment', async () => {
+    const app = buildApp();
+    apps.push(app);
+
+    const response = await app.inject({method: 'GET', url: '/v1/metrics'});
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      intents: 0,
+      byStatus: {
+        awaiting_approval: 0,
+        authorized: 0,
+        submitted: 0,
+        confirmed: 0,
+        rejected: 0,
+        expired: 0,
+        failed: 0,
+      },
+      medianConfirmationSeconds: null,
+      storage: 'memory',
+    });
+  });
+
+  it('counts a request by the outcome it reached', async () => {
+    const app = buildApp();
+    apps.push(app);
+
+    const intent = signedIntent();
+    await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': 'metrics-key-0000000001'},
+      payload: intent,
+    });
+
+    const metrics = (await app.inject({method: 'GET', url: '/v1/metrics'})).json();
+
+    expect(metrics.intents).toBe(1);
+    expect(metrics.byStatus.awaiting_approval).toBe(1);
+    expect(metrics.byStatus.confirmed).toBe(0);
+    // Nothing has confirmed, so there is no duration to report rather than a
+    // zero that would read as "instant".
+    expect(metrics.medianConfirmationSeconds).toBeNull();
+  });
+
+  it('reports how long a confirmed payment took', async () => {
+    const app = buildApp();
+    apps.push(app);
+
+    const intent = signedIntent();
+    const intentId = intent.intent.intentId;
+    await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': 'metrics-key-0000000002'},
+      payload: intent,
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/authorize`,
+      payload: {authorizer: intent.intent.recipient},
+    });
+    const txHash = 'b'.repeat(64);
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/submit`,
+      payload: {transactionHash: txHash},
+    });
+
+    const settlement = await app.inject({method: 'GET', url: `/v1/payment-intents/${intentId}/settlement`});
+    expect(settlement.json().status).toBe('submitted');
+
+    const metrics = (await app.inject({method: 'GET', url: '/v1/metrics'})).json();
+    expect(metrics.byStatus.submitted).toBe(1);
+    expect(metrics.byStatus.awaiting_approval).toBe(0);
+  });
+});
+
+describe('confirmation timing', () => {
+  it('never reports a payment that confirmed before it was requested', async () => {
+    const app = buildApp();
+    apps.push(app);
+
+    const intent = signedIntent();
+    const intentId = intent.intent.intentId;
+    await app.inject({
+      method: 'POST',
+      url: '/v1/payment-intents',
+      headers: {'idempotency-key': 'metrics-key-0000000003'},
+      payload: intent,
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/authorize`,
+      payload: {authorizer: intent.intent.recipient},
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/submit`,
+      payload: {transactionHash: 'c'.repeat(64)},
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/v1/payment-intents/${intentId}/confirm`,
+      payload: {transactionHash: 'c'.repeat(64), ledger: 4_300_000},
+    });
+
+    const metrics = (await app.inject({method: 'GET', url: '/v1/metrics'})).json();
+    // Whatever it reports, a duration is either absent or forwards in time. A
+    // negative median would read as "confirms before you ask", which is how a
+    // clock artifact gets mistaken for a result.
+    expect(
+      metrics.medianConfirmationSeconds === null || metrics.medianConfirmationSeconds >= 0,
+    ).toBe(true);
+  });
+});

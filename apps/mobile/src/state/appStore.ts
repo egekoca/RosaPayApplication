@@ -42,6 +42,18 @@ export type LocalReceipt = {
   confirmedAt?: string;
 };
 
+/**
+ * Who this person is, for their own benefit rather than for authentication.
+ * Rosa Pay is non-custodial: the device key is the account, so there is nothing
+ * a server could check an email against. The name is what a merchant sees on a
+ * receipt, and the email is where a receipt can be sent.
+ */
+export type Account = {
+  name: string;
+  email?: string;
+  createdAt: string;
+};
+
 type AppState = {
   /** False until the stored session has been read back from secure storage. */
   hydrated: boolean;
@@ -49,12 +61,19 @@ type AppState = {
   settlementMode: SettlementMode;
   /** Where the Rosa Pay API lives; a phone needs the development machine's address. */
   apiBaseUrl: string;
+  account: Account | null;
+  /** True while a returning user has not yet proved they are the device owner. */
+  locked: boolean;
   merchantProfile: MerchantProfile | null;
   merchantRegisteredOnChain: boolean;
   customerWallet: DevelopmentCustomerWallet | null;
   smartWallet: SmartWallet | null;
   pendingRequest: SignedPaymentIntentV1 | null;
   receipts: LocalReceipt[];
+  createAccount(account: Omit<Account, 'createdAt'>): void;
+  unlock(): void;
+  lock(): void;
+  signOut(): void;
   setMode(mode: AppMode): void;
   setSettlementMode(mode: SettlementMode): void;
   setApiBaseUrl(url: string): void;
@@ -93,9 +112,13 @@ function isSigningKey(value: unknown, length: number): boolean {
 
 /** True once a session exists that a returning user should come back to. */
 export function hasRestorableSession(
-  state: Pick<AppState, 'customerWallet' | 'merchantProfile' | 'receipts'> & {smartWallet?: SmartWallet | null},
+  state: Pick<AppState, 'customerWallet' | 'merchantProfile' | 'receipts'> & {
+    smartWallet?: SmartWallet | null;
+    account?: Account | null;
+  },
 ): boolean {
   return (
+    (state.account ?? null) !== null ||
     state.customerWallet !== null ||
     (state.smartWallet ?? null) !== null ||
     state.merchantProfile !== null ||
@@ -113,6 +136,9 @@ export const useAppStore = create<AppState>()(
   persist(
     set => ({
       hydrated: false,
+      account: null,
+      // A session with an account starts locked; rehydration decides.
+      locked: false,
       mode: 'customer',
       settlementMode: initialSettlementMode,
       apiBaseUrl: defaultApiBaseUrl,
@@ -122,6 +148,22 @@ export const useAppStore = create<AppState>()(
       smartWallet: null,
       pendingRequest: null,
       receipts: [],
+      createAccount: account =>
+        set({account: {...account, createdAt: new Date().toISOString()}, locked: false}),
+      unlock: () => set({locked: false}),
+      lock: () => set(state => (state.account ? {...state, locked: true} : state)),
+      signOut: () =>
+        set({
+          account: null,
+          locked: false,
+          mode: 'customer',
+          merchantProfile: null,
+          merchantRegisteredOnChain: false,
+          customerWallet: null,
+          smartWallet: null,
+          pendingRequest: null,
+          receipts: [],
+        }),
       setMode: mode => set(state => (mode === 'merchant' && !state.merchantProfile ? state : {...state, mode})),
       setSettlementMode: settlementMode => set({settlementMode}),
       setApiBaseUrl: apiBaseUrl => set({apiBaseUrl}),
@@ -141,7 +183,9 @@ export const useAppStore = create<AppState>()(
       migrate: state => dropUnusableSecrets(state as Partial<AppState>),
       merge: (persisted, current) => ({...current, ...dropUnusableSecrets(persisted as Partial<AppState>)}),
       onRehydrateStorage: () => state => {
-        useAppStore.setState({hydrated: true});
+        // A returning account has to prove itself with the device before the
+        // app shows a balance or a receipt.
+        useAppStore.setState({hydrated: true, locked: Boolean(state?.account)});
         return state;
       },
       storage: createJSONStorage(() => secureSessionStorage, {
@@ -151,6 +195,7 @@ export const useAppStore = create<AppState>()(
       // Everything a returning user needs: their wallet, business profile, the
       // request still on screen and their receipts.
       partialize: state => ({
+        account: state.account,
         mode: state.mode,
         settlementMode: state.settlementMode,
         apiBaseUrl: state.apiBaseUrl,

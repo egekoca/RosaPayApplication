@@ -1,61 +1,162 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {ScanLine} from 'lucide-react-native';
-import {useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {CameraOff, Nfc, ScanLine} from 'lucide-react-native';
+import {useCallback, useEffect, useRef, useState} from 'react';
+import {Linking, StyleSheet, Text, View} from 'react-native';
+import {Camera, CameraType} from 'react-native-camera-kit';
 import {Button, colors, radius, spacing, typography} from '@rosapay/ui';
-import {decodePaymentQr, encodePaymentQr, validatePaymentIntent} from '@rosapay/protocol';
-import {verifyMerchantSignature} from '@rosapay/stellar/merchant-signature';
+import {encodePaymentQr} from '@rosapay/protocol';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useAppStore} from '../../state/appStore';
 import {mockSignedIntent} from './mockIntent';
+import {requestCameraPermission} from './cameraPermission';
+import {readPaymentQr} from './readPaymentQr';
+import {useNfcReader} from './useNfc';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Scan'>;
+
+type CameraState = 'checking' | 'granted' | 'denied' | 'unavailable';
 
 export function ScanScreen({navigation}: Props) {
   const pendingRequest = useAppStore(state => state.pendingRequest);
   const stellarHealth = useStellarHealth();
   const [error, setError] = useState<string | undefined>();
+  const [camera, setCamera] = useState<CameraState>('checking');
+  // A camera fires repeatedly while a code is in frame. Without this the screen
+  // would push the confirmation route once per frame.
+  const handled = useRef(false);
 
-  // Until the camera is wired, the scanner reads the request this device created,
-  // falling back to the bundled fixture so the customer path is always testable.
-  const scanDemo = () => {
-    setError(undefined);
-    const source = pendingRequest ?? mockSignedIntent;
-    try {
-      const payload = decodePaymentQr(encodePaymentQr(source));
-      validatePaymentIntent(payload.intent, {
-        network: 'testnet',
-        latestLedger: pendingRequest ? stellarHealth.data?.latestLedger ?? 0 : 1_500_000,
-        maxLedgerLifetime: 1_440,
-      });
-      if (!verifyMerchantSignature(payload)) {
-        throw new Error('This request was not signed by the merchant it names');
+  useEffect(() => {
+    let cancelled = false;
+    // A simulator or emulator without a virtual camera resolves to 'unavailable',
+    // and the device-request fallback below keeps the customer path testable there.
+    void requestCameraPermission().then(result => {
+      if (!cancelled) setCamera(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Coming back from the confirmation screen must re-arm the scanner.
+  useEffect(
+    () =>
+      navigation.addListener('focus', () => {
+        handled.current = false;
+        setError(undefined);
+      }),
+    [navigation],
+  );
+
+  const scanContext = useCallback(
+    (live: boolean) => ({
+      network: 'testnet' as const,
+      latestLedger: live ? stellarHealth.data?.latestLedger ?? 0 : 1_500_000,
+      maxLedgerLifetime: 1_440,
+    }),
+    [stellarHealth.data?.latestLedger],
+  );
+
+  const accept = useCallback(
+    (value: string, live: boolean) => {
+      if (handled.current) return;
+      const result = readPaymentQr(value, scanContext(live));
+      if (!result.ok) {
+        setError(result.message);
+        return;
       }
-      navigation.navigate('Confirm', {payload});
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'This payment request could not be read');
-    }
+      handled.current = true;
+      setError(undefined);
+      navigation.navigate('Confirm', {payload: result.payload});
+    },
+    [navigation, scanContext],
+  );
+
+  // A tap and a scan carry the same signed request, so both go through the same
+  // verification before anything is confirmed.
+  const nfc = useNfcReader(!handled.current, {
+    onRequest: useCallback((payload: string) => accept(payload, true), [accept]),
+    onError: useCallback((message: string) => setError(message), []),
+  });
+
+  const scanOwnRequest = () => {
+    const source = pendingRequest ?? mockSignedIntent;
+    accept(encodePaymentQr(source), Boolean(pendingRequest));
   };
+
   return (
     <Screen contentStyle={styles.screen}>
       <View style={styles.camera}>
-        <View style={styles.scanFrame}><ScanLine color={colors.amber} size={52} /></View>
-        <Text style={styles.cameraText}>Align the merchant QR inside the frame</Text>
+        {camera === 'granted' ? (
+          <Camera
+            style={StyleSheet.absoluteFill}
+            cameraType={CameraType.Back}
+            scanBarcode
+            showFrame={false}
+            scanThrottleDelay={600}
+            onReadCode={event => accept(event.nativeEvent.codeStringValue, true)}
+            onError={() => setCamera('unavailable')}
+            testID="scan-camera"
+          />
+        ) : null}
+        <View style={styles.scanFrame} pointerEvents="none">
+          {camera === 'granted' ? null : (
+            <CameraOff color={camera === 'checking' ? colors.inkMuted : colors.amber} size={52} />
+          )}
+          {camera === 'granted' ? <ScanLine color={colors.amber} size={52} /> : null}
+        </View>
+        <Text style={styles.cameraText} pointerEvents="none">
+          {cameraMessage(camera)}
+        </Text>
       </View>
+
+      {nfc.supported && nfc.enabled ? (
+        <View style={styles.nfcRow}>
+          <Nfc color={colors.amber} size={18} />
+          <Text style={styles.nfcText}>You can also hold this phone against the merchant's</Text>
+        </View>
+      ) : null}
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button onPress={scanDemo} testID="scan-demo">{pendingRequest ? 'Scan this device request' : 'Scan demo QR'}</Button>
+
+      {camera === 'denied' ? (
+        <Button onPress={() => void Linking.openSettings()} testID="scan-open-settings">
+          Allow camera access
+        </Button>
+      ) : null}
+
+      <Button
+        tone={camera === 'unavailable' ? 'primary' : 'secondary'}
+        onPress={scanOwnRequest}
+        testID="scan-demo">
+        {pendingRequest ? 'Scan this device request' : 'Scan demo QR'}
+      </Button>
       <Text style={styles.fallback}>QR is the universal payment path on iOS and Android.</Text>
     </Screen>
   );
 }
 
+function cameraMessage(state: CameraState): string {
+  switch (state) {
+    case 'granted':
+      return 'Align the merchant QR inside the frame';
+    case 'checking':
+      return 'Starting the camera';
+    case 'denied':
+      return 'Rosa Pay needs the camera to read a merchant QR';
+    case 'unavailable':
+      return 'No camera on this device — use the request below';
+  }
+}
+
 const styles = StyleSheet.create({
   screen: {justifyContent: 'center'},
-  camera: {alignItems: 'center', alignSelf: 'center', aspectRatio: 0.82, backgroundColor: colors.black, borderRadius: radius.md, justifyContent: 'center', gap: spacing.xl, maxWidth: 420, width: '100%'},
+  camera: {alignItems: 'center', alignSelf: 'center', aspectRatio: 0.82, backgroundColor: colors.black, borderRadius: radius.md, justifyContent: 'center', gap: spacing.xl, maxWidth: 420, overflow: 'hidden', width: '100%'},
   scanFrame: {alignItems: 'center', borderColor: colors.amber, borderRadius: radius.md, borderWidth: 3, height: 210, justifyContent: 'center', width: 210},
   cameraText: {...typography.label, color: colors.ink, maxWidth: 260, textAlign: 'center'},
   fallback: {fontSize: 13, lineHeight: 18, color: colors.inkMuted, textAlign: 'center'},
   error: {...typography.label, color: colors.danger, textAlign: 'center'},
+  nfcRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
+  nfcText: {fontSize: 13, color: colors.inkMuted},
 });

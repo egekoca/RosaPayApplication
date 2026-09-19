@@ -7,6 +7,8 @@ import {colors} from '@rosapay/ui';
 
 import {AppErrorBoundary} from './src/app/AppErrorBoundary';
 import {RootNavigator} from './src/app/navigation';
+import {useAutoLock} from './src/app/useAutoLock';
+import {UnlockScreen} from './src/features/onboarding/UnlockScreen';
 import {useAppStore} from './src/state/appStore';
 
 const queryClient = new QueryClient({
@@ -20,13 +22,20 @@ function App() {
   // The stored session is read back asynchronously; showing the navigator before
   // it lands would send a returning user through onboarding again.
   const hydrated = useAppStore(state => state.hydrated);
+  const locked = useAppStore(state => state.locked);
+  useAutoLock();
 
   return (
     <AppErrorBoundary>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <StatusBar barStyle="light-content" backgroundColor={colors.canvas} />
-          {hydrated ? (
+          {hydrated && locked ? (
+            // The lock stands in for the app rather than covering it, so a
+            // locked session mounts no screen that could hold someone's money
+            // on it. Unlocking mounts the app fresh at its own first route.
+            <UnlockScreen />
+          ) : hydrated ? (
             <NavigationContainer>
               <RootNavigator />
             </NavigationContainer>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A proprietary AID under the F0 prefix, which the ISO/IEC 7816-5 registry
+  reserves for applications that are not internationally registered. Rosa Pay is
+  not a payment card and must not claim a card scheme's AID.
+-->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/nfc_service_description"
+    android:requireDeviceUnlock="false"
+    android:apduServiceBanner="@mipmap/ic_launcher">
+    <aid-group android:description="@string/nfc_aid_group_description"
+        android:category="other">
+        <aid-filter android:name="F0526F736150617901" />
+    </aid-group>
+</host-apdu-service>

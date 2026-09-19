@@ -1,12 +1,14 @@
 import type {PaymentStatus} from '@rosapay/domain';
 import {parseSignedPaymentIntent} from '@rosapay/protocol';
 import type {PostgresQueryClient} from '@rosapay/postgres';
-import type {
-  AuthorizationRecord,
-  IntentRepository,
-  MerchantPayment,
-  SettlementRecord,
-  StoredIntent,
+import {
+  emptyPaymentMetrics,
+  type AuthorizationRecord,
+  type IntentRepository,
+  type MerchantPayment,
+  type PaymentMetrics,
+  type SettlementRecord,
+  type StoredIntent,
 } from '../application/IntentService';
 
 export type {PostgresQueryClient, PostgresQueryResult} from '@rosapay/postgres';
@@ -139,6 +141,46 @@ export class PostgresIntentRepository implements IntentRepository {
       [intentId],
     );
     return result.rows[0] ? mapSettlement(result.rows[0]) : null;
+  }
+
+  async readMetrics(): Promise<PaymentMetrics> {
+    const metrics = emptyPaymentMetrics();
+
+    const totals = await this.client.query<{intents: string}>(
+      'SELECT count(*)::text AS intents FROM payment_intents',
+    );
+    metrics.intents = Number(totals.rows[0]?.intents ?? 0);
+
+    const byStatus = await this.client.query<{status: PaymentStatus; total: string}>(
+      'SELECT status, count(*)::text AS total FROM settlements GROUP BY status',
+    );
+    for (const row of byStatus.rows) {
+      if (row.status in metrics.byStatus) metrics.byStatus[row.status] = Number(row.total);
+    }
+
+    // Both timestamps are the server's own: when it accepted the intent and
+    // when it saw the transaction confirm.
+    //
+    // A payment cannot confirm before it was requested, so a row that says it
+    // did is a clock artifact rather than a fast payment — rows that predate the
+    // `created_at` column carry the migration's timestamp, which is later than
+    // their confirmation. Those are unmeasurable and are left out instead of
+    // being averaged in as negative time.
+    const median = await this.client.query<{seconds: string | null}>(
+      `SELECT percentile_cont(0.5) WITHIN GROUP (
+                ORDER BY EXTRACT(EPOCH FROM (s.confirmed_at - i.created_at))
+              )::text AS seconds
+         FROM settlements s
+         JOIN payment_intents i ON i.intent_id = s.intent_id
+        WHERE s.status = 'confirmed'
+          AND s.confirmed_at IS NOT NULL
+          AND s.confirmed_at >= i.created_at`,
+    );
+    const seconds = median.rows[0]?.seconds;
+    metrics.medianConfirmationSeconds =
+      seconds === null || seconds === undefined ? null : Math.round(Number(seconds) * 1000) / 1000;
+
+    return metrics;
   }
 
   async listSettlements(status?: PaymentStatus): Promise<SettlementRecord[]> {

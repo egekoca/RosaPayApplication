@@ -1,3 +1,4 @@
+import {useState} from 'react';
 import {StyleSheet, Text, TextInput, View, type KeyboardTypeOptions} from 'react-native';
 import {colors, radius, spacing, typography} from './theme';
 
@@ -30,6 +31,8 @@ export function TextField({
   multiline = false,
   testID,
 }: TextFieldProps) {
+  // A field that never changes when you tap it leaves you unsure it took focus.
+  const [focused, setFocused] = useState(false);
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -40,10 +43,18 @@ export function TextField({
         keyboardType={keyboardType}
         maxLength={maxLength}
         multiline={multiline}
+        onBlur={() => setFocused(false)}
         onChangeText={onChangeText}
+        onFocus={() => setFocused(true)}
         placeholder={placeholder}
         placeholderTextColor={colors.inkMuted}
-        style={[styles.input, mono && styles.mono, multiline && styles.multiline, !!error && styles.inputError]}
+        style={[
+          styles.input,
+          mono && styles.mono,
+          multiline && styles.multiline,
+          focused && styles.inputFocused,
+          !!error && styles.inputError,
+        ]}
         testID={testID}
         value={value}
       />
@@ -53,19 +64,20 @@ export function TextField({
 }
 
 const styles = StyleSheet.create({
-  field: {gap: spacing.xs},
+  field: {gap: spacing.sm},
   label: {...typography.label, color: colors.inkMuted, fontSize: 12},
   input: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceSunken,
     borderColor: colors.line,
     borderRadius: radius.md,
     borderWidth: 1,
     color: colors.ink,
     fontSize: 16,
-    minHeight: 50,
+    minHeight: 56,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  inputFocused: {backgroundColor: colors.surface, borderColor: colors.amber},
   inputError: {borderColor: colors.danger},
   multiline: {minHeight: 78, textAlignVertical: 'top'},
   mono: {...typography.mono, fontSize: 12},

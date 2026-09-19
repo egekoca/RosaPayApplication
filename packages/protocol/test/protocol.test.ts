@@ -47,3 +47,16 @@ describe('RTP/1', () => {
     ).toThrow('issuer');
   });
 });
+
+describe('payment QR limits', () => {
+  it('refuses a code too large to be a payment request', () => {
+    const oversized = `rosapay://pay/${'A'.repeat(4_096)}`;
+    expect(() => decodePaymentQr(oversized)).toThrow(/too large/);
+  });
+
+  it('reports a corrupted scan without leaking a parser error', () => {
+    expect(() => decodePaymentQr('rosapay://pay/not-base64-json')).toThrow(
+      'This payment request could not be read',
+    );
+  });
+});

@@ -26,7 +26,8 @@
     "testnet:smoke": "node scripts/testnet-smoke.mjs",
     "testnet:relayed": "tsx scripts/testnet-relayed-settlement.mts",
     "testnet:wallet": "tsx scripts/testnet-wallet-auth.mts",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run test",
+    "testnet:accounts": "tsx scripts/testnet-accounts.mts"
   },
   "devDependencies": {
     "@noble/curves": "^2.3.0",

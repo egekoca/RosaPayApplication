@@ -1,6 +1,6 @@
 import {useState, type ReactNode} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Store} from 'lucide-react-native';
+import {Nfc, Store} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {StyleSheet, Text, View} from 'react-native';
 import {Button, colors, radius, spacing, StatusPill, SurfaceCard, TextField, typography} from '@rosapay/ui';
@@ -11,6 +11,7 @@ import {createRandomBytes} from '../../shared/randomBytes';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useAppStore} from '../../state/appStore';
 import {mobileSettlementMode} from '../payments/settlementAdapter';
+import {useNfcBroadcast} from '../payments/useNfc';
 import {createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
 import {registerMerchantForTestnet} from './merchantRegistration';
 import {publishPaymentRequest, usePaymentRequestStatus} from './merchantRequestStatus';
@@ -203,6 +204,10 @@ function RequestCard({
   // only describes a request that is still waiting for a customer.
   const settled = settlementStatus !== undefined && settlementStatus !== 'awaiting_approval';
   const expired = !settled && remaining !== undefined && remaining <= 0;
+  const encoded = encodePaymentQr(request);
+  // A request that has been paid or has expired stops being offered to taps, so
+  // the QR on screen and what NFC hands out never disagree.
+  const nfc = useNfcBroadcast(settled || expired ? null : encoded);
   return (
     <>
       <SurfaceCard style={styles.requestCard}>
@@ -216,8 +221,14 @@ function RequestCard({
           </StatusPill>
         </View>
         <View style={styles.qr}>
-          <QRCode value={encodePaymentQr(request)} size={214} color={colors.black} backgroundColor="#FFFFFF" />
+          <QRCode value={encoded} size={214} color={colors.black} backgroundColor="#FFFFFF" />
         </View>
+        {nfc.canBroadcast && nfc.enabled && !settled && !expired ? (
+          <View style={styles.nfcRow}>
+            <Nfc color={colors.amber} size={18} />
+            <Text style={styles.nfcText}>Or let the customer tap their phone here</Text>
+          </View>
+        ) : null}
         <View style={styles.expiry}>
           <View style={[styles.dot, expired && styles.dotError, settled && styles.dotDone]} />
           <Text style={styles.expiryText}>
@@ -251,6 +262,8 @@ const styles = StyleSheet.create({
   amount: {color: colors.ink, fontSize: 28, fontWeight: '700'},
   asset: {color: colors.amber, fontSize: 15},
   reference: {color: colors.inkMuted, fontSize: 12, marginTop: spacing.xs},
+  nfcRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
+  nfcText: {fontSize: 13, color: colors.inkMuted},
   qr: {alignItems: 'center', alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.sm, padding: spacing.lg},
   expiry: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
   ledgerRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},

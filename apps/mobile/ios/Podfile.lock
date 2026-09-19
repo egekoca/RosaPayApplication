@@ -1815,6 +1815,28 @@ PODS:
     - React-perflogger (= 0.85.0)
     - React-utils (= 0.85.0)
     - ReactNativeDependencies
+  - ReactNativeCameraKit (18.0.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - ReactNativeDependencies (0.85.0)
   - RNKeychain (10.0.0):
     - hermes-engine
@@ -2008,6 +2030,7 @@ DEPENDENCIES:
   - ReactAppDependencyProvider (from `build/generated/ios/ReactAppDependencyProvider`)
   - ReactCodegen (from `build/generated/ios/ReactCodegen`)
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
+  - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - ReactNativeDependencies (from `../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - RNKeychain (from `../../../node_modules/react-native-keychain`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
@@ -2161,6 +2184,8 @@ EXTERNAL SOURCES:
     :path: build/generated/ios/ReactCodegen
   ReactCommon:
     :path: "../../../node_modules/react-native/ReactCommon"
+  ReactNativeCameraKit:
+    :path: "../../../node_modules/react-native-camera-kit"
   ReactNativeDependencies:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   RNKeychain:
@@ -2247,6 +2272,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 5787b37b8e2e51dfeab697ec031cc7c4080dcea2
   ReactCodegen: d07ee3c8db75b43d1cbe479ae6affebf9925c733
   ReactCommon: fe2a3af8975e63efa60f95fca8c34dc85deee360
+  ReactNativeCameraKit: a959e13e037b86e126ce5cd51013fa5a9c194495
   ReactNativeDependencies: 96ba9a1a4853cd90a4525917499170c08cb113f2
   RNKeychain: 6778b35b5bd067c322f8479526ac09b1d61f31d0
   RNScreens: de068bbd7d91b820fedac25c597d4b14830de74b

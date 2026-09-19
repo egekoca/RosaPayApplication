@@ -9,6 +9,7 @@ import {ActivityScreen} from '../features/activity/ActivityScreen';
 import {HomeScreen} from '../features/home/HomeScreen';
 import {WalletScreen} from '../features/wallet/WalletScreen';
 import {WelcomeScreen} from '../features/onboarding/WelcomeScreen';
+import {CreateAccountScreen} from '../features/onboarding/CreateAccountScreen';
 import {ScanScreen} from '../features/payments/ScanScreen';
 import {PaymentConfirmationScreen} from '../features/payments/PaymentConfirmationScreen';
 import {ReceiptScreen} from '../features/payments/ReceiptScreen';
@@ -19,6 +20,7 @@ import {hasRestorableSession, useAppStore, type LocalReceipt} from '../state/app
 
 export type RootStackParams = {
   Welcome: undefined;
+  CreateAccount: undefined;
   Main: undefined;
   Scan: undefined;
   Confirm: {payload: SignedPaymentIntentV1};
@@ -77,6 +79,7 @@ export function RootNavigator() {
         animationTypeForReplace: 'push',
       }}>
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{headerShown: false, animation: 'fade'}} />
+      <Stack.Screen name="CreateAccount" component={CreateAccountScreen} options={{title: 'Create account', headerBackTitle: 'Back'}} />
       <Stack.Screen name="Main" component={MainTabs} options={{headerShown: false, animation: 'fade'}} />
       <Stack.Screen name="Scan" component={ScanScreen} options={{title: 'Scan QR', animation: 'fade_from_bottom'}} />
       <Stack.Screen name="Confirm" component={PaymentConfirmationScreen} options={{title: 'Review payment', animation: 'slide_from_bottom'}} />

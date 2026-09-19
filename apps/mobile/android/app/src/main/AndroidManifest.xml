@@ -1,6 +1,25 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.NFC" />
+
+    <!-- The camera library declares storage permissions for saving photos.
+         Rosa Pay only reads QR codes, and a payment app asking to read the
+         gallery is both unjustifiable and a store review risk. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
+
+    <!-- Scanning is the primary payment path, but a device without a camera can
+         still receive payments, so the camera is not required to install. -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" tools:replace="android:required" />
+    <!-- Tapping is a convenience over the QR path, so a phone without NFC is
+         still a phone that can pay. -->
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
 
     <application
       android:name=".MainApplication"
@@ -23,5 +42,18 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+
+      <!-- Answers a customer's tap with the request the merchant is showing. -->
+      <service
+        android:name=".RosaPayApduService"
+        android:exported="true"
+        android:permission="android.permission.BIND_NFC_SERVICE">
+        <intent-filter>
+          <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+        </intent-filter>
+        <meta-data
+          android:name="android.nfc.cardemulation.host_apdu_service"
+          android:resource="@xml/apduservice" />
+      </service>
     </application>
 </manifest>

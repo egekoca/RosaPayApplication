@@ -41,7 +41,42 @@ export type MerchantPayment = {
   confirmedAt?: string;
 };
 
+/**
+ * What the service has handled, for an operator rather than for a customer. It
+ * counts requests by outcome and reports how long a confirmed payment took,
+ * measured between two moments the server observed itself.
+ */
+export type PaymentMetrics = {
+  intents: number;
+  byStatus: Record<PaymentStatus, number>;
+  /**
+   * The middle confirmation time in seconds, or null when nothing has confirmed
+   * yet. Median rather than mean: one payment that sat behind a stuck ledger
+   * would drag an average away from the experience everyone else had.
+   */
+  medianConfirmationSeconds: number | null;
+};
+
+export const paymentStatuses: PaymentStatus[] = [
+  'awaiting_approval',
+  'authorized',
+  'submitted',
+  'confirmed',
+  'rejected',
+  'expired',
+  'failed',
+];
+
+export function emptyPaymentMetrics(): PaymentMetrics {
+  return {
+    intents: 0,
+    byStatus: Object.fromEntries(paymentStatuses.map(status => [status, 0])) as Record<PaymentStatus, number>,
+    medianConfirmationSeconds: null,
+  };
+}
+
 export interface IntentRepository {
+  readMetrics?(): Promise<PaymentMetrics>;
   findByIntentId(intentId: string): Promise<StoredIntent | null>;
   findByIdempotencyKey(key: string): Promise<StoredIntent | null>;
   save(intent: StoredIntent): Promise<void>;
@@ -100,6 +135,11 @@ export class IntentService {
   async getSettlement(intentId: string): Promise<SettlementRecord | null> {
     if (!(await this.repository.findByIntentId(intentId))) return null;
     return this.repository.findSettlement(intentId);
+  }
+
+  /** What this service has handled, for an operator watching it run. */
+  readMetrics(): Promise<PaymentMetrics> {
+    return this.repository.readMetrics?.() ?? Promise.resolve(emptyPaymentMetrics());
   }
 
   /** What a merchant has been asked to be paid, and what happened to each request. */

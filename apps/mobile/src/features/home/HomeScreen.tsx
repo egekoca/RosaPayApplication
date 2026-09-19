@@ -13,6 +13,7 @@ import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useWalletBalance} from '../../shared/useWalletBalance';
 import {shareValue} from '../../shared/shareAddress';
 import {useAppStore} from '../../state/appStore';
+import {greetingFor} from './greeting';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabsParams, 'Home'>,
@@ -21,7 +22,7 @@ type Props = CompositeScreenProps<
 
 export function HomeScreen({navigation}: Props) {
   const {width} = useWindowDimensions();
-  const {mode, merchantProfile, settlementMode} = useAppStore();
+  const {mode, merchantProfile, settlementMode, account} = useAppStore();
   const merchantEnabled = merchantProfile !== null;
   const stellarHealth = useStellarHealth();
   return (
@@ -29,7 +30,7 @@ export function HomeScreen({navigation}: Props) {
       <View style={styles.header}>
         <View style={styles.identity}>
           <Image accessibilityLabel="Rosa Pay" source={require('../../assets/rosapay-logo.png')} style={styles.logo} />
-          <View><Text style={styles.eyebrow}>ROSA PAY</Text><Text style={styles.greeting}>Good morning</Text></View>
+          <View><Text style={styles.eyebrow}>ROSA PAY</Text><Text style={styles.greeting} numberOfLines={1}>{greetingFor(account?.name)}</Text></View>
         </View>
         <Pressable accessibilityLabel="Developer settings" onPress={() => navigation.navigate('DeveloperSettings')} style={styles.iconButton} testID="open-developer-settings"><SlidersHorizontal color={colors.inkMuted} size={19} /></Pressable>
       </View>

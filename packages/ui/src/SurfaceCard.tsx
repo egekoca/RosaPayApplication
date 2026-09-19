@@ -1,6 +1,6 @@
 import type {ReactNode} from 'react';
 import {StyleSheet, View, type StyleProp, type ViewStyle} from 'react-native';
-import {colors, radius, spacing} from './theme';
+import {colors, elevation, radius, spacing} from './theme';
 
 type SurfaceCardProps = {
   children: ReactNode;
@@ -16,11 +16,13 @@ export function SurfaceCard({children, style, padded = true, accent = 'none'}: S
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderColor: colors.line,
-    borderRadius: radius.md,
+    borderColor: colors.lineSoft,
+    borderRadius: radius.lg,
     borderWidth: 1,
+    overflow: 'hidden',
+    ...elevation.card,
   },
-  padded: {padding: spacing.lg},
+  padded: {padding: spacing.xl},
   amber: {borderTopColor: colors.amber, borderTopWidth: 2},
   rose: {borderTopColor: colors.rose, borderTopWidth: 2},
   success: {borderTopColor: colors.success, borderTopWidth: 2},
