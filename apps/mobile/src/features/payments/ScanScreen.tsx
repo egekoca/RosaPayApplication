@@ -93,7 +93,13 @@ export function ScanScreen({navigation}: Props) {
       setError(undefined);
       navigation.navigate(
         'Confirm',
-        transport === 'qr' ? {payload: result.payload} : {payload: result.payload, transport},
+        // A tap taken here is the same deliberate act as one taken from the
+        // home screen, so it raises the device prompt by itself. A scan does
+        // not: the camera got the customer this far, and Approve is where that
+        // path has always ended.
+        transport === 'qr'
+          ? {payload: result.payload}
+          : {payload: result.payload, transport, automatic: transport === 'nfc'},
       );
     },
     [navigation, scanContext, stellarHealth.data?.latestLedger, t],

@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {AppState} from 'react-native';
+import {useAppPresence} from '../../shared/appPresence';
 import {
   getNfcStatus,
   nfcUnavailable,
@@ -48,21 +49,12 @@ export function useNfcBroadcast(payload: string | null): NfcBroadcastStatus {
   // Native HCE start/stop calls are asynchronous. Serializing them prevents a
   // late start for an old QR payload from stopping the next request's broadcast.
   const operationQueue = useRef<Promise<void>>(Promise.resolve());
-  const [appActive, setAppActive] = useState(
-    AppState.currentState === 'active',
-  );
+  const appActive = useAppPresence();
   const [result, setResult] = useState<
     | {payload: string; state: 'starting' | 'ready'}
     | {payload: string; state: 'failed'; error: string}
     | null
   >(null);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', state => {
-      setAppActive(state === 'active');
-    });
-    return () => subscription.remove();
-  }, []);
 
   useEffect(() => {
     if (!payload || !status.canBroadcast || !status.enabled || !appActive) {
@@ -142,18 +134,9 @@ export function useNfcReader(active: boolean, handlers: NfcReaderHandlers): NfcR
   const needsUserActionRef = useRef(status.needsUserAction);
   needsUserActionRef.current = status.needsUserAction;
   const [tapRequested, setTapRequested] = useState(false);
-  const [appActive, setAppActive] = useState(
-    AppState.currentState === 'active',
-  );
+  const appActive = useAppPresence();
   const ready = status.supported && status.enabled;
   const listening = active && appActive && ready && (!status.needsUserAction || tapRequested);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', state => {
-      setAppActive(state === 'active');
-    });
-    return () => subscription.remove();
-  }, []);
 
   useEffect(() => {
     if (!listening) return;

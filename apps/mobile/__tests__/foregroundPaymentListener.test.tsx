@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
-import {ForegroundPaymentListener} from '../src/features/payments/ForegroundPaymentListener';
+import {ForegroundPaymentListener, REOFFER_DELAY_MS} from '../src/features/payments/ForegroundPaymentListener';
 import {DEFAULT_INTENT_LIFETIME_LEDGERS, encodePaymentQr} from '@rosapay/protocol';
 import {mockSignedIntent} from './fixtures/signedIntent';
 import {useNfcTapControl} from '../src/features/payments/nfcTapControl';
@@ -299,5 +299,79 @@ describe('foreground payment receiving', () => {
     });
 
     expect(mockProximity.active).toBe(false);
+  });
+
+  it('does not take the screen back when the customer is still at the counter', async () => {
+    // Backing out of a request does not move anyone. The merchant keeps
+    // advertising, and without this the screen would be seized again at once
+    // and the only escape would be to walk away.
+    const navigate = jest.fn();
+    const navigation = {navigate} as never;
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+      );
+    });
+
+    const arrive = async () => {
+      await ReactTestRenderer.act(async () => {
+        mockProximity.handlers!.onRequest({payload: encodePaymentQr(mockSignedIntent), touching: true});
+      });
+    };
+
+    await arrive();
+    expect(navigate).toHaveBeenCalledTimes(1);
+
+    // Leaving Confirm and coming back re-arms the listener, which is what makes
+    // this reachable at all.
+    ReactTestRenderer.act(() => {
+      renderer.update(
+        <ForegroundPaymentListener active={false} latestLedger={1_500_000} navigation={navigation} />,
+      );
+    });
+    ReactTestRenderer.act(() => {
+      renderer.update(
+        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+      );
+    });
+
+    await arrive();
+    expect(navigate).toHaveBeenCalledTimes(1);
+    ReactTestRenderer.act(() => renderer.unmount());
+  });
+
+  it('always honours a tap, because reaching out and touching says it again', async () => {
+    const navigate = jest.fn();
+    const navigation = {navigate} as never;
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+      );
+    });
+
+    await ReactTestRenderer.act(async () => {
+      await mockNfc.handlers!.onRequest(encodePaymentQr(mockSignedIntent));
+    });
+    // Two acts, because leaving a screen and coming back are two commits and
+    // the guard is released by the effect that runs between them.
+    ReactTestRenderer.act(() => {
+      renderer.update(
+        <ForegroundPaymentListener active={false} latestLedger={1_500_000} navigation={navigation} />,
+      );
+    });
+    ReactTestRenderer.act(() => {
+      renderer.update(
+        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+      );
+    });
+    await ReactTestRenderer.act(async () => {
+      await mockNfc.handlers!.onRequest(encodePaymentQr(mockSignedIntent));
+    });
+
+    expect(navigate).toHaveBeenCalledTimes(2);
+    expect(REOFFER_DELAY_MS).toBeGreaterThan(0);
+    ReactTestRenderer.act(() => renderer.unmount());
   });
 });

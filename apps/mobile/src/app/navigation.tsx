@@ -26,7 +26,7 @@ import {hasRestorableSession, useAppStore, type LocalReceipt} from '../state/app
 import type {PaymentTransport} from '../state/appStore';
 import {DashboardScreen} from '../features/dashboard/DashboardScreen';
 import {ForegroundPaymentListener} from '../features/payments/ForegroundPaymentListener';
-import {useStellarHealth} from '../shared/useStellarHealth';
+import {readLatestLedger} from '../shared/useStellarHealth';
 
 export type RootStackParams = {
   Welcome: undefined;
@@ -171,21 +171,6 @@ export function shouldListenInForeground(routeName: string | undefined, locked: 
   return !locked && routeName !== undefined && foregroundNfcRoutes.has(routeName);
 }
 
-/**
- * A failed React Query refetch may retain its previous `data` value. That value
- * is useful for ordinary rendering, but it is not a live ledger observation
- * for an NFC expiry decision. Treat any refetch error or malformed response as
- * unavailable so the receiver fails closed.
- */
-export function freshLedgerFromRefetch(result: {
-  data?: {latestLedger?: number} | null;
-  error?: unknown;
-}): number | undefined {
-  const ledger = result.data?.latestLedger;
-  if (result.error || typeof ledger !== 'number' || !Number.isSafeInteger(ledger) || ledger <= 0) return undefined;
-  return ledger;
-}
-
 export function RootPaymentListener() {
   // This component is deliberately mounted beside the root navigator so it can
   // keep listening across every customer screen. `useNavigationState` cannot be
@@ -212,18 +197,16 @@ export function RootPaymentListener() {
 
   const locked = useAppStore(state => state.locked);
   const active = shouldListenInForeground(routeName, locked);
-  const stellarHealth = useStellarHealth(active);
 
-  const refreshLedger = React.useCallback(async () => {
-    const result = await stellarHealth.refetch();
-    return freshLedgerFromRefetch(result);
-  }, [stellarHealth]);
-
+  // Read on arrival rather than on a timer. This listener is armed for as long
+  // as someone has the app open, so polling here would be a network request
+  // every few seconds, all day, to hold a ledger that is re-read anyway the
+  // moment a merchant actually turns up.
   return (
     <ForegroundPaymentListener
       active={active}
-      latestLedger={stellarHealth.data?.latestLedger}
-      refreshLedger={refreshLedger}
+      latestLedger={undefined}
+      refreshLedger={readLatestLedger}
       navigation={navigation}
     />
   );

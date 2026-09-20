@@ -30,6 +30,16 @@ jest.mock('../src/features/merchant/merchantRequestStatus', () => ({
 jest.mock('../src/features/home/CurrencyPicker', () => ({CurrencyPicker: () => null}));
 jest.mock('../src/shared/shareAddress', () => ({shareValue: jest.fn()}));
 jest.mock('../src/features/wallet/stellarKey', () => ({generateRecoveryPhrase: () => []}));
+const mockProximity = {
+  supported: true,
+  enabled: true,
+  authorized: true,
+  canBroadcast: true,
+  request: jest.fn(),
+};
+jest.mock('../src/features/payments/useProximity', () => ({
+  useProximityStatus: () => mockProximity,
+}));
 const initial = useAppStore.getState();
 let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
 const merchantProfile = {
@@ -40,6 +50,12 @@ const merchantProfile = {
   network: 'testnet' as const,
   developmentSigningSecret: Uint8Array.from(Buffer.alloc(32, 7)),
 };
+
+beforeEach(() => {
+  mockProximity.supported = true;
+  mockProximity.authorized = true;
+  mockProximity.request.mockClear();
+});
 
 afterEach(async () => {
   await ReactTestRenderer.act(() => {
@@ -127,4 +143,37 @@ it('asks an existing merchant to complete missing email without losing the saved
   expect(navigation.navigate).toHaveBeenCalledWith('MerchantOnboarding');
   expect(useAppStore.getState().merchantProfile).toBe(legacyProfile);
   expect(renderer!.root.findAllByType(PaymentCard)).toHaveLength(1);
+});
+
+describe('offering to pay by holding the phones together', () => {
+  async function renderHome() {
+    await ReactTestRenderer.act(() => {
+      useAppStore.setState({account: {name: 'Ege', createdAt: '2026-01-01T00:00:00.000Z'}, mode: 'customer'});
+      renderer = ReactTestRenderer.create(
+        <HomeScreen navigation={{navigate: jest.fn()} as never} route={{} as never} />,
+      );
+    });
+    return renderer!;
+  }
+
+  it('asks for Bluetooth once, where someone is already looking for how to pay', async () => {
+    mockProximity.authorized = false;
+    const home = await renderHome();
+
+    const row = home.root.findByProps({testID: 'home-allow-proximity'});
+    await ReactTestRenderer.act(() => row.props.onPress());
+    expect(mockProximity.request).toHaveBeenCalledTimes(1);
+  });
+
+  it('is gone for good once Bluetooth has been granted', async () => {
+    const home = await renderHome();
+    expect(home.root.findAllByProps({testID: 'home-allow-proximity'})).toHaveLength(0);
+  });
+
+  it('says nothing about Bluetooth on a phone that has none', async () => {
+    mockProximity.supported = false;
+    mockProximity.authorized = false;
+    const home = await renderHome();
+    expect(home.root.findAllByProps({testID: 'home-allow-proximity'})).toHaveLength(0);
+  });
 });

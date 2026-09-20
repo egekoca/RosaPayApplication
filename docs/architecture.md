@@ -310,12 +310,29 @@ listener owns that reader on iOS as well, and publishes its opener through
 rather than burying it behind the camera. Android never publishes an opener,
 because it is already listening.
 
+Neither radio stops because something is drawn over the app. iOS reports
+`inactive` for every system sheet — the Core NFC reader, a permission alert, a
+biometric prompt, Control Centre — and only `background` means the app is no
+longer the one in use. That distinction is load-bearing rather than pedantic:
+arming the NFC reader is what makes iOS present its sheet, so reading `inactive`
+as "gone" had the reader cancelled by its own success, roughly a second after
+the customer pressed the button. `shared/appPresence` is the single answer to
+that question for both radios, the merchant's card emulation, and the pending
+authorization timer.
+
 Neither transport is trusted. Whatever arrives — scanned, tapped, or read from
 this device's own request — goes through the same check before a customer sees an
 approval screen: the payload must decode, the intent must be valid for this
 network and unexpired against the live ledger, and the merchant signature must
 verify against the key the request names. A hostile QR or a hostile tap can at
 worst present a request the customer then declines.
+
+The ledger an arrival is checked against is read on arrival, not held. The root
+listener is armed for as long as someone has the app open, so a poll there would
+be a request every few seconds all day for a number that is re-read the moment a
+merchant actually turns up; `readLatestLedger` does that one read and answers
+undefined for anything that is not a plausible ledger, so the receiver fails
+closed.
 
 The customer-side tap reaches the same `readPaymentQr` validation used for a
 camera scan. NFC routes the verified request to confirmation with transport
@@ -350,6 +367,13 @@ screen and waits for Approve. Neither is an authorization: the signing key is
 minted so the hardware will not sign until the owner answers the prompt. The merchant screen advertises over both radios at once and the
 customer listens on both, so the same request often arrives twice; the first
 one through is the payment and the second is dropped.
+
+A request that has already been put on screen is not re-offered by a radio for
+thirty seconds. Declining one does not move anybody: the customer is still at
+the counter, the merchant is still advertising, and without this the screen
+would be taken straight back with walking away as the only way out. A tap is
+exempt, because reaching out and touching the phone again says "yes, again" in
+a way a radio still shouting across a metre does not.
 
 The wire budget is fixed in both native implementations: 240 UTF-8 bytes per
 APDU response, at most 24 chunks, and therefore 5,760 bytes per request. RTP/1

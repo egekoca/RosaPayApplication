@@ -1,23 +1,30 @@
-import {PermissionsAndroid, Platform} from 'react-native';
-import CameraKit from 'react-native-camera-kit';
+import {NativeModules, PermissionsAndroid, Platform, TurboModuleRegistry} from 'react-native';
 import {requestCameraPermission} from '../src/features/payments/cameraPermission';
 
-jest.mock('react-native-camera-kit', () => ({
-  __esModule: true,
-  default: {
-    checkDeviceCameraAuthorizationStatus: jest.fn(),
-    requestDeviceCameraAuthorization: jest.fn(),
-  },
-}));
-
-const kit = CameraKit as unknown as {
-  checkDeviceCameraAuthorizationStatus: jest.Mock;
-  requestDeviceCameraAuthorization: jest.Mock;
+/**
+ * Mocked as the native side registers it, not as the library's own `index.js`
+ * reads it. That gap is the bug this file exists to hold shut: the library
+ * exports `NativeModules.CameraKit`, nothing has ever registered that name, and
+ * a test that mocked the library's export was green while a real phone reported
+ * having no camera and never showed a permission prompt.
+ */
+const kit = {
+  checkDeviceCameraAuthorizationStatus: jest.fn(),
+  requestDeviceCameraAuthorization: jest.fn(),
 };
 
 beforeEach(() => {
   jest.clearAllMocks();
   Platform.OS = 'ios';
+  delete (NativeModules as Record<string, unknown>).RNCameraKitModule;
+  delete (NativeModules as Record<string, unknown>).CameraKit;
+  jest
+    .spyOn(TurboModuleRegistry, 'get')
+    .mockImplementation(name => (name === 'RNCameraKitModule' ? (kit as never) : null));
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 /**
@@ -78,6 +85,29 @@ describe('asking iOS for the camera', () => {
     await expect(requestCameraPermission()).resolves.toBe('granted');
     // The library's Android permission methods never settle their promise.
     expect(request).toHaveBeenCalledWith(PermissionsAndroid.PERMISSIONS.CAMERA);
+    expect(kit.checkDeviceCameraAuthorizationStatus).not.toHaveBeenCalled();
+  });
+
+  it('finds the camera under the name the native side actually registers', async () => {
+    // The whole failure in one test. `react-native-camera-kit` reads
+    // `NativeModules.CameraKit`; both platforms register `RNCameraKitModule`.
+    // Reading the library's name gets undefined, every call throws, and the
+    // catch below turned that into "no camera on this device".
+    jest.spyOn(TurboModuleRegistry, 'get').mockReturnValue(null as never);
+    (NativeModules as Record<string, unknown>).RNCameraKitModule = kit;
+    kit.checkDeviceCameraAuthorizationStatus.mockResolvedValue(-1);
+    kit.requestDeviceCameraAuthorization.mockResolvedValue(true);
+
+    await expect(requestCameraPermission()).resolves.toBe('granted');
+    expect(kit.requestDeviceCameraAuthorization).toHaveBeenCalledTimes(1);
+  });
+
+  it('says unavailable when no camera module is registered at all', async () => {
+    // Genuinely absent is the only honest reason to tell someone their phone
+    // has no camera, and it must not be a crash either.
+    jest.spyOn(TurboModuleRegistry, 'get').mockReturnValue(null as never);
+
+    await expect(requestCameraPermission()).resolves.toBe('unavailable');
     expect(kit.checkDeviceCameraAuthorizationStatus).not.toHaveBeenCalled();
   });
 });

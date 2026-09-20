@@ -1,5 +1,6 @@
 import {AppState, type AppStateStatus} from 'react-native';
 import {useEffect, useRef} from 'react';
+import {appIsPresent} from '../../shared/appPresence';
 
 export const AUTOMATIC_AUTHORIZATION_DELAY_MS = 700;
 
@@ -42,15 +43,18 @@ export function useAutomaticAuthorization(input: {
     timer = setTimeout(() => {
       timer = undefined;
       // An arrival may finish while the user backgrounds or locks the app.
-      // Never turn that lifecycle transition into a delayed authorization.
-      if (cancelled || AppState.currentState !== 'active') return;
+      // Never turn that lifecycle transition into a delayed authorization. The
+      // test is presence, not `active`: the reader sheet that delivered an iOS
+      // tap is itself system UI over the app, so requiring `active` cancelled
+      // the very authorization the tap had just earned.
+      if (cancelled || !appIsPresent()) return;
       if (attemptedIntent.current === intentId) return;
       attemptedIntent.current = intentId;
       authorize();
     }, AUTOMATIC_AUTHORIZATION_DELAY_MS);
 
     const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state !== 'active') cancel();
+      if (!appIsPresent(state)) cancel();
     });
     return () => {
       cancelled = true;

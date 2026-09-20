@@ -12,6 +12,15 @@ import {useNfcReader} from './useNfc';
 import {useProximityScanner} from './useProximity';
 
 /**
+ * How long a request that has already been shown stays un-reoffered by a radio.
+ *
+ * Long enough that declining one and putting the phone down is not undone by
+ * the merchant still advertising, short enough that changing your mind at the
+ * same counter does not mean waiting around.
+ */
+export const REOFFER_DELAY_MS = 30_000;
+
+/**
  * Keeps this phone ready to be paid at, on whatever screen it is already on.
  *
  * Two radios feed it. NFC is the better experience and stays the default where
@@ -35,6 +44,9 @@ export function ForegroundPaymentListener({
   const handled = useRef(false);
   const activeRef = useRef(active);
   const lifecycleRef = useRef(0);
+  // When each request was last put on screen, so a radio that keeps shouting
+  // cannot keep taking the screen back.
+  const offered = useRef(new Map<string, number>());
   activeRef.current = active;
 
   useEffect(() => {
@@ -105,6 +117,25 @@ export function ForegroundPaymentListener({
     }
 
     if (!activeRef.current || lifecycleRef.current !== lifecycle) return;
+
+    const {intentId} = result.payload.intent;
+    // A customer who backs out of a request while still standing at the counter
+    // is still in range of it. Without this the screen would be taken straight
+    // back, over and over, and the only way out would be to walk away. A tap is
+    // exempt: reaching out and touching the phone again says "yes, again" in a
+    // way a radio still shouting across a metre never does.
+    const lastOffered = offered.current.get(intentId);
+    if (transport !== 'nfc' && lastOffered !== undefined && Date.now() - lastOffered < REOFFER_DELAY_MS) {
+      handled.current = false;
+      return;
+    }
+    const now = Date.now();
+    // Forget what has aged out, so a long day at a counter does not accumulate
+    // every request the phone was ever near.
+    for (const [seen, at] of offered.current) {
+      if (now - at >= REOFFER_DELAY_MS) offered.current.delete(seen);
+    }
+    offered.current.set(intentId, now);
     navigation.navigate('Confirm', {payload: result.payload, transport, automatic});
   }, [latestLedger, navigation, refreshLedger, showError, t]);
 

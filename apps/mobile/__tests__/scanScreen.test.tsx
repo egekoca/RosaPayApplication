@@ -218,9 +218,13 @@ describe('the tap path across the two platforms', () => {
       await Promise.resolve();
     });
 
+    // `automatic` is what tells the confirmation screen it may raise the device
+    // prompt without a button. A tap says what the customer meant wherever it
+    // was taken, and on iOS this button is the only way to take one.
     expect(nav.navigate).toHaveBeenCalledWith('Confirm', {
       payload: mockSignedIntent,
       transport: 'nfc',
+      automatic: true,
     });
   });
 
@@ -251,6 +255,47 @@ describe('the tap path across the two platforms', () => {
 
     expect(nfcStatus.startNfcReader).not.toHaveBeenCalled();
     expect(renderer.root.findAllByProps({testID: 'scan-start-tap'})).toHaveLength(0);
+  });
+
+  it('keeps the reader open while the system sheet is over the app', async () => {
+    // The bug this holds shut: presenting the Core NFC sheet is what iOS does
+    // when the reader starts, and presenting it resigns the app active. Reading
+    // that as "the app went away" tore the session down about a second after
+    // the customer pressed the button — the reader cancelled by its own success.
+    const stop = jest.fn();
+    nfcStatus.getNfcStatus.mockResolvedValue({
+      supported: true,
+      enabled: true,
+      canBroadcast: false,
+      needsUserAction: true,
+    });
+    nfcStatus.startNfcReader.mockImplementation(() => stop);
+
+    let emit!: (state: string) => void;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
+      emit = listener as (state: string) => void;
+      return {remove: jest.fn()} as never;
+    });
+
+    const renderer = await renderScanner(navigation());
+    await ReactTestRenderer.act(async () => {
+      renderer.root.findByProps({testID: 'scan-start-tap'}).props.onPress();
+      await Promise.resolve();
+    });
+    expect(nfcStatus.startNfcReader).toHaveBeenCalledTimes(1);
+
+    await ReactTestRenderer.act(async () => {
+      emit('inactive');
+      await Promise.resolve();
+    });
+    expect(stop).not.toHaveBeenCalled();
+
+    // Actually leaving is still leaving.
+    await ReactTestRenderer.act(async () => {
+      emit('background');
+      await Promise.resolve();
+    });
+    expect(stop).toHaveBeenCalled();
   });
 });
 

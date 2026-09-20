@@ -67,6 +67,8 @@ class RosaPayProximity: RCTEventEmitter {
 
   private var peripheral: CBPeripheralManager?
   private var central: CBCentralManager?
+  /// Callers waiting for the person to answer the system's Bluetooth prompt.
+  private var permissionResolvers: [RCTPromiseResolveBlock] = []
 
   /// Held for the peripheral role: what to hand a customer who subscribes.
   private var advertised: Data?
@@ -105,15 +107,20 @@ class RosaPayProximity: RCTEventEmitter {
     // Reading the authorization does not prompt; only allocating a manager and
     // using it does. Report from what the system already knows so a screen can
     // render its state without putting a permission sheet on someone.
-    let authorization = CBManager.authorization
-    let authorized = authorization == .allowedAlways
+    // Only an actual grant counts. Reporting "not asked yet" as authorized
+    // reads as ready to a screen, so nothing would ever put the prompt up —
+    // and the prompt is what allocates the managers that make the radio
+    // knowable, so the app would sit waiting on a state it had no way to reach.
+    let authorized = CBManager.authorization == .allowedAlways
     let poweredOn = peripheral?.state == .poweredOn || central?.state == .poweredOn
     resolve([
       "supported": true,
-      // Before a manager exists there is nothing to ask, and the honest answer
-      // for "is Bluetooth on" is the one we get after `requestPermissions`.
+      // A granted app whose managers have not been allocated this launch has no
+      // radio state to report yet. Saying it is on is right often enough to let
+      // a screen arm itself, and `startScanning` refuses with BLE_DISABLED —
+      // which a customer can act on — if the radio turns out to be off.
       "enabled": poweredOn || (authorized && peripheral == nil && central == nil),
-      "authorized": authorized || authorization == .notDetermined,
+      "authorized": authorized,
       "canBroadcast": true,
     ])
   }
@@ -122,16 +129,35 @@ class RosaPayProximity: RCTEventEmitter {
   func requestPermissions(_ resolve: @escaping RCTPromiseResolveBlock, rejecter _: @escaping RCTPromiseRejectBlock) {
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
-      // Allocating the managers is what raises the system prompt, once, and
-      // what makes the powered-on state knowable. Both roles are needed: a
-      // phone is a merchant on one screen and a customer on another.
+      // Nothing to wait for if the question has already been answered once.
+      if CBManager.authorization != .notDetermined, self.central != nil || self.peripheral != nil {
+        self.getStatus(resolve, rejecter: { _, _, _ in })
+        return
+      }
+
+      // Answer when the system does, not on a timer. Allocating the managers is
+      // what raises the prompt, and a person takes as long as they take to read
+      // it — replying before they have touched it reports a refusal they never
+      // made, and the screen then tells them to go to Settings and undo it.
+      self.permissionResolvers.append(resolve)
       self.ensurePeripheral()
       self.ensureCentral()
-      // The state callbacks land asynchronously; answer from the managers once
-      // they have had the run loop turn they need to report.
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-        self.getStatus(resolve, rejecter: { _, _, _ in })
+      // A prompt nobody ever dismisses must not leave the JS side waiting for
+      // an answer forever; the status it gets then is simply the true one.
+      DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+        self.settlePermissionRequests(force: true)
       }
+    }
+  }
+
+  /// Answers everyone waiting on the prompt, once the system has an answer.
+  private func settlePermissionRequests(force: Bool = false) {
+    guard !permissionResolvers.isEmpty else { return }
+    guard force || CBManager.authorization != .notDetermined else { return }
+    let waiting = permissionResolvers
+    permissionResolvers = []
+    for resolve in waiting {
+      getStatus(resolve, rejecter: { _, _, _ in })
     }
   }
 
@@ -343,6 +369,7 @@ class RosaPayProximity: RCTEventEmitter {
 extension RosaPayProximity: CBPeripheralManagerDelegate {
 
   func peripheralManagerDidUpdateState(_ manager: CBPeripheralManager) {
+    settlePermissionRequests()
     if manager.state == .poweredOn {
       publishService(on: manager)
     }
@@ -370,6 +397,7 @@ extension RosaPayProximity: CBPeripheralManagerDelegate {
 extension RosaPayProximity: CBCentralManagerDelegate {
 
   func centralManagerDidUpdateState(_ manager: CBCentralManager) {
+    settlePermissionRequests()
     if manager.state == .poweredOn {
       beginScan(on: manager)
     }

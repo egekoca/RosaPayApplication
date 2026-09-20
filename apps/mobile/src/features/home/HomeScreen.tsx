@@ -1,7 +1,7 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Bluetooth, ChevronRight, Nfc, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
 import {useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Linking, Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
 import {businessEmailSchema} from '../merchant/merchantProfile';
@@ -99,6 +99,19 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
   // Set only where a reader has to be opened by hand, which today means iOS.
   const startTap = useNfcTapControl(state => state.startTap);
   const proximity = useProximityStatus();
+  // Both platforms ask about Bluetooth exactly once. After a refusal the prompt
+  // never comes back, so a second press has to lead somewhere that can still
+  // change the answer rather than silently doing nothing.
+  const [askedForBluetooth, setAskedForBluetooth] = useState(false);
+  const refused = askedForBluetooth && !proximity.authorized;
+  const enableProximity = () => {
+    if (refused) {
+      void Linking.openSettings();
+      return;
+    }
+    setAskedForBluetooth(true);
+    proximity.request();
+  };
   const balance = useWalletBalance();
   const value = useBalanceValue(balance.data);
   const finishWalletSetup = () => {
@@ -148,14 +161,16 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
           <PressScale>
             <Pressable
               accessibilityRole="button"
-              onPress={proximity.request}
+              onPress={enableProximity}
               style={styles.tapAction}
               testID="home-allow-proximity">
               <View style={styles.tapIcon}>
                 <Bluetooth color={colors.black} size={24} />
               </View>
               <View style={styles.scanCopy}>
-                <Text style={styles.scanTitle}>{t('Turn on paying by holding phones together')}</Text>
+                <Text style={styles.scanTitle}>
+                  {refused ? t('Allow Bluetooth in Settings') : t('Turn on paying by holding phones together')}
+                </Text>
                 <Text style={styles.scanHint}>{t('Rosa Pay finds the merchant you are standing at, and nothing else.')}</Text>
               </View>
               <ChevronRight color={colors.inkMuted} size={19} />

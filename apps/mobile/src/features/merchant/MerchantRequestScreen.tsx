@@ -535,55 +535,8 @@ function RequestCard({
             ) : null}
           </View>
         )}
-        {requestLive && proximity.canBroadcast && proximity.enabled && proximity.authorized ? (
-          <View style={styles.nfcRow}>
-            <Bluetooth color={colors.amber} size={18} />
-            <Text style={styles.nfcText}>
-              {proximity.broadcasting
-                ? t('Or let the customer hold their phone here')
-                : proximity.broadcastError
-                  ? t('Bluetooth is unavailable right now; use the QR code')
-                  : t('Preparing Bluetooth')}
-            </Text>
-            {proximity.broadcastError ? (
-              <Button
-                icon={<RefreshCw color={colors.black} size={16} />}
-                onPress={proximity.retry}
-                testID="retry-proximity-broadcast"
-                tone="ghost">
-                {t('Retry Bluetooth')}
-              </Button>
-            ) : null}
-          </View>
-        ) : requestLive && proximity.supported && !proximity.authorized ? (
-          <View style={styles.nfcRow}>
-            <Bluetooth color={colors.amber} size={18} />
-            <Text style={styles.nfcText}>{t('Allow Bluetooth so a customer can pay by holding their phone here')}</Text>
-            <Button onPress={proximity.request} testID="allow-proximity-broadcast" tone="ghost">
-              {t('Allow Bluetooth')}
-            </Button>
-          </View>
-        ) : null}
-        {requestLive && nfc.canBroadcast && nfc.enabled ? (
-          <View style={styles.nfcRow}>
-            <Nfc color={colors.amber} size={18} />
-            <Text style={styles.nfcText}>
-              {nfc.broadcasting
-                ? t('Or let the customer tap their phone here')
-                : nfc.broadcastError
-                  ? t('NFC is unavailable right now; use the QR code')
-                  : t('Preparing NFC')}
-            </Text>
-            {nfc.broadcastError ? (
-              <Button
-                icon={<RefreshCw color={colors.black} size={16} />}
-                onPress={nfc.retry}
-                testID="retry-nfc-broadcast"
-                tone="ghost">
-                {t('Retry NFC')}
-              </Button>
-            ) : null}
-          </View>
+        {requestLive ? (
+          <ProximityOffer nfc={nfc} proximity={proximity} />
         ) : null}
         <View style={styles.expiry}>
           <View style={[styles.dot, expired && styles.dotError, settlementStatus === 'confirmed' && styles.dotDone]} />
@@ -604,6 +557,110 @@ function RequestCard({
       {requestLive ? <Button onPress={onPreview}>{t('Preview customer view')}</Button> : null}
       <Button tone="ghost" onPress={onReset} testID="new-request">{t('New request')}</Button>
     </>
+  );
+}
+
+/**
+ * One line for the radios, because to a merchant they are one fact: whether a
+ * customer can be served without pointing a camera at the counter. Two rows
+ * saying "let them tap" and "let them hold their phone here" described an
+ * implementation split, not anything happening on the counter.
+ */
+export type ProximityOfferState =
+  | {kind: 'hidden'}
+  | {kind: 'live'; bluetooth: boolean}
+  | {kind: 'preparing'; bluetooth: boolean}
+  | {kind: 'needs-bluetooth'}
+  | {kind: 'bluetooth-off'}
+  | {kind: 'failed'; bluetooth: boolean};
+
+/**
+ * What the counter should say about being approached rather than scanned.
+ *
+ * Bluetooth outranks NFC in this message even when both are on the air, because
+ * it is the half that reaches every customer: an iPhone merchant has no NFC to
+ * offer, and an iPhone customer cannot be made to tap silently. A merchant who
+ * has not granted it is told so rather than quietly serving Android alone.
+ */
+export function proximityOfferState(input: {
+  nfc: {canBroadcast: boolean; enabled: boolean; broadcasting: boolean; broadcastError?: string};
+  proximity: {
+    supported: boolean;
+    canBroadcast: boolean;
+    enabled: boolean;
+    authorized: boolean;
+    broadcasting: boolean;
+    broadcastError?: string;
+  };
+}): ProximityOfferState {
+  const {nfc, proximity} = input;
+  const nfcUsable = nfc.canBroadcast && nfc.enabled;
+  const bluetoothUsable = proximity.canBroadcast && proximity.authorized && proximity.enabled;
+
+  if (bluetoothUsable && proximity.broadcasting) return {kind: 'live', bluetooth: true};
+  // Before falling back to "NFC is on the air", because NFC being on the air is
+  // exactly when a merchant would otherwise believe the counter was ready. An
+  // Android tap serves Android customers; an iPhone customer needs the half
+  // that has not been switched on.
+  if (proximity.supported && !proximity.authorized) return {kind: 'needs-bluetooth'};
+  if (proximity.supported && !proximity.enabled) return {kind: 'bluetooth-off'};
+  if (nfcUsable && nfc.broadcasting) return {kind: 'live', bluetooth: false};
+  if (proximity.broadcastError) return {kind: 'failed', bluetooth: true};
+  if (nfc.broadcastError) return {kind: 'failed', bluetooth: false};
+  if (bluetoothUsable) return {kind: 'preparing', bluetooth: true};
+  if (nfcUsable) return {kind: 'preparing', bluetooth: false};
+  return {kind: 'hidden'};
+}
+
+/**
+ * One line for the radios, because to a merchant they are one fact: whether a
+ * customer can be served without pointing a camera at the counter. Two rows
+ * saying "let them tap" and "let them hold their phone here" described an
+ * implementation split, not anything happening on the counter.
+ */
+function ProximityOffer({
+  nfc,
+  proximity,
+}: {
+  nfc: ReturnType<typeof useNfcBroadcast>;
+  proximity: ReturnType<typeof useProximityBroadcast>;
+}) {
+  const t = useTranslate();
+  const state = proximityOfferState({nfc, proximity});
+  if (state.kind === 'hidden') return null;
+
+  const bluetooth = state.kind === 'needs-bluetooth' || state.kind === 'bluetooth-off' || state.bluetooth;
+  return (
+    <View style={styles.nfcRow} testID={`proximity-${state.kind}`}>
+      {bluetooth ? <Bluetooth color={colors.amber} size={18} /> : <Nfc color={colors.amber} size={18} />}
+      <Text style={styles.nfcText}>
+        {state.kind === 'live'
+          ? t('Or let the customer hold their phone against this one')
+          : state.kind === 'needs-bluetooth'
+            ? t('Allow Bluetooth so an iPhone customer can pay by holding their phone here')
+            : state.kind === 'bluetooth-off'
+              ? t('Turn on Bluetooth so an iPhone customer can pay by holding their phone here')
+              : state.kind === 'failed'
+                ? t('Holding phones together is unavailable right now; use the QR code')
+                : t('Preparing to be tapped')}
+      </Text>
+      {state.kind === 'needs-bluetooth' ? (
+        <Button onPress={proximity.request} testID="allow-proximity-broadcast" tone="ghost">
+          {t('Allow Bluetooth')}
+        </Button>
+      ) : state.kind === 'failed' ? (
+        <Button
+          icon={<RefreshCw color={colors.black} size={16} />}
+          onPress={() => {
+            if (proximity.broadcastError) proximity.retry();
+            if (nfc.broadcastError) nfc.retry();
+          }}
+          testID="retry-proximity-broadcast"
+          tone="ghost">
+          {t('Retry')}
+        </Button>
+      ) : null}
+    </View>
   );
 }
 

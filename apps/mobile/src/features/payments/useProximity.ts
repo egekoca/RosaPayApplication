@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {AppState} from 'react-native';
+import {useAppPresence} from '../../shared/appPresence';
 import {
   getProximityStatus,
   proximityUnavailable,
@@ -59,19 +60,12 @@ export function useProximityBroadcast(payload: string | null): ProximityBroadcas
   // Native start/stop are asynchronous. Serializing them stops a late start for
   // an old payload from tearing down the next request's advertisement.
   const operationQueue = useRef<Promise<void>>(Promise.resolve());
-  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
+  const appActive = useAppPresence();
   const [result, setResult] = useState<
     | {payload: string; state: 'starting' | 'ready'}
     | {payload: string; state: 'failed'; error: string}
     | null
   >(null);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', state => {
-      setAppActive(state === 'active');
-    });
-    return () => subscription.remove();
-  }, []);
 
   const ready = status.canBroadcast && status.enabled && status.authorized;
 
@@ -143,15 +137,8 @@ export function useProximityScanner(
   const {onRequest, onError} = handlers;
   const handlersRef = useRef({onRequest, onError});
   handlersRef.current = {onRequest, onError};
-  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
+  const appActive = useAppPresence();
   const listening = active && appActive && status.supported && status.enabled && status.authorized;
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', state => {
-      setAppActive(state === 'active');
-    });
-    return () => subscription.remove();
-  }, []);
 
   useEffect(() => {
     if (!listening) return;
