@@ -98,7 +98,7 @@ fn client_data_for(payload: &BytesN<32>) -> StdString {
 
 fn client_data(ceremony: &str, challenge: &str) -> StdString {
     std::format!(
-        r#"{{"type":"{}","challenge":"{}","origin":"https://rosa-pay-app.vercel.app","crossOrigin":false}}"#,
+        r#"{{"type":"{}","challenge":"{}","origin":"https://rosapay-mobile.vercel.app","crossOrigin":false}}"#,
         ceremony,
         challenge
     )

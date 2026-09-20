@@ -31,4 +31,16 @@ Both are used to identify the asset being paid, which is what they are for. They
 are traced rather than redrawn because a payment screen naming an asset has to
 show that asset's real mark — an approximation reads as a different token.
 
+## Meal card issuer logos
+
+The second landing page screen uses the official marks of the established meal
+card issuers solely to identify the networks being compared. Each mark remains
+the property of its respective owner and has not been redrawn.
+
+- Pluxee: https://www.pluxee.com.tr/
+- Edenred: https://www.edenred.com.tr/kurumsal-kimlik
+- Multinet: https://multinet.com.tr/
+- Setcard: https://www.setcard.com.tr/en/logo-and-other-visuals
+- MetropolCard: https://metropolcard.com/gorsellerimiz/
+
 Everything else under `assets/` is our own.

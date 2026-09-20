@@ -807,6 +807,470 @@ html { scroll-snap-type: y proximity; }
 .page-evidence .i { font-size: 16px; }
 .page-evidence > span { min-width: 0; overflow-wrap: anywhere; }
 
+/* ---------- page 1: the market, and what it charges for itself ---------- */
+/*
+ * Light ground and raised cards, against the ink pages further down: this page
+ * is the one a merchant reads about their own business, and it should feel
+ * like the brochure rather than the product.
+ *
+ * The frictions and the answers are two cards rather than one interleaved
+ * list, with the hinge between them carrying the reason both exist. Each card
+ * splits merchant from customer, so a reader finds their own row first and the
+ * opposite card's matching row sits at the same height beside it.
+ */
+.page--market { background: var(--paper); }
+
+.market-grid {
+  align-items: center;
+  display: grid;
+  gap: clamp(20px, 3.4vw, 56px);
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
+}
+.market-copy { display: grid; justify-items: start; min-width: 0; width: 100%; }
+
+#market .page-title { font-size: clamp(40px, min(5.5vw, 7.8vh), 78px); }
+#market .page-note { font-size: clamp(16px, 1.45vw, 19px); margin-top: clamp(14px, 2.2vh, 24px); max-width: 41ch; }
+
+.stat-cards {
+  display: grid;
+  gap: clamp(9px, 1vw, 14px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+  margin: clamp(18px, 2.8vh, 32px) 0 0;
+  padding: 0;
+  width: 100%;
+}
+.stat-cards li {
+  align-content: start;
+  background: var(--paper-raised);
+  border: 1px solid rgba(17, 17, 15, 0.07);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(17, 17, 15, 0.04), 0 12px 26px -20px rgba(17, 17, 15, 0.5);
+  column-gap: 11px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-width: 0;
+  padding: clamp(11px, 1.6vh, 17px) clamp(11px, 0.9vw, 15px);
+  row-gap: 3px;
+}
+.stat-icon {
+  align-items: center;
+  align-self: start;
+  background: rgba(224, 180, 93, 0.17);
+  border-radius: 11px;
+  color: var(--lemon-ink);
+  display: inline-flex;
+  grid-row: 1 / span 2;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+.stat-icon .i { font-size: 18px; }
+.stat-cards b { font-size: clamp(20px, min(2.2vw, 3.2vh), 32px); font-weight: 700; letter-spacing: -0.042em; line-height: 1.05; }
+.stat-cards small { color: var(--ink-muted); font-size: clamp(13px, 1.7vh, 15px); line-height: 1.28; }
+
+.issuers { min-width: 0; width: 100%; }
+.issuer-label {
+  color: var(--ink-faint);
+  font-size: clamp(11.5px, 1.5vh, 13px);
+  font-weight: 650;
+  margin: clamp(14px, 2.2vh, 24px) 0 9px;
+}
+.issuer-row {
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.38));
+  backdrop-filter: blur(22px) saturate(1.12);
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 18px 38px -26px rgba(17, 17, 15, 0.5);
+  display: grid;
+  gap: clamp(6px, 0.7vw, 10px);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  padding: clamp(8px, 1.2vh, 12px);
+  position: relative;
+}
+.issuer-row::after {
+  backdrop-filter: blur(1px);
+  background:
+    radial-gradient(ellipse at 18% 10%, rgba(255, 255, 255, 0.34), transparent 33%),
+    linear-gradient(110deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.25) 46%, rgba(255, 255, 255, 0.05));
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+.issuer-logo {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  border-radius: 11px;
+  display: flex;
+  height: clamp(42px, 5.4vh, 54px);
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  padding: 7px 8px;
+}
+.issuer-logo img {
+  display: block;
+  filter: blur(0.2px) saturate(0.94) contrast(0.97);
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+.issuer-logo--pluxee { background: rgba(15, 184, 111, 0.9); }
+.issuer-logo--pluxee img { height: auto; }
+.issuer-logo--edenred img { max-height: 40px; }
+.issuer-logo--multinet img { max-height: 38px; }
+.issuer-logo--setcard img { height: 300%; mix-blend-mode: multiply; width: 135%; }
+.issuer-logo--metropol img { max-height: 30px; }
+
+/* ---- the claim as the screen that makes it ---- */
+.market-stage {
+  isolation: isolate;
+  min-height: clamp(380px, 48vh, 510px);
+  min-width: 0;
+  position: relative;
+}
+.market-stage::before,
+.market-stage::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  z-index: -2;
+}
+/* The source composition sits in a softly focused restaurant. Warm light is
+   enough to place the phones at a lunch counter without inventing a third
+   photograph that competes with the product screens. */
+.market-stage::before {
+  background:
+    radial-gradient(circle at 78% 54%, rgba(224, 180, 93, 0.2) 0 4%, transparent 18%),
+    radial-gradient(circle at 90% 32%, rgba(84, 93, 57, 0.14), transparent 26%),
+    radial-gradient(circle at 70% 70%, rgba(180, 117, 61, 0.13), transparent 28%);
+  filter: blur(12px);
+  inset: 4% -8% 5% 12%;
+}
+.market-stage::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.86) 50%, transparent);
+  bottom: 5%;
+  height: 18%;
+  left: 8%;
+  right: -5%;
+}
+.stage-script {
+  color: var(--lemon-ink);
+  display: grid;
+  font-family: "Snell Roundhand", "Apple Chancery", "Segoe Script", "Brush Script MT", cursive;
+  font-size: clamp(22px, 2.4vw, 34px);
+  left: 1%;
+  line-height: 1.05;
+  margin: 0;
+  opacity: 0.85;
+  position: absolute;
+  top: 3%;
+  transform: rotate(-7deg);
+  z-index: 5;
+}
+/* Each word on its own line, the way it is written by hand. */
+.stage-script span,
+.stage-script i { display: block; }
+.stage-script i { font-style: inherit; padding-left: 0.5em; }
+.stage-script span:last-child { padding-left: 0.9em; }
+
+.market-phones {
+  height: 100%;
+  inset: 0;
+  position: absolute;
+}
+.market-device {
+  --phone: clamp(330px, 29vw, 438px);
+  margin: 0;
+  position: absolute;
+  top: 1%;
+}
+.market-device .held-hand { filter: drop-shadow(0 28px 24px rgba(17, 17, 15, 0.16)); }
+.market-device--approved { left: 1%; transform: rotate(-3.5deg); z-index: 2; }
+.market-device--scan { right: -1%; top: 8%; transform: rotate(4deg); z-index: 3; }
+
+.market-screen {
+  align-items: center;
+  color: var(--paper);
+  display: flex;
+  flex-direction: column;
+  font-size: var(--u);
+  padding: calc(28 * var(--u)) calc(15 * var(--u)) calc(18 * var(--u));
+  text-align: center;
+}
+.market-status {
+  color: rgba(255, 255, 255, 0.74);
+  font-size: calc(7 * var(--u));
+  font-weight: 700;
+  left: calc(12 * var(--u));
+  position: absolute;
+  top: calc(10 * var(--u));
+}
+.market-screen--approved { justify-content: flex-start; }
+.pay-tick {
+  align-items: center;
+  background: var(--lemon);
+  border-radius: 50%;
+  color: var(--ink);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: calc(35 * var(--u));
+  justify-content: center;
+  width: calc(35 * var(--u));
+}
+.pay-tick .i { font-size: calc(18 * var(--u)); stroke-width: 2.3; }
+.pay-title { font-size: calc(10 * var(--u)); font-weight: 650; margin-top: calc(13 * var(--u)); }
+.pay-amount {
+  align-items: baseline;
+  color: var(--lemon);
+  display: flex;
+  font-size: calc(27 * var(--u));
+  font-weight: 700;
+  gap: calc(2 * var(--u));
+  letter-spacing: -0.045em;
+  line-height: 1;
+  margin-top: calc(7 * var(--u));
+}
+.pay-amount small { font-size: 0.7em; }
+.pay-brand { align-items: center; display: flex; gap: calc(7 * var(--u)); margin-top: calc(17 * var(--u)); text-align: left; }
+.pay-brand > img { border-radius: calc(5 * var(--u)); height: calc(18 * var(--u)); width: calc(18 * var(--u)); }
+.pay-brand > span { display: grid; gap: calc(1 * var(--u)); }
+.pay-brand strong { font-size: calc(8.5 * var(--u)); font-weight: 650; }
+.pay-brand small { color: rgba(243, 243, 241, 0.6); font-size: calc(7 * var(--u)); }
+.pay-note {
+  align-items: center;
+  background: rgba(243, 243, 241, 0.08);
+  border-radius: calc(8 * var(--u));
+  color: rgba(243, 243, 241, 0.78);
+  display: flex;
+  font-size: calc(7 * var(--u));
+  gap: calc(6 * var(--u));
+  line-height: 1.35;
+  margin-top: calc(18 * var(--u));
+  padding: calc(7 * var(--u)) calc(8 * var(--u));
+  text-align: left;
+  width: 100%;
+}
+.pay-note .i { color: var(--lemon); flex: 0 0 auto; font-size: calc(13 * var(--u)); }
+
+.market-screen--scan { justify-content: flex-start; }
+.scan-brand {
+  align-items: center;
+  color: var(--lemon);
+  display: flex;
+  font-size: calc(7 * var(--u));
+  font-weight: 750;
+  gap: calc(4 * var(--u));
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.scan-brand img { border-radius: calc(3 * var(--u)); height: calc(12 * var(--u)); width: calc(12 * var(--u)); }
+.scan-title { font-size: calc(12 * var(--u)); font-weight: 680; margin-top: calc(7 * var(--u)); }
+.market-qr {
+  background: #fff;
+  border: calc(2 * var(--u)) solid rgba(224, 180, 93, 0.92);
+  border-radius: calc(8 * var(--u));
+  box-shadow: 0 0 calc(18 * var(--u)) rgba(224, 180, 93, 0.18);
+  color: #0b0b09;
+  display: block;
+  margin-top: calc(13 * var(--u));
+  padding: calc(6 * var(--u));
+  width: 86%;
+}
+.market-qr svg { display: block; fill: currentColor; height: auto; width: 100%; }
+.scan-foot { color: rgba(255, 255, 255, 0.58); font-size: calc(6.5 * var(--u)); margin-top: calc(10 * var(--u)); }
+.scan-tabs { display: flex; gap: calc(10 * var(--u)); margin-top: auto; }
+.scan-tabs i {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  display: flex;
+  font-size: calc(10 * var(--u));
+  height: calc(22 * var(--u));
+  justify-content: center;
+  width: calc(22 * var(--u));
+}
+.scan-tabs i:first-child { color: var(--lemon); }
+
+/* The incumbent cards sit in front of the wrists and behind the screens, as in
+   the reference composition. */
+.card-fan {
+  bottom: 2%;
+  display: flex;
+  justify-content: center;
+  left: 7%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  right: 0;
+  z-index: 2;
+}
+.card-fan li {
+  align-items: center;
+  backdrop-filter: blur(12px) saturate(1.08);
+  border: 1px solid rgba(255, 255, 255, 0.66);
+  border-radius: 10px;
+  box-shadow: 0 18px 34px -18px rgba(17, 17, 15, 0.58);
+  color: rgba(255, 255, 255, 0.94);
+  display: flex;
+  height: clamp(74px, 9vh, 96px);
+  justify-content: center;
+  overflow: hidden;
+  padding: 9px;
+  position: relative;
+  width: clamp(64px, 6.1vw, 80px);
+}
+.card-fan li::after {
+  backdrop-filter: blur(0.45px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), transparent 46%, rgba(255, 255, 255, 0.08));
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+.card-fan img { display: block; filter: blur(0.15px); max-height: 70%; object-fit: contain; width: 100%; }
+.card-fan li:nth-child(1) { background: rgba(21, 184, 113, 0.9); transform: rotate(-10deg) translateY(8px); }
+.card-fan li:nth-child(2) { background: rgba(255, 255, 255, 0.9); margin-left: -10px; transform: rotate(-5deg) translateY(2px); }
+/* No card is lifted above its neighbour: each one's name sits on its own left
+   edge, and a raised middle card would cover the next card's name. */
+.card-fan li:nth-child(3) { background: rgba(246, 244, 236, 0.88); color: #17243a; margin-left: -10px; }
+.card-fan li:nth-child(4) { background: rgba(246, 244, 236, 0.9); margin-left: -10px; transform: rotate(5deg) translateY(2px); }
+.card-fan li:nth-child(5) { background: rgba(238, 238, 236, 0.9); margin-left: -10px; transform: rotate(10deg) translateY(8px); }
+.card-fan li:nth-child(4) img { height: 300%; mix-blend-mode: multiply; width: 160%; }
+
+/* ---- what it costs, and what we do about it ---- */
+.compare {
+  align-items: stretch;
+  display: grid;
+  gap: clamp(14px, 1.8vw, 26px);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  margin-top: clamp(24px, 3.6vh, 52px);
+}
+.compare-card {
+  align-content: start;
+  background: var(--paper-raised);
+  border: 1px solid rgba(17, 17, 15, 0.07);
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(17, 17, 15, 0.04), 0 20px 44px -30px rgba(17, 17, 15, 0.5);
+  display: grid;
+  gap: clamp(12px, 1.8vh, 19px);
+  min-width: 0;
+  padding: clamp(15px, 2.2vh, 25px);
+}
+.compare-head { align-items: center; display: flex; gap: 13px; min-width: 0; }
+.compare-icon {
+  align-items: center;
+  border-radius: 13px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: clamp(38px, 4.6vh, 46px);
+  justify-content: center;
+  width: clamp(38px, 4.6vh, 46px);
+}
+.compare-card--now .compare-icon { background: rgba(192, 67, 47, 0.11); color: var(--alarm); }
+.compare-card--rosa .compare-icon { background: rgba(224, 180, 93, 0.21); color: var(--lemon-ink); }
+.compare-icon .i { font-size: clamp(19px, 2.2vh, 23px); }
+.compare-heading { display: grid; gap: 3px; min-width: 0; }
+.compare-heading strong { font-size: clamp(19px, 1.65vw, 24px); letter-spacing: -0.035em; line-height: 1.15; }
+.compare-heading small { color: var(--ink-muted); font-size: clamp(13.5px, 1.75vh, 15.5px); line-height: 1.35; }
+
+.compare-cols {
+  border-top: 1px solid var(--rule);
+  display: grid;
+  gap: clamp(12px, 1.5vw, 24px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-top: clamp(12px, 1.8vh, 18px);
+}
+.compare-col { min-width: 0; }
+.compare-col h3 {
+  align-items: center;
+  display: flex;
+  font-size: clamp(14px, 1.9vh, 16px);
+  font-weight: 700;
+  gap: 8px;
+  margin: 0 0 clamp(8px, 1.3vh, 13px);
+}
+.compare-col h3 .i { color: var(--ink-faint); font-size: 17px; }
+.compare-col ul { display: grid; gap: clamp(7px, 1.1vh, 12px); list-style: none; margin: 0; padding: 0; }
+.compare-col li {
+  align-items: flex-start;
+  color: var(--ink-muted);
+  display: flex;
+  font-size: clamp(14px, 1.8vh, 16px);
+  gap: 9px;
+  line-height: 1.35;
+  min-width: 0;
+}
+.compare-col li .i { flex: 0 0 auto; font-size: 16px; margin-top: 0.06em; }
+.compare-card--now li .i { color: var(--alarm); }
+.compare-card--rosa li { color: var(--ink); }
+.compare-card--rosa li .i { color: var(--lemon); }
+
+.compare-hinge {
+  align-content: center;
+  display: grid;
+  gap: clamp(5px, 0.9vh, 8px);
+  justify-items: center;
+  max-width: 15ch;
+  text-align: center;
+}
+/* A rule above and below the sentence, so it reads as the join between the two
+   cards rather than as a third card without a border. */
+.compare-hinge::before,
+.compare-hinge::after {
+  background: var(--rule-strong);
+  content: "";
+  height: clamp(16px, 3.4vh, 40px);
+  width: 1px;
+}
+.compare-hinge strong { font-size: clamp(16px, 1.5vw, 21px); letter-spacing: -0.035em; line-height: 1.2; }
+.compare-hinge span { color: var(--ink-muted); font-size: clamp(14px, 1.75vh, 16px); line-height: 1.4; }
+
+@media (max-width: 1080px) {
+  .market-grid { grid-template-columns: minmax(0, 1fr); }
+  /* The screen is the illustration, not the argument: below the copy it still
+     lands, and it stops squeezing the stat cards to three narrow columns. */
+  .market-stage { min-height: clamp(430px, 58vw, 540px); order: 2; }
+  .stage-script { display: none; }
+  .market-device { --phone: clamp(350px, 52vw, 460px); }
+  .market-device--approved { left: calc(50% - 390px); }
+  .market-device--scan { right: calc(50% - 390px); }
+  .compare { grid-template-columns: minmax(0, 1fr); }
+  .compare-hinge { max-width: none; grid-auto-flow: column; justify-content: center; align-items: center; gap: 10px; }
+  .compare-hinge::before, .compare-hinge::after { height: 1px; width: clamp(24px, 6vw, 70px); }
+}
+
+@media (max-width: 780px) {
+  .stat-cards { grid-template-columns: minmax(0, 1fr); }
+  .stat-cards li { align-items: center; row-gap: 1px; }
+  .issuer-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .compare-cols { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .compare-hinge { grid-auto-flow: row; }
+  .compare-hinge::before, .compare-hinge::after { height: 14px; width: 1px; }
+  .market-stage { min-height: clamp(350px, 102vw, 470px); }
+  .market-device { --phone: clamp(270px, 72vw, 380px); }
+  .market-device--approved { left: -17%; }
+  .market-device--scan { right: -17%; }
+  .card-fan { bottom: -1%; left: 0; }
+  .card-fan li { height: 70px; width: 59px; }
+}
+
+@media (max-width: 480px) {
+  .market-stage { min-height: 365px; }
+  .market-device { --phone: min(300px, 84vw); top: 5%; }
+  .market-device--approved { left: -25%; }
+  .market-device--scan { right: -25%; top: 12%; }
+  .card-fan { bottom: 1%; transform: scale(0.86); }
+}
+
 /* ---------- page 2: no signal ---------- */
 .page--offline {
   background: var(--paper);

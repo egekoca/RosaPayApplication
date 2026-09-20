@@ -315,4 +315,110 @@ it('lets an account held as twelve words sign offline, the way a wallet extensio
       authorizeOffline({request: authRequest(intent), intent, customerAddress}),
     ).rejects.toBeInstanceOf(OfflineAuthorizationError);
   });
+it('says what the two sides read, not only which field disagreed', async () => {
+    // "amount differs" is the same sentence whether the merchant changed the
+    // price, the two sides wrote the same price differently, or the field never
+    // arrived. On a phone that sentence is the whole investigation, so it has
+    // to carry the evidence.
+    const intent = paymentIntent();
+    await expect(
+      authorizeOffline({
+        request: authRequest(intent),
+        intent: paymentIntent({amount: '1'}),
+        customerAddress,
+        signer: deviceSigner(),
+      }),
+    ).rejects.toThrow(/amount differs \(this phone read 10000000, the merchant sent 245000000\)/);
+  });
+
+  it('calls a field that never arrived missing, rather than different', async () => {
+    const intent = paymentIntent();
+    const request = authRequest(intent);
+    const entry = xdr.SorobanAuthorizationEntry.fromXDR(request.entryXdr, 'base64');
+    const call = entry.rootInvocation().function().contractFn();
+    // An intent that decoded to nothing useful: every field reads as missing,
+    // which must not be reported as the merchant having changed the amount.
+    call.args([xdr.ScVal.scvMap([]), call.args()[1]!]);
+
+    await expect(
+      authorizeOffline({
+        request: {...request, entryXdr: entry.toXDR('base64')},
+        intent,
+        customerAddress,
+        signer: deviceSigner(),
+      }),
+    ).rejects.toThrow(/the merchant sent nothing/);
+  });
+
+  it('reads one amount however the two sides happen to write it down', () => {
+    // The check is about the number, not about which JavaScript type a decoder
+    // handed it over as. Converting both through `BigInt()` inside a `catch`
+    // meant a runtime that refused one conversion reported an honest payment as
+    // tampered with — the field named would be `amount`, and nothing on the
+    // phone could tell that apart from a merchant who really had changed it.
+    const intent = paymentIntent();
+    const request = authRequest(intent);
+
+    // 24.5 XLM is 245,000,000 stroops, written three ways a decoder might.
+    for (const amount of [245_000_000n, 245_000_000, '245000000']) {
+      const entry = xdr.SorobanAuthorizationEntry.fromXDR(request.entryXdr, 'base64');
+      const call = entry.rootInvocation().function().contractFn();
+      const decoded = scValToNative(call.args()[0]!) as Record<string, unknown>;
+      call.args([nativeToScVal({...decoded, amount}), call.args()[1]!]);
+
+      expect(() =>
+        assertAuthorizationMatchesIntent({...request, entryXdr: entry.toXDR('base64')}, intent, {
+          customerAddress,
+        }),
+      ).not.toThrow();
+    }
+  });
+it('reads the payment on a runtime that cannot decode text', () => {
+    /*
+     * The failure this exists for. A contract struct is a map keyed by symbols,
+     * and once it has crossed a wire those symbols are bytes rather than
+     * strings — so the SDK reaches for `TextDecoder` to read them, and React
+     * Native ships none. Its fallback is a `catch` that hands back raw bytes,
+     * so every field name became a list of character codes, every lookup found
+     * nothing, and the customer was told the merchant had changed the amount.
+     *
+     * Every other test here missed it by building the entry in memory, where
+     * symbols are still strings. Going through XDR first is what a phone does.
+     */
+    const intent = paymentIntent();
+    const request = authRequest(intent);
+    const roundTripped = {
+      ...request,
+      entryXdr: xdr.SorobanAuthorizationEntry.fromXDR(request.entryXdr, 'base64').toXDR('base64'),
+    };
+
+    const decoder = globalThis.TextDecoder;
+    // @ts-expect-error - standing in for React Native, which has none
+    delete globalThis.TextDecoder;
+    try {
+      expect(() =>
+        assertAuthorizationMatchesIntent(roundTripped, intent, {customerAddress}),
+      ).not.toThrow();
+    } finally {
+      globalThis.TextDecoder = decoder;
+    }
+  });
+
+  it('still refuses a changed amount on that same runtime', () => {
+    // Reading the names without help must not become a check that passes
+    // everything: the whole point of it is to still catch a real substitution.
+    const intent = paymentIntent();
+    const request = authRequest(intent);
+
+    const decoder = globalThis.TextDecoder;
+    // @ts-expect-error - standing in for React Native, which has none
+    delete globalThis.TextDecoder;
+    try {
+      expect(() =>
+        assertAuthorizationMatchesIntent(request, paymentIntent({amount: '1'}), {customerAddress}),
+      ).toThrow(/amount differs/);
+    } finally {
+      globalThis.TextDecoder = decoder;
+    }
+  });
 });

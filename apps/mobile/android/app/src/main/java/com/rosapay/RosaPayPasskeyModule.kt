@@ -47,7 +47,7 @@ class RosaPayPasskeyModule(private val reactContext: ReactApplicationContext) :
      * `/.well-known/assetlinks.json`, naming this package and its signing
      * certificate, or the system refuses before the user sees anything.
      */
-    const val DEFAULT_RELYING_PARTY = "rosa-pay-app.vercel.app"
+    const val DEFAULT_RELYING_PARTY = "rosapay-mobile.vercel.app"
     const val ES256 = -7L
     const val PUBLIC_KEY_CREDENTIAL = "public-key"
   }

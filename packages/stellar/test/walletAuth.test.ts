@@ -57,7 +57,7 @@ function passkeySigner(secretKey: Uint8Array) {
     publicKey: Buffer.from(publicKey).toString('base64'),
     assert: vi.fn(async ({challenge}: {challenge: string}) => {
       const clientDataJSON = Buffer.from(
-        JSON.stringify({type: 'webauthn.get', challenge, origin: 'https://rosa-pay-app.vercel.app'}),
+        JSON.stringify({type: 'webauthn.get', challenge, origin: 'https://rosapay-mobile.vercel.app'}),
       );
       const signed = Buffer.concat([
         authenticatorData,

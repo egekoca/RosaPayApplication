@@ -34,6 +34,11 @@
       <symbol id="i-store" viewBox="0 0 24 24"><path d="M4.6 10.4V20h14.8v-9.6M2.8 10.2 4.6 4.4h14.8l1.8 5.8M9.4 20v-5.4h5.2V20" /></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="m5.4 12.6 4.3 4.3L18.6 7.4" /></symbol>
       <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" /><path d="m8.4 12.2 2.4 2.4 4.8-4.9" /></symbol>
+      <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" /><path d="m9.4 9.4 5.2 5.2M14.6 9.4l-5.2 5.2" /></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.6" /><path d="M5.2 20.4v-1.3a6.8 6.8 0 0 1 13.6 0v1.3" /></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9.4" cy="8.4" r="3.4" /><path d="M3.4 20.4v-1.2a6 6 0 0 1 12 0v1.2M16.4 5.4a3.4 3.4 0 0 1 0 6.6M18.2 20.4v-1.2a6 6 0 0 0-1.5-4" /></symbol>
+      <symbol id="i-coins" viewBox="0 0 24 24"><ellipse cx="12" cy="6.8" rx="7.2" ry="2.9" /><path d="M4.8 6.8v4.4c0 1.6 3.2 2.9 7.2 2.9s7.2-1.3 7.2-2.9V6.8M4.8 11.2v4.4c0 1.6 3.2 2.9 7.2 2.9s7.2-1.3 7.2-2.9v-4.4" /></symbol>
+      <symbol id="i-gem" viewBox="0 0 24 24"><path d="M7.2 3.6h9.6l3.6 5.6L12 20.4 3.6 9.2l3.6-5.6Z" /><path d="M3.6 9.2h16.8M9 3.6l-1.6 5.6L12 20.4l4.6-11.2-1.6-5.6" /></symbol>
       <symbol id="i-x" viewBox="0 0 24 24"><path d="M7.2 7.2 16.8 16.8M16.8 7.2 7.2 16.8" /></symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.4 12h14.4M13.2 6.4 18.8 12l-5.6 5.6" /></symbol>
       <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M6.4 3h11.2M6.4 21h11.2M7.4 3v3.4c0 2 1.6 3.6 3 4.4l1.6 1.2 1.6-1.2c1.4-.8 3-2.4 3-4.4V3M7.4 21v-3.4c0-2 1.6-3.6 3-4.4l1.6-1.2 1.6 1.2c1.4.8 3 2.4 3 4.4V21" /></symbol>
@@ -87,6 +92,7 @@
           <span></span><span></span>
         </button>
         <div class="nav-links" data-menu data-open="false">
+          <a href="#market">Market</a>
           <a href="#offline">Offline</a>
           <a href="#benefits">Benefits</a>
           <a href="#lira">Lira</a>
@@ -262,13 +268,183 @@
 
           </div>
         </div>
+
+      <!--
+        The market before the product. Everything downstream — offline, the two
+        benefit cards, the lira rail — answers a cost that is already being paid
+        by people who never agreed to it, so the cost is stated first, and the
+        answer is set directly beside it rather than in a later section.
+
+        Figures: YEKADER puts the accepting network at 53k restaurants and 7k
+        local markets; Pluxee publishes its own user count; 330 ₺ is the 2026
+        daily meal allowance exemption (Resmî Gazete, 31.12.2025). The 6%
+        commission ceiling and the 30-day settlement limit are the Perakende
+        Ticaret yönetmeliği's, not ours — and the Ministry of Trade fined the
+        five largest issuers 15.8m ₺ in August 2025 for clearing the ceiling.
+
+        Official issuer marks identify the networks being compared. Their
+        source pages and ownership are recorded in the asset credits.
+      -->
+      <section class="page page--market" id="market">
+        <div class="shell market-grid">
+          <div class="market-copy">
+            <h2 class="page-title" data-split data-rise style="--d: 80ms">
+              Turkey already <em>pays this way.</em>
+            </h2>
+
+            <p class="page-note" data-rise style="--d: 150ms">
+              Meal cards already power lunch across Turkey. Rosa Pay keeps the habit and upgrades the rails.
+            </p>
+
+            <ul class="stat-cards" data-rise style="--d: 210ms">
+              <li>
+                <span class="stat-icon"><svg class="i"><use href="#i-store" /></svg></span>
+                <b>60,000</b>
+                <small>places to spend</small>
+              </li>
+              <li>
+                <span class="stat-icon"><svg class="i"><use href="#i-users" /></svg></span>
+                <b>3.8M</b>
+                <small>people on one network</small>
+              </li>
+              <li>
+                <span class="stat-icon"><svg class="i"><use href="#i-coins" /></svg></span>
+                <b>330 ₺</b>
+                <small>daily employee balance</small>
+              </li>
+            </ul>
+
+            <div class="issuers" data-rise style="--d: 270ms">
+              <p class="issuer-label">Major issuers in Turkey</p>
+              <ul class="issuer-row">
+                <li class="issuer-logo issuer-logo--pluxee"><img src="/assets/logo-pluxee.png" alt="Pluxee" width="844" height="160" /></li>
+                <li class="issuer-logo issuer-logo--edenred"><img src="/assets/logo-edenred.svg" alt="Edenred" width="413" height="265" /></li>
+                <li class="issuer-logo issuer-logo--multinet"><img src="/assets/logo-multinet.svg" alt="Multinet" width="60" height="30" /></li>
+                <li class="issuer-logo issuer-logo--setcard"><img src="/assets/logo-setcard.png" alt="Setcard" width="842" height="595" /></li>
+                <li class="issuer-logo issuer-logo--metropol"><img src="/assets/logo-metropol.svg" alt="MetropolCard" width="1454" height="406" /></li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Two sides of the same counter moment: one person has paid and the
+               other still has the scannable request in hand. The same phone
+               photograph used in the product demo keeps this composition from
+               turning into a pair of flat browser mockups. -->
+          <div class="market-stage" data-rise style="--d: 260ms">
+            <p class="stage-script" aria-hidden="true"><span>Lunch</span><i>Moves</i><span>Turkey</span></p>
+
+            <div class="market-phones" aria-label="A Rosa Pay payment approval beside a scan-to-pay request">
+              <figure class="held market-device market-device--approved">
+                <img class="held-hand" src="/assets/hand-holding-phone.png" alt="A customer holding a phone showing an approved Rosa Pay payment" width="760" height="760" />
+                <span class="held-screen market-screen market-screen--approved">
+                  <span class="market-status">9:41</span>
+                  <span class="pay-tick" aria-hidden="true"><svg class="i"><use href="#i-check" /></svg></span>
+                  <span class="pay-title">Payment approved</span>
+                  <span class="pay-amount">330 <small>₺</small></span>
+                  <span class="pay-brand">
+                    <img src="/assets/rosapay-logo.png" alt="" width="512" height="512" />
+                    <span><strong>Rosa Pay</strong><small>Instant settlement</small></span>
+                  </span>
+                  <span class="pay-note"><svg class="i" aria-hidden="true"><use href="#i-bolt" /></svg><span>Funds available<br />in seconds</span></span>
+                </span>
+              </figure>
+
+              <figure class="held held--mirror market-device market-device--scan">
+                <img class="held-hand" src="/assets/hand-holding-phone.png" alt="A merchant holding a Rosa Pay scan-to-pay QR code" width="760" height="760" />
+                <span class="held-screen market-screen market-screen--scan">
+                  <span class="market-status">9:41</span>
+                  <span class="scan-brand"><img src="/assets/rosapay-logo.png" alt="" width="512" height="512" />Rosa Pay</span>
+                  <span class="scan-title">Scan to pay</span>
+                  <span class="market-qr"><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#i-qr-art" /></svg></span>
+                  <span class="scan-foot">Pay with meal balance</span>
+                  <span class="scan-tabs" aria-hidden="true">
+                    <i><svg class="i"><use href="#i-store" /></svg></i>
+                    <i><svg class="i"><use href="#i-wallet" /></svg></i>
+                    <i><svg class="i"><use href="#i-nfc" /></svg></i>
+                  </span>
+                </span>
+              </figure>
+            </div>
+
+            <ul class="card-fan" aria-hidden="true">
+              <li><img src="/assets/logo-pluxee.png" alt="" width="844" height="160" /></li>
+              <li><img src="/assets/logo-edenred.svg" alt="" width="413" height="265" /></li>
+              <li><img src="/assets/logo-multinet.svg" alt="" width="60" height="30" /></li>
+              <li><img src="/assets/logo-setcard.png" alt="" width="842" height="595" /></li>
+              <li><img src="/assets/logo-metropol.svg" alt="" width="1454" height="406" /></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="shell compare">
+          <article class="compare-card compare-card--now" data-rise style="--d: 90ms">
+            <header class="compare-head">
+              <span class="compare-icon"><svg class="i"><use href="#i-bolt" /></svg></span>
+              <span class="compare-heading">
+                <strong>Current Frictions</strong>
+                <small>Slow for merchants. Limited for people.</small>
+              </span>
+            </header>
+            <div class="compare-cols">
+              <div class="compare-col">
+                <h3><svg class="i"><use href="#i-store" /></svg>Merchant</h3>
+                <ul>
+                  <li><svg class="i"><use href="#i-x-circle" /></svg>Late payouts</li>
+                  <li><svg class="i"><use href="#i-x-circle" /></svg>Cash flow locked</li>
+                  <li><svg class="i"><use href="#i-x-circle" /></svg>Fees reach 10%</li>
+                </ul>
+              </div>
+              <div class="compare-col">
+                <h3><svg class="i"><use href="#i-user" /></svg>Customer</h3>
+                <ul>
+                  <li><svg class="i"><use href="#i-x-circle" /></svg>TRY only</li>
+                  <li><svg class="i"><use href="#i-x-circle" /></svg>QR only</li>
+                  <li><svg class="i"><use href="#i-x-circle" /></svg>Domestic use</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <div class="compare-hinge" data-rise style="--d: 150ms">
+            <strong>One familiar habit.</strong>
+            <span>Better rails for everyone.</span>
+          </div>
+
+          <article class="compare-card compare-card--rosa" data-rise style="--d: 210ms">
+            <header class="compare-head">
+              <span class="compare-icon"><svg class="i"><use href="#i-gem" /></svg></span>
+              <span class="compare-heading">
+                <strong>Why Rosa Pay Wins</strong>
+                <small>Fast, open and global.</small>
+              </span>
+            </header>
+            <div class="compare-cols">
+              <div class="compare-col">
+                <h3><svg class="i"><use href="#i-store" /></svg>Merchant</h3>
+                <ul>
+                  <li><svg class="i"><use href="#i-check-circle" /></svg>Instant access</li>
+                  <li><svg class="i"><use href="#i-check-circle" /></svg>Stake rewards</li>
+                  <li><svg class="i"><use href="#i-check-circle" /></svg>Just 1% fee</li>
+                </ul>
+              </div>
+              <div class="compare-col">
+                <h3><svg class="i"><use href="#i-user" /></svg>Customer</h3>
+                <ul>
+                  <li><svg class="i"><use href="#i-check-circle" /></svg>3 ways to pay</li>
+                  <li><svg class="i"><use href="#i-check-circle" /></svg>Pay with any asset</li>
+                  <li><svg class="i"><use href="#i-check-circle" /></svg>Local currency ready</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+        </div>
       </section>
 
       <!--
-        Three pages, one claim each, in the order a doubter needs them: the
-        thing nobody else can do, then the thing that already hurts, then where
-        the money actually goes. A grid of feature tiles said all of it at once
-        and therefore said none of it.
+        Three more pages, one claim each, in the order a doubter needs them:
+        the thing nobody else can do, then the thing that already hurts, then
+        where the money actually goes. A grid of feature tiles said all of it
+        at once and therefore said none of it.
       -->
       <section class="page page--offline" id="offline">
         <div class="shell offline-shell">

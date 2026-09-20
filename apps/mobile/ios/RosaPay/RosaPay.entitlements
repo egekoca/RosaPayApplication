@@ -20,7 +20,7 @@
 	-->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>webcredentials:rosa-pay-app.vercel.app</string>
+		<string>webcredentials:rosapay-mobile.vercel.app</string>
 	</array>
 	<!--
 	  Lets the app open an NFCTagReaderSession, which is how an iPhone reads the

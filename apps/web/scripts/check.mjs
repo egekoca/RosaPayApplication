@@ -4,6 +4,11 @@ const requiredFiles = [
   'index.html',
   'styles.css',
   'script.js',
+  'assets/logo-pluxee.png',
+  'assets/logo-edenred.svg',
+  'assets/logo-multinet.svg',
+  'assets/logo-setcard.png',
+  'assets/logo-metropol.svg',
   'assets/rosapay-logo.png',
   'vercel.json',
 ];
@@ -25,6 +30,20 @@ const requiredCopy = [
   'Scan. Approve.',
   'App Store',
   'Google Play',
+  // The second screen must keep the market argument and both sides of the
+  // counter moment; otherwise it regresses into a generic feature section.
+  'Turkey already <em>pays this way.</em>',
+  '60,000',
+  'Major issuers in Turkey',
+  'logo-pluxee.png',
+  'logo-edenred.svg',
+  'logo-multinet.svg',
+  'logo-setcard.png',
+  'logo-metropol.svg',
+  'Payment approved',
+  'Scan to pay',
+  'Current Frictions',
+  'Why Rosa Pay Wins',
   // The visual-first sections must show the offline failure state resolving
   // into a successful payment. The benefits must retain Rosa Pay's real
   // differentiators instead of falling back to generic speed claims.

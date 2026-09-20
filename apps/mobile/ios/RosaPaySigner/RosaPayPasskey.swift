@@ -22,7 +22,7 @@ final class RosaPayPasskey: NSObject {
   /// entry in the app's Associated Domains entitlement and be served by that
   /// domain's `apple-app-site-association` file, or the system refuses before
   /// the user sees anything.
-  private static let defaultRelyingParty = "rosa-pay-app.vercel.app"
+  private static let defaultRelyingParty = "rosapay-mobile.vercel.app"
 
   private var activeDelegate: PasskeyDelegate?
 

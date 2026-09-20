@@ -111,23 +111,112 @@ export function assertAuthorizationMatchesIntent(
   if (args.length === 0) {
     throw new OfflineAuthorizationError('INTENT_MISMATCH', 'This authorization carries no payment');
   }
-  const actual = scValToNative(args[0]!) as Record<string, unknown>;
+  const actual = readIntentArgument(args[0]!);
 
   const mismatch = firstMismatch(expected as unknown as Record<string, unknown>, actual);
   if (mismatch) {
     throw new OfflineAuthorizationError(
       'INTENT_MISMATCH',
-      `This authorization does not match the payment shown: ${mismatch} differs`,
+      `This authorization does not match the payment shown: ${mismatch.field} differs` +
+        ` (this phone read ${mismatch.expected}, the merchant sent ${mismatch.actual})`,
     );
   }
 }
 
-/** The first field whose value differs, so the message can name it. */
-function firstMismatch(expected: Record<string, unknown>, actual: Record<string, unknown>): string | null {
-  for (const key of Object.keys(expected)) {
-    if (!same(expected[key], actual[key])) return key;
+/**
+ * Reads the payment out of the invocation without asking the runtime for help
+ * with the field names.
+ *
+ * `scValToNative` would do this in one call, and it did — but a contract struct
+ * is a map keyed by symbols, and once the value has crossed a wire those
+ * symbols are bytes rather than strings, so the SDK reaches for `TextDecoder`
+ * to read them. React Native ships none. The SDK's own fallback is a `catch`
+ * that returns the raw bytes, so every field name decoded to a comma-separated
+ * list of character codes, every lookup by name found nothing, and a customer
+ * was told the merchant had changed the amount on a payment both phones were
+ * showing identically.
+ *
+ * It was invisible in tests because a value built in memory keeps its symbols
+ * as strings and never takes that path; only one that has been through XDR
+ * does, which is every value a phone ever sees.
+ *
+ * So anything textual — a field name, and a value that was written as text — is
+ * read here from the bytes, with no global involved. Everything else is left to
+ * `scValToNative`, which needs no decoder for an address, an integer or a byte
+ * array.
+ */
+function readIntentArgument(value: xdr.ScVal): Record<string, unknown> {
+  if (value.switch() !== xdr.ScValType.scvMap()) return {};
+  const decoded: Record<string, unknown> = {};
+  for (const entry of value.map() ?? []) {
+    const key = readText(entry.key());
+    if (key === null) continue;
+    const field = entry.val();
+    // A value written as text has the same problem its name does.
+    decoded[key] = readText(field) ?? scValToNative(field);
+  }
+  return decoded;
+}
+
+/**
+ * The text in an `ScVal`, or nothing when it holds something that is not text.
+ *
+ * A contract struct keys its map with symbols; a map built in JavaScript from a
+ * plain object keys it with strings. Both are text, both arrive as bytes once
+ * they have been through XDR, and both are read the same way here rather than
+ * one of them quietly reading as nothing at all.
+ */
+function readText(value: xdr.ScVal): string | null {
+  const kind = value.switch();
+  const raw =
+    kind === xdr.ScValType.scvSymbol()
+      ? (value.sym() as unknown)
+      : kind === xdr.ScValType.scvString()
+        ? (value.str() as unknown)
+        : null;
+  if (raw === null) return null;
+  if (typeof raw === 'string') return raw;
+  if (raw instanceof Uint8Array || Buffer.isBuffer(raw)) {
+    return Buffer.from(raw as Uint8Array).toString('utf8');
   }
   return null;
+}
+
+export type IntentFieldMismatch = {field: string; expected: string; actual: string};
+
+/**
+ * The first field whose value differs, and what the two sides had.
+ *
+ * Naming the field alone was not enough to act on. A customer holding a phone
+ * has no console, and "amount differs" is the same sentence whether a merchant
+ * really changed the price, or the two sides encoded the same price two ways,
+ * or the field arrived missing entirely — three completely different faults,
+ * only one of which is the merchant's. The values are already on both screens
+ * in some form, so putting them in the message gives away nothing and is the
+ * only way the sentence becomes evidence.
+ */
+function firstMismatch(
+  expected: Record<string, unknown>,
+  actual: Record<string, unknown>,
+): IntentFieldMismatch | null {
+  for (const key of Object.keys(expected)) {
+    if (!same(expected[key], actual[key])) {
+      return {field: key, expected: describeValue(expected[key]), actual: describeValue(actual[key])};
+    }
+  }
+  return null;
+}
+
+/** Short enough to sit in one sentence, exact enough to compare by eye. */
+function describeValue(value: unknown): string {
+  if (value === undefined) return 'nothing';
+  if (value === null) return 'null';
+  if (typeof value === 'bigint') return value.toString();
+  if (value instanceof Uint8Array || Buffer.isBuffer(value)) {
+    return `${Buffer.from(value as Uint8Array).toString('hex').slice(0, 12)}…`;
+  }
+  const text = String(value);
+  return text.length > 24 ? `${text.slice(0, 10)}…${text.slice(-6)}` : text;
 }
 
 function same(expected: unknown, actual: unknown): boolean {
@@ -136,14 +225,26 @@ function same(expected: unknown, actual: unknown): boolean {
     const right = actual instanceof Uint8Array || Buffer.isBuffer(actual) ? Buffer.from(actual as Uint8Array) : null;
     return right !== null && left.equals(right);
   }
+  // Two bigints are compared as they are. This used to convert both through
+  // `BigInt()` first — a conversion a runtime is free to refuse on a value that
+  // is already a bigint — inside a `catch` that turned any refusal into "these
+  // differ". A phone then reported the merchant as having changed the amount
+  // when the two amounts were identical and only the comparison had failed.
+  if (typeof expected === 'bigint' && typeof actual === 'bigint') return expected === actual;
   if (typeof expected === 'bigint' || typeof actual === 'bigint') {
-    try {
-      return BigInt(expected as never) === BigInt(actual as never);
-    } catch {
-      return false;
-    }
+    const left = asBigInt(expected);
+    const right = asBigInt(actual);
+    return left !== null && right !== null && left === right;
   }
   return expected === actual;
+}
+
+/** A whole number written any of the ways a decoder might hand one over. */
+function asBigInt(value: unknown): bigint | null {
+  if (typeof value === 'bigint') return value;
+  if (typeof value === 'number') return Number.isSafeInteger(value) ? BigInt(value) : null;
+  if (typeof value === 'string' && /^-?\d+$/.test(value)) return BigInt(value);
+  return null;
 }
 
 /**

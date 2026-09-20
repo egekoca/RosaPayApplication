@@ -220,7 +220,7 @@ settings exists to catch exactly that class of mistake, by verifying a real
 signature against the exported public key with the same curve math the contract
 uses.
 
-The account decision is recorded in [ADR 0001](adr/0001-passkey-account-and-native-signer.md): use a Smart Account Kit/OpenZeppelin context-rule-compatible Soroban account, but keep React Native integration provider-neutral through a native bridge. Browser IndexedDB/WebAuthn storage is not used in React Native. Recovery and signer rotation are intentionally single-device for the Testnet demo and gated for production by [ADR 0002](adr/0002-recovery-and-signer-rotation.md). The bridge exposes Stellar SDK-compatible `signAuthEntry` and `signTransaction` operations so the generated contract client can separate customer auth-entry signing from relayer fee-payer signing. The iOS and Android `RosaPaySigner` modules are registered fail-closed and delete the native identity during sign-out; the app keeps the account intact if key deletion fails.
+The account is a Smart Account Kit/OpenZeppelin context-rule-compatible Soroban account, and the React Native integration stays provider-neutral behind a native bridge. Browser IndexedDB/WebAuthn storage is not used in React Native. Recovery and signer rotation run through the wallet contract's `rotate` entry point, authorized by the platform-synced recovery passkey. The bridge exposes Stellar SDK-compatible `signAuthEntry` and `signTransaction` operations so the generated contract client can separate customer auth-entry signing from relayer fee-payer signing. The iOS and Android `RosaPaySigner` modules are registered fail-closed and delete the native identity during sign-out; the app keeps the account intact if key deletion fails.
 
 ### Paying from the smart wallet
 
@@ -558,6 +558,6 @@ checks and then buys that exact amount through the Soroswap router - held in
 contract storage, not passed in - before making the identical transfer, so a
 customer holding none of the merchant's token can still pay. The funding path,
 ceiling and deadline sit outside the merchant's signature because they cannot
-change what the merchant receives. See [swap-funding.md](swap-funding.md).
+change what the merchant receives. See the funding-swap section of the README.
 
 The live smoke suite registered an ephemeral merchant key, settled 0.1 XLM from a Friendbot-funded customer, checked the recipient balance delta and consumed state, then rejected replay, amount tampering, expiry, recipient substitution, unsupported asset, invalid amount, wrong network, wrong contract and fake merchant attempts. The mobile UI uses the Testnet adapter; the mock surface is limited to the SEP-12 walkthrough.
