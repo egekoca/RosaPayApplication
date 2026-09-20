@@ -45,14 +45,14 @@ A customer walks up. The merchant's phone puts a signed request on screen or in 
 
 No address is typed. No seed phrase appears on screen. The customer never needs XLM to pay a network fee, and never needs to hold the token the merchant asked for.
 
-| | | |
-|:--|:--|:--|
-| 📷 | **Three transports, one payload** | QR on both platforms, NFC where the OS allows it, and Bluetooth LE for the iPhone-to-iPhone case that NFC cannot do. All three carry the identical signed RTP/1 URI. |
-| 📴 | **Pays with no signal** | The request is self-authenticating, so a customer with a dead connection can still tell a real request from a forged one, sign it, and hand it back for the merchant to submit. |
-| 🔁 | **Pays in the wrong token** | An XLM-only wallet settles a USDC bill. The contract buys the exact amount through Soroswap inside the same transaction, so either the merchant is paid in full or nothing moves. |
-| ⛽ | **Pays with no XLM** | A relayer is the transaction source and fee payer. It cannot alter the recipient, the asset or the amount, because those sit inside a signature it does not hold. |
-| 🔑 | **Survives a lost phone** | The device key is non-exportable and dies with the handset. A platform-synced passkey, enrolled at wallet creation, rotates the lost key out from a new phone. |
-| 🇹🇷 | **Lira in, lira out** | A full SEP-6 round trip through the standards door: SEP-1 discovery, SEP-10 auth, SEP-38 quote, no API key. |
+| Capability | How it works |
+|:--|:--|
+| **Three transports, one payload** | QR on both platforms, NFC where the OS allows it, and Bluetooth LE for the iPhone-to-iPhone case that NFC cannot do. All three carry the identical signed RTP/1 URI. |
+| **Pays with no signal** | The request is self-authenticating, so a customer with a dead connection can still tell a real request from a forged one, sign it, and hand it back for the merchant to submit. |
+| **Pays in the wrong token** | An XLM-only wallet settles a USDC bill. The contract buys the exact amount through Soroswap inside the same transaction, so either the merchant is paid in full or nothing moves. |
+| **Pays with no XLM** | A relayer is the transaction source and fee payer. It cannot alter the recipient, the asset or the amount, because those sit inside a signature it does not hold. |
+| **Survives a lost phone** | The device key is non-exportable and dies with the handset. A platform-synced passkey, enrolled at wallet creation, rotates the lost key out from a new phone. |
+| **Lira in, lira out** | A full SEP-6 round trip through the standards door: SEP-1 discovery, SEP-10 auth, SEP-38 quote, no API key. |
 
 ---
 
@@ -62,16 +62,16 @@ Four processes and one chain. The mobile app is the only place a customer's key 
 
 ```mermaid
 flowchart TB
-    subgraph client["📱 React Native 0.85 · iOS + Android"]
+    subgraph client["React Native 0.85 · iOS + Android"]
         UI["Screens<br/>onboarding · home · pay · merchant · activity"]
         SIGN["Native modules<br/>RosaPaySigner · RosaPayPasskey<br/>RosaPayNfc · RosaPayProximity"]
     end
-    subgraph server["🖥️ Node 22 · Fastify"]
+    subgraph server["Node 22 · Fastify"]
         API["API<br/>sessions · intents · relayer · wallets"]
         WK["Worker<br/>confirms receipts · reconciles events"]
         DB[("PostgreSQL")]
     end
-    subgraph soroban["⛓️ Soroban · Stellar Testnet"]
+    subgraph soroban["Soroban · Stellar Testnet"]
         SET["Settlement contract"]
         WAL["Smart wallet contract"]
         SOR["Soroswap router"]
@@ -144,20 +144,20 @@ A compromised relayer can refuse to submit. It cannot change who gets paid, in w
 
 ## Main components and their responsibilities
 
-| | Component | Responsibility |
-|:--|:--|:--|
-| 📱 | `apps/mobile` | Navigation, capability switching, the four transports (QR, NFC, BLE, offline), device sessions, auto-lock. 26,700 lines of TypeScript plus Swift and Kotlin. |
-| 🔌 | `apps/api` | Fastify transport, Zod validation, idempotency, single-use P-256 challenge auth, intent storage, relayer submission. 22 routes under `/v1`. |
-| ⏱️ | `apps/worker` | Confirms settlements against an RPC receipt and reconciles `PaymentSettled` events as an independent audit signal. |
-| 📜 | `packages/protocol` | RTP/1 schema, canonical JSON, deterministic intent hashing, the `rosapay://` QR codec, expiry and policy validation. |
-| ⚙️ | `packages/domain` | The payment state machine: `awaiting_approval → authorized → submitted → confirmed`. Pure. Accepts an event, returns the next state. |
-| ⭐ | `packages/stellar` | RPC configuration, the generated settlement client, RTP/1 to settlement-envelope mapping, StrKey validation, merchant signature verification. |
-| 🔐 | `packages/secure-signer` | The single signing port. Native adapters return public keys and signatures. Never key material. |
-| 🗄️ | `packages/postgres` | Driver-neutral port plus a pooled, transaction-capable adapter shared by API and worker. |
-| 🏦 | `packages/anchor` | SEP-12 client and a deterministic in-memory mock anchor for the walkthrough. |
-| 🎨 | `packages/ui` | Design tokens and shared components. Black, amber, white, with an animated rose mark. |
-| 📄 | `contracts/settlement` | Asset policy, customer authorization, merchant signature check, expiry, on-chain replay protection, Soroswap funding. 11,301 bytes of WASM. |
-| 🔏 | `contracts/wallet` | The smart account: secp256r1 signers, `__check_auth`, recovery-signer enrolment, `rotate`. |
+| Component | Responsibility |
+|:--|:--|
+| `apps/mobile` | Navigation, capability switching, the four transports (QR, NFC, BLE, offline), device sessions, auto-lock. 26,700 lines of TypeScript plus Swift and Kotlin. |
+| `apps/api` | Fastify transport, Zod validation, idempotency, single-use P-256 challenge auth, intent storage, relayer submission. 22 routes under `/v1`. |
+| `apps/worker` | Confirms settlements against an RPC receipt and reconciles `PaymentSettled` events as an independent audit signal. |
+| `packages/protocol` | RTP/1 schema, canonical JSON, deterministic intent hashing, the `rosapay://` QR codec, expiry and policy validation. |
+| `packages/domain` | The payment state machine: `awaiting_approval → authorized → submitted → confirmed`. Pure. Accepts an event, returns the next state. |
+| `packages/stellar` | RPC configuration, the generated settlement client, RTP/1 to settlement-envelope mapping, StrKey validation, merchant signature verification. |
+| `packages/secure-signer` | The single signing port. Native adapters return public keys and signatures. Never key material. |
+| `packages/postgres` | Driver-neutral port plus a pooled, transaction-capable adapter shared by API and worker. |
+| `packages/anchor` | SEP-12 client and a deterministic in-memory mock anchor for the walkthrough. |
+| `packages/ui` | Design tokens and shared components. Black, amber, white, with an animated rose mark. |
+| `contracts/settlement` | Asset policy, customer authorization, merchant signature check, expiry, on-chain replay protection, Soroswap funding. 11,301 bytes of WASM. |
+| `contracts/wallet` | The smart account: secp256r1 signers, `__check_auth`, recovery-signer enrolment, `rotate`. |
 
 ---
 
@@ -196,13 +196,13 @@ A Stellar classic account signs ed25519. No Secure Enclave will hold an ed25519 
 
 ```mermaid
 flowchart TB
-    subgraph phone["📱 The phone"]
+    subgraph phone["The phone"]
         DK["Device key<br/>secp256r1 · Secure Enclave / Keystore<br/><i>cannot leave the chip</i>"]
         PK["Passkey<br/>secp256r1 · WebAuthn<br/><i>platform syncs it across devices</i>"]
         BK["Bridge key<br/>ed25519 · software<br/><i>holds nothing at rest</i>"]
     end
 
-    subgraph chain["⛓️ Stellar"]
+    subgraph chain["Stellar"]
         W["Smart wallet<br/>contract account C…"]
         A["Anchor<br/>sees accounts, not contracts"]
     end
@@ -268,7 +268,7 @@ The fix is a per-user bridge account: a classic `G...` that authenticates, recei
 
 ```mermaid
 flowchart LR
-    BANK[("🏦 Turkish bank<br/>FAST / EFT")]
+    BANK[("Turkish bank<br/>FAST / EFT")]
     AN["Anchor<br/>SEP-1 · 10 · 38 · 6"]
     BR["Bridge G…"]
     SW["Smart wallet C…"]
@@ -474,11 +474,3 @@ ROSAPAY_XLM_SAC=<verified-native-SAC-address> \
 | [`docs/architecture.md`](docs/architecture.md) | Every boundary in detail: package responsibilities, the smart wallet, signing and passkeys, transports, state, the RTP/1 to settlement mapping, pricing in a currency no anchor quotes. |
 | [`docs/security-model.md`](docs/security-model.md) | Trust boundaries, the invariants the contract enforces, and what an attacker gets from each compromised component. |
 | [`docs/deployment.md`](docs/deployment.md) | What the API, worker and database each need in production, and the go-live checklist. |
-
----
-
-## A note on naming
-
-Published compatibility identifiers stay as they are: the `@rosapay/*` workspace scope, the native `RosaPaySigner` bridge, `ROSAPAY_*` environment variables, `com.rosapay` bundle identifiers, the `rosapay://` QR scheme, and the RTP/1 signing domain. Renaming any of them would invalidate existing app storage, QR links, signatures and deployment evidence.
-
-Asset attribution is in [`apps/web/assets/CREDITS.md`](apps/web/assets/CREDITS.md).
