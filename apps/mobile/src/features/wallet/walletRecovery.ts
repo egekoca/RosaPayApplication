@@ -171,7 +171,7 @@ export async function recoverWallet(input: {
 
   const latestLedger = (await server.getLatestLedger()).sequence;
   const authorize = createWalletAuthorizeEntry({
-    signer: {kind: 'passkey', signer: createPasskeySigner(input.credential)},
+    key: {kind: 'passkey', signer: createPasskeySigner(input.credential)},
     networkPassphrase: config.networkPassphrase,
     validUntilLedger: latestLedger + 120,
     reason: 'Move this wallet to this phone',

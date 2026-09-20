@@ -180,7 +180,7 @@ export async function settleOnTestnet(input: TestnetSettlementInput) {
     input.customer.kind === 'smart-wallet'
       ? {
           customerAuthorizeEntry: createWalletAuthorizeEntry({
-            signer: input.customer.signer,
+            key: {kind: 'device', signer: input.customer.signer},
             networkPassphrase: input.config.networkPassphrase,
             validUntilLedger: input.latestLedger + 120,
             reason: `Approve ${intent.amount} ${intent.asset.code} to ${intent.merchantName}`,

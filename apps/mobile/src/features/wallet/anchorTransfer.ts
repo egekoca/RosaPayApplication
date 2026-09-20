@@ -62,7 +62,7 @@ export async function startWalletAnchorTransfer(input: {
         throw new AnchorTransferError('The anchor asked the wallet to sign for another network');
       }
       return createWalletAuthorizeEntry({
-        signer: hardwareSigner,
+        key: {kind: 'device', signer: hardwareSigner},
         networkPassphrase,
         validUntilLedger,
         reason: `Connect Rosa Pay to ${anchor.homeDomain}`,

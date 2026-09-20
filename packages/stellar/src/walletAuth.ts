@@ -41,6 +41,18 @@ export type WalletSigner =
   | {kind: 'device'; signer: HardwareDigestSigner}
   | {kind: 'passkey'; signer: PasskeySigner};
 
+function isHardwareDigestSigner(value: unknown): value is HardwareDigestSigner {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<HardwareDigestSigner>;
+  return typeof candidate.publicKey === 'string' && typeof candidate.signDigest === 'function';
+}
+
+function isPasskeySigner(value: unknown): value is PasskeySigner {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<PasskeySigner>;
+  return typeof candidate.publicKey === 'string' && typeof candidate.assert === 'function';
+}
+
 function toBuffer(base64: string): Buffer {
   return Buffer.from(base64, 'base64');
 }
@@ -109,6 +121,13 @@ export async function signWalletAuthPayload(
   if (payload.length !== 32) {
     throw new Error('A wallet authorization payload is exactly 32 bytes');
   }
+  // Types stop a missing signer in source, but a persisted mobile state or a
+  // stale bundle can still cross this boundary at runtime. Refuse it here with
+  // evidence instead of dereferencing `undefined` as `signDigest` after the
+  // customer has already pressed Approve.
+  if (!isHardwareDigestSigner(signer)) {
+    throw new Error('The device payment signer is missing or invalid. Reopen Rosa Pay and try again.');
+  }
 
   const {signature} = await signer.signDigest({digest: payload.toString('base64'), reason});
   const compact = derToCompactSignature(Uint8Array.from(toBuffer(signature)));
@@ -159,16 +178,17 @@ export function base64Url(bytes: Buffer): string {
 
 export type WalletAuthEntrySignerOptions = {
   /** Whichever kind of signer this phone holds for this wallet. */
-  signer: HardwareDigestSigner | WalletSigner;
+  key: WalletSigner;
   networkPassphrase: string;
   /** Ledger after which the authorization can no longer be used. */
   validUntilLedger: number;
   reason?: string;
 };
 
-/** A bare digest signer is the device-key case, which is how this began. */
-function asWalletSigner(signer: HardwareDigestSigner | WalletSigner): WalletSigner {
-  return 'kind' in signer ? signer : {kind: 'device', signer};
+function requireWalletSigner(key: WalletSigner): WalletSigner {
+  if (key?.kind === 'device' && isHardwareDigestSigner(key.signer)) return key;
+  if (key?.kind === 'passkey' && isPasskeySigner(key.signer)) return key;
+  throw new Error('The wallet payment signer is missing or invalid. Reopen Rosa Pay and try again.');
 }
 
 /**
@@ -179,7 +199,11 @@ function asWalletSigner(signer: HardwareDigestSigner | WalletSigner): WalletSign
  * resulting digest.
  */
 export function createWalletAuthorizeEntry(options: WalletAuthEntrySignerOptions) {
-  const wallet = asWalletSigner(options.signer);
+  // The discriminator and key travel together. Accepting both a bare signer
+  // and this wrapper made the function guess which shape crossed the mobile
+  // boundary; an object carrying its own `kind` could be mistaken for the
+  // wrapper and lose the signer before authorization.
+  const wallet = requireWalletSigner(options.key);
   return async (
     entry: xdr.SorobanAuthorizationEntry,
     _signer: unknown,

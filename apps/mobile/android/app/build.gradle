@@ -45,7 +45,10 @@ react {
 
     /* Hermes Commands */
     //   The hermes compiler command to run. By default it is 'hermesc'
-    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
+    // The monorepo hoists hermes-compiler to the repository root, outside the
+    // mobile package root that the React Native Gradle plugin searches.
+    def hermesExecutable = System.getProperty("os.name").toLowerCase().contains("windows") ? "hermesc.exe" : "hermesc"
+    hermesCommand = file("../../../../node_modules/hermes-compiler/hermesc/%OS-BIN%/${hermesExecutable}").absolutePath
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]
@@ -82,8 +85,8 @@ android {
         applicationId "com.rosapay"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 34
-        versionName "1.0.5"
+        versionCode 35
+        versionName "1.0.6"
     }
     buildTypes {
         release {

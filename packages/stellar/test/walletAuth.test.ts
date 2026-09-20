@@ -103,6 +103,12 @@ describe('wallet authorization signing', () => {
     expect(signer.signDigest).not.toHaveBeenCalled();
   });
 
+  it('reports a missing device signer without dereferencing signDigest', async () => {
+    await expect(
+      signWalletAuthPayload(undefined as never, Buffer.alloc(32), 'Approve this payment'),
+    ).rejects.toThrow('device payment signer is missing');
+  });
+
   it('keeps the struct field order the contract expects', () => {
     expect(
       Object.keys(scValToNative(deviceSignatureScVal(Buffer.alloc(65, 4), Buffer.alloc(64, 5))) as object),
@@ -180,7 +186,7 @@ describe('wallet authorization entries', () => {
     const secretKey = p256.utils.randomSecretKey();
     const signer = hardwareSigner(secretKey);
     const authorize = createWalletAuthorizeEntry({
-      signer,
+      key: {kind: 'device', signer},
       networkPassphrase: 'Test SDF Network ; September 2015',
       validUntilLedger: 1_000,
     });
@@ -204,5 +210,38 @@ describe('wallet authorization entries', () => {
     const authorized = await authorize(entry, undefined, 1_000);
     expect(authorized).toBeDefined();
     expect(signer.signDigest).not.toHaveBeenCalled();
+  });
+
+  it('keeps the device-key wrapper intact when the signer also has a kind field', async () => {
+    const signer = Object.assign(hardwareSigner(p256.utils.randomSecretKey()), {kind: 'device-key'});
+    const authorize = createWalletAuthorizeEntry({
+      key: {kind: 'device', signer},
+      networkPassphrase: 'Test SDF Network ; September 2015',
+      validUntilLedger: 1_000,
+    });
+    const entry = new xdr.SorobanAuthorizationEntry({
+      credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
+        new xdr.SorobanAddressCredentials({
+          address: new Address(StrKey.encodeContract(Buffer.alloc(32, 7))).toScAddress(),
+          nonce: xdr.Int64.fromString('42'),
+          signatureExpirationLedger: 0,
+          signature: xdr.ScVal.scvVoid(),
+        }),
+      ),
+      rootInvocation: new xdr.SorobanAuthorizedInvocation({
+        function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+          new xdr.InvokeContractArgs({
+            contractAddress: new Address(StrKey.encodeContract(Buffer.alloc(32, 5))).toScAddress(),
+            functionName: 'settle_payment',
+            args: [],
+          }),
+        ),
+        subInvocations: [],
+      }),
+    });
+
+    await authorize(entry, undefined, 1_000);
+
+    expect(signer.signDigest).toHaveBeenCalledTimes(1);
   });
 });

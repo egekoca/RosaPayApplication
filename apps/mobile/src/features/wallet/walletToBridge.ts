@@ -45,7 +45,7 @@ export async function moveUsdcToBridge(input: {
     relayerAddress: relayer.address,
     relayerSign: xdr => relayerSigner.signTransaction(xdr),
     authorizeEntry: createWalletAuthorizeEntry({
-      signer: createHardwareDigestSigner(wallet.devicePublicKey),
+      key: {kind: 'device', signer: createHardwareDigestSigner(wallet.devicePublicKey)},
       networkPassphrase: config.networkPassphrase,
       validUntilLedger: latestLedger + 120,
       reason: `Cash out ${input.amountUsdc} USDC to lira`,
@@ -85,7 +85,7 @@ export async function fundBridgeWithLumens(input: {
     relayerAddress: relayer.address,
     relayerSign: xdr => relayerSigner.signTransaction(xdr),
     authorizeEntry: createWalletAuthorizeEntry({
-      signer: createHardwareDigestSigner(wallet.devicePublicKey),
+      key: {kind: 'device', signer: createHardwareDigestSigner(wallet.devicePublicKey)},
       networkPassphrase: config.networkPassphrase,
       validUntilLedger: latestLedger + 120,
       reason: 'Set up the lira ramp on this phone',
