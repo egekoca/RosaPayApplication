@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import {AppState} from 'react-native';
-import {AUTOMATIC_AUTHORIZATION_DELAY_MS} from '../src/features/payments/useAutomaticAuthorization';
 import {PaymentConfirmationScreen} from '../src/features/payments/PaymentConfirmationScreen';
 import {mockSignedIntent} from './fixtures/signedIntent';
 
@@ -67,16 +66,19 @@ const directFunding = {
   refetch: jest.fn(),
 };
 
-function renderConfirmation(transport: 'nfc' | 'qr' | 'ble', automatic = transport === 'nfc') {
+function renderConfirmation(transport: 'qr' | 'ble') {
   const navigation = {isFocused: () => true, replace: jest.fn()};
   const props = {
     navigation,
-    route: {key: 'confirm', name: 'Confirm', params: {payload: mockSignedIntent, transport, automatic}},
+    route: {key: 'confirm', name: 'Confirm', params: {payload: mockSignedIntent, transport}},
   } as unknown as React.ComponentProps<typeof PaymentConfirmationScreen>;
   return ReactTestRenderer.create(<PaymentConfirmationScreen {...props} />);
 }
 
-describe('confirming a payment that arrived by itself', () => {
+/** Long enough that any timer which meant to fire would have. */
+const LONG_ENOUGH_MS = 5_000;
+
+describe('what it takes to start a payment', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -89,61 +91,47 @@ describe('confirming a payment that arrived by itself', () => {
     jest.useRealTimers();
   });
 
-  it('starts the settlement mutation after a valid NFC request is ready', () => {
+  /*
+   * A request that arrived over Bluetooth used to raise the device prompt by
+   * itself, on the reasoning that holding two phones together already said what
+   * the customer meant. In the hand it does not: the screen and Face ID arrive
+   * in the same instant, over an amount nobody has read yet, with the thing
+   * being approved hidden behind the sheet asking about it.
+   */
+  it('raises no prompt for a Bluetooth request, however it arrived', () => {
     let renderer!: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
-      renderer = renderConfirmation('nfc');
+      renderer = renderConfirmation('ble');
     });
 
-    ReactTestRenderer.act(() => jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS));
-    expect(mockMutate).toHaveBeenCalledTimes(1);
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(LONG_ENOUGH_MS));
+    expect(mockMutate).not.toHaveBeenCalled();
     ReactTestRenderer.act(() => renderer.unmount());
   });
 
-  it('keeps QR on its explicit approval path', () => {
+  it('raises no prompt for a scan either', () => {
     let renderer!: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
       renderer = renderConfirmation('qr');
     });
 
-    ReactTestRenderer.act(() => jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS));
+    ReactTestRenderer.act(() => jest.advanceTimersByTime(LONG_ENOUGH_MS));
     expect(mockMutate).not.toHaveBeenCalled();
     ReactTestRenderer.act(() => renderer.unmount());
   });
 
-  it('does not auto-authorize if funding cannot be checked', () => {
-    mockFunding = {data: undefined, isPending: false, isError: true, isSuccess: false, refetch: jest.fn()};
+  it('starts the payment when Approve is pressed, and only then', () => {
     let renderer!: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
-      renderer = renderConfirmation('nfc');
+      renderer = renderConfirmation('ble');
     });
-
-    ReactTestRenderer.act(() => jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS));
     expect(mockMutate).not.toHaveBeenCalled();
-    ReactTestRenderer.act(() => renderer.unmount());
-  });
 
-  it('raises the prompt for a Bluetooth request read with the phones together', () => {
-    let renderer!: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
-      renderer = renderConfirmation('ble', true);
+      renderer.root.findByProps({testID: 'approve-payment'}).props.onPress();
     });
 
-    ReactTestRenderer.act(() => jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS));
     expect(mockMutate).toHaveBeenCalledTimes(1);
-    ReactTestRenderer.act(() => renderer.unmount());
-  });
-
-  it('waits for Approve when Bluetooth only saw a merchant in the room', () => {
-    // The radio reaches further than a tap ever could. A merchant at the next
-    // table is a request worth showing and never a payment worth starting.
-    let renderer!: ReactTestRenderer.ReactTestRenderer;
-    ReactTestRenderer.act(() => {
-      renderer = renderConfirmation('ble', false);
-    });
-
-    ReactTestRenderer.act(() => jest.advanceTimersByTime(AUTOMATIC_AUTHORIZATION_DELAY_MS));
-    expect(mockMutate).not.toHaveBeenCalled();
     ReactTestRenderer.act(() => renderer.unmount());
   });
 });

@@ -156,6 +156,43 @@ describe('what this wallet can pay with', () => {
   });
 });
 
+describe('how long the customer waits for it', () => {
+  it('asks every asset at once rather than one after another', async () => {
+    /*
+     * This runs between a phone reading a request over Bluetooth and the screen
+     * that can ask for a fingerprint, so each round trip in it is time someone
+     * spends holding two phones together watching nothing happen. Nothing here
+     * depends on another asset's answer, and asking in turn made the wait the
+     * sum of every balance read.
+     */
+    let inFlight = 0;
+    let highWater = 0;
+    const release: Array<() => void> = [];
+    const readBalance = async (_config: unknown, _holder: string, contractId: string) => {
+      inFlight += 1;
+      highWater = Math.max(highWater, inFlight);
+      await new Promise<void>(resolve => release.push(resolve));
+      inFlight -= 1;
+      return contractId === xlm ? '50' : '0';
+    };
+
+    const choice = resolveFundingChoice({
+      intent: intentFor('XLM'),
+      config,
+      customerAddress: customer,
+      routerContractId: router,
+      readBalance: readBalance as never,
+      quote: quoter(1n) as never,
+    });
+
+    // Both reads have to be outstanding before either is allowed to answer.
+    await Promise.resolve();
+    expect(highWater).toBeGreaterThan(1);
+    release.forEach(resolve => resolve());
+    await choice;
+  });
+});
+
 describe('describing a rate', () => {
   it('reads in the direction a person thinks in', () => {
     expect(describeRate(9_465_832n, 1_000_000n, 'XLM', 'USDC')).toBe('9.465832 XLM per USDC');

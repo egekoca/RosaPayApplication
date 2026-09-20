@@ -87,8 +87,11 @@ export async function resolveFundingChoice(input: FundingChoiceInput): Promise<F
   const settlementToken = assetContractId(input.intent.asset, networkPassphrase);
   const amountOut = parseStroops(input.intent.amount);
 
-  const options: FundingOption[] = [];
-  for (const asset of payableAssets) {
+  /**
+   * One asset's answer, priced. Every one of these is independent of the
+   * others, which is why they are all asked at once below.
+   */
+  const resolve = async (asset: (typeof payableAssets)[number]): Promise<FundingOption> => {
     const contractId = assetContractId(asset.asset, networkPassphrase);
     // A balance that cannot be read is a balance of zero for this purpose: a
     // classic account without a trustline holds none of the asset, and an
@@ -97,17 +100,11 @@ export async function resolveFundingChoice(input: FundingChoiceInput): Promise<F
     const heldStroops = parseStroops(held);
 
     if (contractId === settlementToken) {
-      options.push(
-        heldStroops >= amountOut
-          ? {kind: 'direct', asset, spend: input.intent.amount, held}
-          : {kind: 'unavailable', asset, held, reason: 'INSUFFICIENT'},
-      );
-      continue;
+      return heldStroops >= amountOut
+        ? {kind: 'direct', asset, spend: input.intent.amount, held}
+        : {kind: 'unavailable', asset, held, reason: 'INSUFFICIENT'};
     }
-    if (heldStroops === 0n) {
-      options.push({kind: 'unavailable', asset, held, reason: 'INSUFFICIENT'});
-      continue;
-    }
+    if (heldStroops === 0n) return {kind: 'unavailable', asset, held, reason: 'INSUFFICIENT'};
 
     let priced;
     try {
@@ -120,26 +117,19 @@ export async function resolveFundingChoice(input: FundingChoiceInput): Promise<F
         ...(input.slippageBps === undefined ? {} : {slippageBps: input.slippageBps}),
       });
     } catch {
-      options.push({
-        kind: 'unavailable',
-        asset,
-        held,
-        // A pool that does not exist and one that cannot price this size are
-        // the same answer at the counter: not with this money.
-        reason: 'NO_ROUTE',
-      });
-      continue;
+      // A pool that does not exist and one that cannot price this size are the
+      // same answer at the counter: not with this money.
+      return {kind: 'unavailable', asset, held, reason: 'NO_ROUTE'};
     }
 
     // The ceiling is what the wallet must cover, not the quote: a payment that
     // is offered and then refused for insufficient funds is worse than one that
     // was never offered.
     if (heldStroops < priced.amountInMax) {
-      options.push({kind: 'unavailable', asset, held, reason: 'INSUFFICIENT'});
-      continue;
+      return {kind: 'unavailable', asset, held, reason: 'INSUFFICIENT'};
     }
 
-    options.push({
+    return {
       kind: 'swap',
       asset,
       spend: formatStroops(priced.amountIn),
@@ -154,8 +144,19 @@ export async function resolveFundingChoice(input: FundingChoiceInput): Promise<F
         // execute against a pool that has moved since.
         deadline: BigInt(Math.floor(Date.now() / 1000) + 300),
       },
-    });
-  }
+    };
+  };
+
+  /*
+   * All of them at once, rather than one after another.
+   *
+   * This runs between a customer's phone reading a request and the screen that
+   * can ask for their fingerprint, so every round trip in it is time someone
+   * spends holding two phones together watching nothing happen. Asking for
+   * each asset in turn made that wait the sum of a balance read and a pool
+   * quote per asset, when no answer here depends on any other.
+   */
+  const options: FundingOption[] = await Promise.all(payableAssets.map(resolve));
 
   const order = {direct: 0, swap: 1, unavailable: 2} as const;
   options.sort((left, right) => order[left.kind] - order[right.kind]);

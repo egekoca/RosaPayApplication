@@ -72,13 +72,7 @@ export function ForegroundPaymentListener({
     });
   }, [t]);
 
-  const accept = useCallback(async (
-    payload: string,
-    transport: PaymentTransport,
-    // Whether the arrival itself said what the customer meant, which is what
-    // lets the confirmation screen raise the device prompt without a button.
-    automatic: boolean,
-  ) => {
+  const accept = useCallback(async (payload: string, transport: PaymentTransport) => {
     if (!activeRef.current || handled.current) return;
     handled.current = true;
     const lifecycle = lifecycleRef.current;
@@ -140,14 +134,21 @@ export function ForegroundPaymentListener({
       if (now - at >= REOFFER_DELAY_MS) offered.current.delete(seen);
     }
     offered.current.set(intentId, now);
-    navigation.navigate('Confirm', {payload: result.payload, transport, automatic});
+    navigation.navigate('Confirm', {payload: result.payload, transport});
   }, [latestLedger, navigation, refreshLedger, showError, t]);
 
-  // A radio reaches across a room. Only a signal that said the phones were
-  // being held together stands in for a deliberate touch; anything weaker opens
-  // the screen and waits for the customer to press Approve.
+  /*
+   * Being near a counter opens the screen and stops there.
+   *
+   * A reading that said the phones were held together used to start the device
+   * prompt by itself, on the reasoning that holding two phones together is
+   * already a deliberate act. In the hand it is not: the request and Face ID
+   * arrive in the same instant, over an amount nobody has read yet, and the
+   * thing a customer is being asked to approve is behind the sheet asking
+   * them. Approve is a button, and pressing it is what starts the prompt.
+   */
   const onProximityRequest = useCallback(
-    (request: ProximityRequest) => void accept(request.payload, 'ble', request.touching),
+    (request: ProximityRequest) => void accept(request.payload, 'ble'),
     [accept],
   );
 

@@ -22,7 +22,6 @@ import {useCurrentAccount} from '../wallet/currentAccount';
 import {testnetDeployment} from '@rosapay/stellar';
 import {createStellarConfig} from '@rosapay/stellar';
 import {useTranslate} from '../../shared/i18n';
-import {useAutomaticAuthorization} from './useAutomaticAuthorization';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Confirm'>;
 
@@ -135,16 +134,6 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
   const issuer = intent.asset.issuer ?? intent.asset.contractId;
   const {mutate} = mutation;
   const startAuthorization = useCallback(() => mutate(), [mutate]);
-
-  useAutomaticAuthorization({
-    intentId: intent.intentId,
-    automatic: route.params.automatic === true,
-    // A manual approval may finish before the 700 ms NFC affordance delay. A
-    // successful or failed attempt must disarm the timer so it can never submit
-    // a second payment behind the user's back.
-    ready: screenFocused && !blocked && !mutation.isPending && !mutation.isError && !mutation.isSuccess,
-    authorize: startAuthorization,
-  });
 
   return (
     <>

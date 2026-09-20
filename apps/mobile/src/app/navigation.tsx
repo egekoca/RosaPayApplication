@@ -26,6 +26,7 @@ import {hasRestorableSession, useAppStore, type LocalReceipt} from '../state/app
 import type {PaymentTransport} from '../state/appStore';
 import {DashboardScreen} from '../features/dashboard/DashboardScreen';
 import {ForegroundPaymentListener} from '../features/payments/ForegroundPaymentListener';
+import {useQueryClient} from '@tanstack/react-query';
 import {readLatestLedger} from '../shared/useStellarHealth';
 
 export type RootStackParams = {
@@ -48,12 +49,6 @@ export type RootStackParams = {
   Confirm: {
     payload: SignedPaymentIntentV1;
     transport?: PaymentTransport;
-    /**
-     * Whether the way this request arrived already said what the customer
-     * meant, so the device prompt may start without a button. A tap does; a
-     * Bluetooth arrival does only when the phones were held together.
-     */
-    automatic?: boolean;
   };
   Receipt: {receipt: LocalReceipt};
   DeveloperSettings: undefined;

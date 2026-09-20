@@ -1,3 +1,4 @@
+import type {ReactNode} from 'react';
 import {Check} from 'lucide-react-native';
 import {Modal, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {colors, radius, spacing, typography} from '@rosapay/ui';
@@ -9,9 +10,19 @@ export type SheetOption = {
   label: string;
   /** What it means, one line. */
   detail?: string;
-  /** A flag or symbol carried beside the label. */
-  glyph?: string;
+  /**
+   * What is carried beside the label. A string is drawn as a glyph — a flag,
+   * a symbol — and anything else is rendered as given, which is how an asset
+   * brings its own mark here without this file knowing what an asset is.
+   */
+  glyph?: ReactNode;
 };
+
+/** A flag is text and needs the glyph size; a mark draws itself. */
+function Glyph({glyph}: {glyph: ReactNode}) {
+  if (glyph === undefined || glyph === null || glyph === false) return null;
+  return typeof glyph === 'string' ? <Text style={styles.glyph}>{glyph}</Text> : <>{glyph}</>;
+}
 
 /**
  * Picking one of a handful of things, shown rather than cycled.
@@ -68,7 +79,7 @@ export function OptionSheet({
                   }}
                   style={[styles.option, active && styles.optionSelected]}
                   testID={`${testIDPrefix}-option-${option.value}`}>
-                  {option.glyph ? <Text style={styles.glyph}>{option.glyph}</Text> : null}
+                  <Glyph glyph={option.glyph} />
                   <View style={styles.copy}>
                     <Text style={styles.code}>{option.label}</Text>
                     {option.detail ? <Text style={styles.name}>{option.detail}</Text> : null}
@@ -92,7 +103,7 @@ export function OptionField({
   testID,
   value,
 }: {
-  glyph?: string;
+  glyph?: ReactNode;
   label: string;
   onPress(): void;
   testID: string;
@@ -102,7 +113,7 @@ export function OptionField({
     <View style={styles.fieldWrap}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <Pressable accessibilityRole="button" onPress={onPress} style={styles.field} testID={testID}>
-        {glyph ? <Text style={styles.fieldGlyph}>{glyph}</Text> : null}
+        {typeof glyph === 'string' ? <Text style={styles.fieldGlyph}>{glyph}</Text> : glyph}
         <Text style={styles.fieldValue}>{value}</Text>
         <Text style={styles.chevron}>⌄</Text>
       </Pressable>

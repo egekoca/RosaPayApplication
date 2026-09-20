@@ -207,7 +207,11 @@ export function MerchantRequestScreen({navigation, route}: Props) {
       value: `asset:${option.code}`,
       label: option.code,
       detail: option.name,
-      glyph: '◈',
+      // The real Stellar and Circle marks, the same badge that sits beside the
+      // balance the money will arrive in. A diamond stood here for both, which
+      // told a merchant nothing on the one screen where the difference between
+      // lumens and dollars is the whole decision.
+      glyph: <AssetMark code={option.code} size={26} />,
     })),
     ...(currencies.data ?? []).map(price => ({
       value: `fiat:${price.asset}`,
@@ -345,7 +349,9 @@ export function MerchantRequestScreen({navigation, route}: Props) {
                 onPress={() => setPickingUnit(true)}
                 testID="request-unit"
                 value={selectedUnitLabel}
-                {...(currency ? {glyph: displayCurrencyMeta(currency.currency).flag} : {glyph: '◈'})}
+                {...(currency
+                  ? {glyph: displayCurrencyMeta(currency.currency).flag}
+                  : {glyph: <AssetMark code={payable.code} size={24} />})}
               />
 
               {/*

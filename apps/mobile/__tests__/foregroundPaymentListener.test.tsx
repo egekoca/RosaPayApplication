@@ -47,30 +47,6 @@ describe('foreground payment receiving', () => {
     expect(navigate).toHaveBeenCalledWith('Confirm', {
       payload: mockSignedIntent,
       transport: 'ble',
-      automatic: true,
-    });
-  });
-
-  it('waits for Approve when the phones were near rather than held together', async () => {
-    // A radio reaches across a room, so only a reading that said the phones
-    // were together stands in for a deliberate act. Anything weaker opens the
-    // screen and asks.
-    const navigate = jest.fn();
-    const navigation = {navigate} as never;
-    ReactTestRenderer.act(() => {
-      ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
-      );
-    });
-
-    await ReactTestRenderer.act(async () => {
-      mockProximity.handlers!.onRequest(arrival(false));
-      await Promise.resolve();
-    });
-    expect(navigate).toHaveBeenCalledWith('Confirm', {
-      payload: mockSignedIntent,
-      transport: 'ble',
-      automatic: false,
     });
   });
 
@@ -115,7 +91,6 @@ describe('foreground payment receiving', () => {
     expect(navigate).toHaveBeenCalledWith('Confirm', {
       payload: mockSignedIntent,
       transport: 'ble',
-      automatic: true,
     });
   });
 
@@ -166,7 +141,6 @@ describe('foreground payment receiving', () => {
     expect(navigate).toHaveBeenCalledWith('Confirm', {
       payload: mockSignedIntent,
       transport: 'ble',
-      automatic: true,
     });
   });
 

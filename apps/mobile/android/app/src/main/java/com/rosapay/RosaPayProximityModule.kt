@@ -127,7 +127,7 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
      * [CLOSE_RSSI] and [APPROACH_DELTA] still decide how *fast* the request
      * appears; this only decides that it appears.
      */
-    const val PATIENCE_MS = 6_000L
+    const val PATIENCE_MS = 2_000L
 
     /**
      * How much weaker than the strongest phone on the air a merchant may read
@@ -152,9 +152,9 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
 
     /**
      * How many readings in a row have to agree before acting on them. A single
-     * sample is noise — a hand moving, a body between the phones. Scanning
-     * reports duplicates several times a second, so three in agreement is a
-     * fraction of a second of steady contact rather than a spike.
+     * sample is noise — a hand moving, a body between the phones. Three in
+     * agreement is a fraction of a second: two iPhones held together were
+     * measured at about eighteen readings a second.
      */
     const val REQUIRED_SAMPLES = 3
 

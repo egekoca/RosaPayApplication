@@ -96,12 +96,14 @@ class RosaPayProximity: RCTEventEmitter {
    guessed at, not the thing being asked for — so a gate on distance must never
    be the reason the match never happens. A phone heard continuously for this
    long, with nothing closer on the air, is the counter the customer is at,
-   whatever the readings say about how far away it is.
+   whatever the readings say about how far away it is. Short, because standing
+   still waiting for a phone to notice another phone is the thing this was
+   supposed to remove.
 
    `closeRssi` and `approachDelta` still decide how *fast* the request appears,
    which is the part the gesture earns. This only decides that it appears.
    */
-  private static let patienceSeconds: TimeInterval = 6
+  private static let patienceSeconds: TimeInterval = 2
 
   /**
    How much weaker than the strongest phone on the air a merchant may read and
@@ -136,8 +138,10 @@ class RosaPayProximity: RCTEventEmitter {
    How many readings in a row have to agree before acting on them.
 
    A single sample is noise — a hand moving, a body between the phones, a
-   reflection. Scanning reports duplicates several times a second, so three in
-   agreement is a fraction of a second of steady contact rather than a spike.
+   reflection. Three in agreement is a fraction of a second of steady contact
+   rather than a spike: a real pair of iPhones held together was measured at
+   about eighteen readings a second, so this costs under a fifth of one and is
+   not where any waiting comes from.
    */
   private static let requiredSamples = 3
 
