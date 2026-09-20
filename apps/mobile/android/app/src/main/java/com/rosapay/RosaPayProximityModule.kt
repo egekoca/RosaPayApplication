@@ -22,9 +22,11 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Build
 import android.os.ParcelUuid
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -71,21 +73,68 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
     const val MAX_FRAMES = 255
 
     /**
-     * How close "near enough to be offered" is, in dBm. NFC answers this with
-     * physics; a radio has to be told.
+     * How close a phone has to read before it is worth following at all, in
+     * dBm. This is the outer edge of the conversation rather than the gate a
+     * request passes: a merchant read this strongly is only added to the list
+     * of phones whose readings are collected, and what offers a request is
+     * [CLOSE_RSSI] or [APPROACH_DELTA], judged on those readings.
      *
-     * The free-air figures — touching around -40, a hand's width -55, a metre
-     * -70 — are what -55 was set from, and they do not survive the gesture
-     * people actually make: a phone laid flat against the other puts two metal
-     * chassis between two edge-mounted antennas and reads well below what the
-     * same distance gives in open air. At -55 that shielding meant no request
-     * was offered at all — nothing on screen, no error, nothing to act on.
-     *
-     * Offering too readily costs far less, because it only decides which
-     * request appears: anything short of [TOUCHING_RSSI] still opens the screen
-     * and waits for Approve, and a distant request is one the customer declines.
+     * Deliberately loose. Following a phone too readily costs a few samples;
+     * following it too late means the approach that would have offered the
+     * request went unwatched, because the resting level it is measured against
+     * was never seen.
      */
     const val NEARBY_RSSI = -75
+
+    /**
+     * How strong a reading is close enough to offer a request on its own.
+     *
+     * The gesture this exists for is two phones brought together, and it is
+     * meant to mean a few centimetres — the reach of a tap, not of a room. A
+     * radio cannot promise that. BLE reports one number that falls off with
+     * distance but also with a hand, a body, a pocket, and the two metal
+     * chassis a pair of phones held face to face put between their own
+     * antennas. Ten centimetres and half a metre overlap across handsets, so
+     * no absolute number separates them cleanly, and a number tight enough to
+     * be certain is the worst failure available here: nothing on screen, no
+     * error, nothing to act on.
+     *
+     * So this sits where a phone is plausibly at the counter rather than
+     * across it, and [APPROACH_DELTA] carries the rest.
+     */
+    const val CLOSE_RSSI = -65
+
+    /**
+     * How much stronger than its own resting level a phone must read before
+     * that counts as having been brought over, in dB.
+     *
+     * The half of the gate that needs no calibration. Halving the distance
+     * adds about 6 dB and quartering it about 12, so a rise of this size means
+     * the phone moved much closer, wherever its absolute readings sit. A
+     * merchant left on a table across the room holds a steady level and never
+     * produces one; a phone lifted to the counter does.
+     */
+    const val APPROACH_DELTA = 12
+
+    /**
+     * How long a merchant may be heard steadily before it is offered anyway,
+     * in milliseconds.
+     *
+     * The point of this transport is to match the customer standing at a
+     * counter with the request that counter has open. Distance is how that
+     * match is guessed at, not the thing being asked for, so a gate on
+     * distance must never be the reason the match never happens.
+     * [CLOSE_RSSI] and [APPROACH_DELTA] still decide how *fast* the request
+     * appears; this only decides that it appears.
+     */
+    const val PATIENCE_MS = 6_000L
+
+    /**
+     * How much weaker than the strongest phone on the air a merchant may read
+     * and still be the one offered, in dB. Two tills side by side are the case
+     * this exists for: the customer is standing at exactly one of them.
+     */
+    const val CONTENDER_MARGIN = 6
 
     /**
      * How close "being held against it" is — the reading that stands in for a
@@ -132,6 +181,12 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
   private val frames = ConcurrentHashMap<String, MutableMap<Int, ByteArray>>()
   /** The last few signal readings per merchant, and what they said on connect. */
   private val samples = ConcurrentHashMap<String, MutableList<Int>>()
+  /** The weakest reading each merchant has given, which an approach is measured against. */
+  private val resting = ConcurrentHashMap<String, Int>()
+  /** When each merchant was first heard in range, which patience is measured from. */
+  private val firstSeen = ConcurrentHashMap<String, Long>()
+  /** The strongest reading from any merchant just now, so the nearer till wins. */
+  @Volatile private var best: Pair<Int, Long>? = null
   private val touching = ConcurrentHashMap<String, Boolean>()
 
   /** React Native requires these for `NativeEventEmitter`. */
@@ -175,6 +230,22 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
 
   private fun permissionsGranted(): Boolean = requiredPermissions().all {
     ContextCompat.checkSelfPermission(reactContext, it) == PackageManager.PERMISSION_GRANTED
+  }
+
+  /**
+   * Whether this phone is old enough to tie BLE scanning to location.
+   *
+   * Before Android 12 a scan could be used to infer where someone is, so the
+   * platform put it behind location — both the permission, which
+   * [requiredPermissions] asks for, and the switch, which no app can ask for
+   * and which silently empties the results when it is off. From Android 12 the
+   * `neverForLocation` flag on BLUETOOTH_SCAN takes its place.
+   */
+  private fun locationServicesRequired(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+
+  private fun locationServicesEnabled(): Boolean {
+    val locations = ContextCompat.getSystemService(reactContext, LocationManager::class.java)
+    return locations != null && LocationManagerCompat.isLocationEnabled(locations)
   }
 
   @ReactMethod
@@ -390,6 +461,18 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
       promise.reject("BLE_UNAUTHORIZED", "Rosa Pay needs Bluetooth permission to find a nearby merchant")
       return
     }
+    // Android 11 and earlier gate BLE scanning on location being switched on,
+    // not merely granted — and a scan started with it off returns nothing at
+    // all, with no failure and no results. That is indistinguishable from a
+    // merchant who is not advertising, so it has to be said out loud here
+    // rather than discovered by holding two phones together for a minute.
+    if (locationServicesRequired() && !locationServicesEnabled()) {
+      promise.reject(
+        "BLE_LOCATION_OFF",
+        "Turn on Location as well as Bluetooth: this version of Android will not look for a nearby merchant without it",
+      )
+      return
+    }
     val scanner = adapter.bluetoothLeScanner
     if (scanner == null) {
       promise.reject("BLE_UNAVAILABLE", "The Bluetooth scanner could not be started")
@@ -439,6 +522,9 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
     reading.clear()
     frames.clear()
     samples.clear()
+    resting.clear()
+    firstSeen.clear()
+    best = null
     touching.clear()
   }
 
@@ -450,18 +536,45 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
     val address = device.address ?: return
     if (reading.containsKey(address)) return
 
-    // Out of range resets the run: a merchant has to be approached, not merely
-    // glimpsed once across a room.
+    // Recorded from every reading, including the ones too weak to follow: the
+    // weakest this phone has given is what "it was brought closer" is measured
+    // against, and the weakest readings are the ones that establish it.
+    val floor = minOf(resting[address] ?: rssi, rssi)
+    resting[address] = floor
+
+    // Out of range resets the run, patience included: a merchant has to be
+    // approached, not merely glimpsed once across a room.
     if (rssi < NEARBY_RSSI) {
       samples.remove(address)
+      firstSeen.remove(address)
       return
     }
+
+    val now = System.currentTimeMillis()
+    val peak = best
+    if (peak == null || now - peak.second > 1_000L || rssi >= peak.first) {
+      best = rssi to now
+    }
+    val waiting = firstSeen.getOrPut(address) { now }
 
     val window = samples.getOrPut(address) { mutableListOf() }
     synchronized(window) {
       window.add(rssi)
       while (window.size > REQUIRED_SAMPLES) window.removeAt(0)
       if (window.size < REQUIRED_SAMPLES) return
+      // Two ways to be close, and either one offers the request straight away:
+      // reading close outright, or reading far closer than it has all
+      // encounter, which is what being held against this phone looks like to a
+      // radio nobody calibrated for these two handsets.
+      val close = window.all { it >= CLOSE_RSSI }
+      val approached = window.all { it - floor >= APPROACH_DELTA }
+      // And a third way, which is the whole point: a counter heard steadily
+      // for a few seconds is the counter this customer is standing at.
+      val patient = now - waiting >= PATIENCE_MS
+      if (!close && !approached && !patient) return
+      // Whichever till is nearer is the one the customer is at.
+      val closest = best
+      if (closest != null && now - closest.second <= 1_000L && rssi < closest.first - CONTENDER_MARGIN) return
       // Every reading agreeing is what makes this deliberate rather than a
       // spike, and all of them at touching strength is what lets it stand in
       // for a tap.
@@ -490,6 +603,8 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
       reading.remove(address)
       frames.remove(address)
       samples.remove(address)
+      resting.remove(address)
+      firstSeen.remove(address)
     }
     runCatching { gatt.close() }
   }

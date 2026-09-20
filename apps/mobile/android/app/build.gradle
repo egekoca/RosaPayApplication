@@ -82,8 +82,8 @@ android {
         applicationId "com.rosapay"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 15
-        versionName "1.0.4"
+        versionCode 19
+        versionName "1.0.5"
     }
     buildTypes {
         release {

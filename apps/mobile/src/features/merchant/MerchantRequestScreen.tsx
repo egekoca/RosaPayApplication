@@ -17,6 +17,7 @@ import {displayCurrencyMeta} from '../../shared/priceSource';
 import {useAppStore} from '../../state/appStore';
 import {useNfcBroadcast} from '../payments/useNfc';
 import {useProximityBroadcast} from '../payments/useProximity';
+import {useProximityDiagnostics} from '../payments/useProximityDiagnostics';
 import {businessEmailSchema, createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
 import {isOfferable} from './paymentOutcome';
 import {priceRequest, referenceForRequest} from './pricedRequest';
@@ -735,14 +736,41 @@ function ProximityOffer({
 }) {
   const t = useTranslate();
   const state = proximityOfferState({nfc, proximity});
-  if (state.kind === 'hidden') return null;
+  // What the radio last did, in its own words. "Hidden" meant a counter showing
+  // a QR could say nothing at all about whether anyone could hold a phone to
+  // it, which is the state hardest to act on and the one that looks exactly
+  // like the feature not existing.
+  const log = useProximityDiagnostics();
+  const latest = log[0]?.message;
+  /**
+   * The merchant half has only ever shown the newest line, and the newest line
+   * is a place the radio passes through: published, on the air, a customer
+   * connected, frames sent. Reading a counter that is not being paid means
+   * reading the steps it took to get there, and this is the one screen that
+   * has to be open for any of them to happen — the timestamped log in
+   * developer settings cannot be open at the same time. Folded away, because
+   * the counter is also what a customer is standing in front of.
+   */
+  const [showLog, setShowLog] = useState(false);
+  if (state.kind === 'hidden' && !latest) return null;
 
-  const bluetooth = state.kind === 'needs-bluetooth' || state.kind === 'bluetooth-off' || state.bluetooth;
+  // `hidden` now reaches here whenever the radio has something to report, so it
+  // has no `bluetooth` flag to read; a narrated line is always the radio's.
+  const bluetooth =
+    state.kind === 'needs-bluetooth' ||
+    state.kind === 'bluetooth-off' ||
+    state.kind === 'hidden' ||
+    state.bluetooth;
   return (
-    <View style={styles.nfcRow} testID={`proximity-${state.kind}`}>
+    <>
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => setShowLog(open => !open)}
+      style={styles.nfcRow}
+      testID={`proximity-${state.kind}`}>
       {bluetooth ? <Bluetooth color={colors.amber} size={18} /> : <Nfc color={colors.amber} size={18} />}
-      <Text style={styles.nfcText}>
-        {state.kind === 'live'
+      <Text numberOfLines={2} style={styles.nfcText}>
+        {latest ?? (state.kind === 'live'
           ? t('Or let the customer hold their phone against this one')
           : state.kind === 'needs-bluetooth'
             ? t('Allow Bluetooth so an iPhone customer can pay by holding their phone here')
@@ -750,7 +778,7 @@ function ProximityOffer({
               ? t('Turn on Bluetooth so an iPhone customer can pay by holding their phone here')
               : state.kind === 'failed'
                 ? t('Holding phones together is unavailable right now; use the QR code')
-                : t('Preparing to be tapped')}
+                : t('Preparing to be tapped'))}
       </Text>
       {state.kind === 'needs-bluetooth' ? (
         <Button onPress={proximity.request} testID="allow-proximity-broadcast" tone="ghost">
@@ -768,7 +796,17 @@ function ProximityOffer({
           {t('Retry')}
         </Button>
       ) : null}
-    </View>
+    </Pressable>
+    {showLog && log.length > 0 ? (
+      <View style={styles.radioLog} testID="proximity-log">
+        {log.map((entry, index) => (
+          <Text key={`${entry.at}-${index}`} selectable style={styles.radioLogLine}>
+            {entry.at}  {entry.message}
+          </Text>
+        ))}
+      </View>
+    ) : null}
+    </>
   );
 }
 
@@ -817,6 +855,8 @@ const styles = StyleSheet.create({
   reference: {color: colors.inkMuted, fontSize: 12, marginTop: spacing.xs},
   nfcRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
   nfcText: {fontSize: 13, color: colors.inkMuted},
+  radioLog: {backgroundColor: colors.black, borderRadius: radius.sm, gap: 2, padding: spacing.sm},
+  radioLogLine: {color: colors.inkMuted, fontSize: 11, lineHeight: 15},
   qr: {alignItems: 'center', alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.sm, padding: spacing.lg},
   qrPlaceholder: {alignItems: 'center', alignSelf: 'center', gap: spacing.sm, justifyContent: 'center', minHeight: 246, padding: spacing.lg, width: '100%'},
   qrPlaceholderText: {color: colors.inkMuted, fontSize: 13, lineHeight: 18, textAlign: 'center'},

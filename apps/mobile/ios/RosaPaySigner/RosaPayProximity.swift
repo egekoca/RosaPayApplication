@@ -38,23 +38,81 @@ class RosaPayProximity: RCTEventEmitter {
   private static let maxFrames = 255
 
   /**
-   How close "near enough to be offered" is, in dBm.
+   How close a phone has to read before it is worth following at all, in dBm.
 
-   NFC answers this with physics: a tap is a few centimetres or nothing. A radio
-   has to be told. The free-air figures — touching around -40, a hand's width
-   -55, a metre -70 — are what -55 was set from, and they do not survive the
-   gesture people actually make: a phone laid flat against the merchant's
-   screen puts two metal chassis between two edge-mounted antennas, and the
-   reading lands well below what the same distance gives in open air.
+   This is the outer edge of the conversation rather than the gate a request
+   passes. A merchant read this strongly is only added to the list of phones
+   whose readings are worth collecting; what offers a request is `closeRssi` or
+   `approachDelta` below, judged on those readings.
 
-   At -55 that shielding meant no request was offered at all, which is the
-   worst failure available here — nothing on screen, no error, nothing to act
-   on. Offering too readily costs far less, because it only decides which
-   request appears: anything short of `touchingRssi` still opens the screen and
-   waits for the customer to press Approve, and a request from the far side of
-   a room is one they can simply decline.
+   Deliberately loose. Following a phone too readily costs a few samples;
+   following it too late means the approach that would have offered the request
+   went unwatched, because the resting level it is measured against was never
+   seen.
    */
   private static let nearbyRssi = -75
+
+  /**
+   How strong a reading is close enough to offer a request on its own.
+
+   The gesture this exists for is two phones brought together, and it is meant
+   to mean a few centimetres — the reach of a tap, not of a room. A radio
+   cannot promise that. BLE reports one number that falls off with distance but
+   also with a hand, a body, a pocket, and the two metal chassis that a pair of
+   phones held face to face put between their own edge-mounted antennas. Ten
+   centimetres and half a metre overlap across handsets, so no absolute number
+   separates them cleanly, and a number tight enough to be certain is the worst
+   failure available here: nothing on screen, no error, nothing to act on.
+
+   So this sits where a phone is plausibly at the counter rather than across
+   it, and `approachDelta` carries the rest. Free air gives touching about -40,
+   a hand's width -55 and a metre -70; pressed together reads well below the
+   free-air figure for the same gap, which is why this sits under the
+   hand's-width reading rather than at it.
+   */
+  private static let closeRssi = -65
+
+  /**
+   How much stronger than its own resting level a phone must read before that
+   counts as having been brought over, in dB.
+
+   This is the half of the gate that needs no calibration. Whatever a
+   particular pair of handsets reads at a metre, halving the distance adds
+   about 6 dB and quartering it about 12, so a rise of this size means the
+   phone moved much closer — wherever its absolute readings happen to sit. A
+   merchant left on a table across the room holds a steady level and never
+   produces one; a phone lifted to the counter does.
+
+   The resting level is the weakest reading seen from that phone, so the rule
+   reads as: it is now far closer than it has been all encounter.
+   */
+  private static let approachDelta = 12
+
+  /**
+   How long a merchant may be heard steadily before it is offered anyway.
+
+   The point of this transport is to match the customer standing at a counter
+   with the request that counter has open. Distance is how that match is
+   guessed at, not the thing being asked for — so a gate on distance must never
+   be the reason the match never happens. A phone heard continuously for this
+   long, with nothing closer on the air, is the counter the customer is at,
+   whatever the readings say about how far away it is.
+
+   `closeRssi` and `approachDelta` still decide how *fast* the request appears,
+   which is the part the gesture earns. This only decides that it appears.
+   */
+  private static let patienceSeconds: TimeInterval = 6
+
+  /**
+   How much weaker than the strongest phone on the air a merchant may read and
+   still be the one offered, in dB.
+
+   Two tills side by side are the case this exists for: both are advertising,
+   both are within the gate, and the customer is standing at exactly one of
+   them. Taking the first to pass would be a coin toss, so a phone that reads
+   clearly weaker than something else on the air waits.
+   */
+  private static let contenderMargin = 6
 
   /**
    How close "being held against it" is — the reading that stands in for a tap.
@@ -99,8 +157,30 @@ class RosaPayProximity: RCTEventEmitter {
   private var expected: [UUID: Int] = [:]
   /// The last few signal readings per peer, and what they said at connect time.
   private var samples: [UUID: [Int]] = [:]
+  /// The weakest reading each peer has given, which an approach is measured against.
+  private var resting: [UUID: Int] = [:]
+  /// When each peer was first heard in range, which patience is measured from.
+  private var firstSeen: [UUID: Date] = [:]
+  /// The strongest reading from any peer just now, so the nearer till wins.
+  private var best: (strength: Int, at: Date)?
   private var touching: [UUID: Bool] = [:]
   private var scanningWanted = false
+  /// Says out loud, every few seconds, whether anything is on the air at all.
+  private var heartbeat: Timer?
+  private var sightings = 0
+  private var strongest: Int?
+
+  /// A Bluetooth state in words, for the diagnostics screen.
+  private static func describe(_ state: CBManagerState) -> String {
+    switch state {
+    case .poweredOn: return "on"
+    case .poweredOff: return "switched off"
+    case .unauthorized: return "not allowed for Rosa Pay"
+    case .unsupported: return "unsupported on this phone"
+    case .resetting: return "restarting"
+    default: return "still starting up"
+    }
+  }
 
   override static func requiresMainQueueSetup() -> Bool {
     false
@@ -254,12 +334,12 @@ class RosaPayProximity: RCTEventEmitter {
     let service = CBMutableService(type: Self.serviceUUID, primary: true)
     service.characteristics = [characteristic]
     requestCharacteristic = characteristic
+    // Advertising starts in `didAdd`, not here. A service is added
+    // asynchronously, and a phone that advertises before its service exists is
+    // found and then answers nothing — which looks from the outside exactly
+    // like not being found at all.
     manager.add(service)
-    manager.startAdvertising([
-      CBAdvertisementDataServiceUUIDsKey: [Self.serviceUUID],
-      CBAdvertisementDataLocalNameKey: "Rosa Pay",
-    ])
-    diagnose("Advertising this request to nearby phones")
+    diagnose("Publishing the request service")
   }
 
   private func teardownPeripheral() {
@@ -347,10 +427,40 @@ class RosaPayProximity: RCTEventEmitter {
       options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
     )
     diagnose("Listening for a merchant nearby")
+    startHeartbeat()
+  }
+
+  /**
+   Says every few seconds whether anything is being heard.
+
+   A scanner that finds nothing writes nothing, so "the merchant is not
+   advertising", "Bluetooth is off at this end" and "the diagnostics panel
+   itself is dead" all looked identical: an empty log. They have completely
+   different fixes. This turns the silent case into a line of its own, and
+   reports the strongest reading of the last few seconds when there is one, so
+   a phone that is heard but never close enough says so instead of appearing
+   never to have been heard at all.
+   */
+  private func startHeartbeat() {
+    heartbeat?.invalidate()
+    sightings = 0
+    strongest = nil
+    heartbeat = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+      guard let self, self.scanningWanted else { return }
+      if self.sightings == 0 {
+        self.diagnose("Still listening — no Rosa Pay phone on the air")
+      } else if let peak = self.strongest {
+        self.diagnose("Still listening — \(self.sightings) readings, strongest \(peak) dBm")
+      }
+      self.sightings = 0
+      self.strongest = nil
+    }
   }
 
   private func teardownCentral() {
     scanningWanted = false
+    heartbeat?.invalidate()
+    heartbeat = nil
     central?.stopScan()
     for peer in connected.values {
       central?.cancelPeripheralConnection(peer)
@@ -359,6 +469,9 @@ class RosaPayProximity: RCTEventEmitter {
     assembling.removeAll()
     expected.removeAll()
     samples.removeAll()
+    resting.removeAll()
+    firstSeen.removeAll()
+    best = nil
     touching.removeAll()
   }
 
@@ -367,6 +480,8 @@ class RosaPayProximity: RCTEventEmitter {
     assembling.removeValue(forKey: peer.identifier)
     expected.removeValue(forKey: peer.identifier)
     samples.removeValue(forKey: peer.identifier)
+    resting.removeValue(forKey: peer.identifier)
+    firstSeen.removeValue(forKey: peer.identifier)
     central?.cancelPeripheralConnection(peer)
   }
 
@@ -407,7 +522,40 @@ extension RosaPayProximity: CBPeripheralManagerDelegate {
     settlePermissionRequests()
     if manager.state == .poweredOn {
       publishService(on: manager)
+    } else {
+      diagnose("Bluetooth is \(Self.describe(manager.state)) — nothing is being advertised")
     }
+  }
+
+  /**
+   Puts the request on the air, now that there is something behind it to read.
+
+   Both halves of this were silent before: `add` and `startAdvertising` report
+   asynchronously and neither result was ever looked at, so a merchant whose
+   advertisement iOS had refused outright saw the same screen as one being
+   heard across the counter. A customer holding a phone against it had nothing
+   to act on and no way to tell which end was at fault.
+   */
+  func peripheralManager(_ manager: CBPeripheralManager, didAdd _: CBService, error: Error?) {
+    if let error {
+      diagnose("This phone could not publish the request service: \(error.localizedDescription)")
+      emit(Self.errorEvent, "This phone could not share the request over Bluetooth")
+      return
+    }
+    guard advertisingWanted else { return }
+    manager.startAdvertising([
+      CBAdvertisementDataServiceUUIDsKey: [Self.serviceUUID],
+      CBAdvertisementDataLocalNameKey: "Rosa Pay",
+    ])
+  }
+
+  func peripheralManagerDidStartAdvertising(_: CBPeripheralManager, error: Error?) {
+    if let error {
+      diagnose("Bluetooth refused to advertise this request: \(error.localizedDescription)")
+      emit(Self.errorEvent, "This phone could not share the request over Bluetooth")
+      return
+    }
+    diagnose("On the air — a customer nearby can now pick this request up")
   }
 
   func peripheralManager(
@@ -415,6 +563,7 @@ extension RosaPayProximity: CBPeripheralManagerDelegate {
     central: CBCentral,
     didSubscribeTo _: CBCharacteristic
   ) {
+    diagnose("A customer's phone connected — sending the request")
     send(to: central)
   }
 
@@ -435,6 +584,8 @@ extension RosaPayProximity: CBCentralManagerDelegate {
     settlePermissionRequests()
     if manager.state == .poweredOn {
       beginScan(on: manager)
+    } else if scanningWanted {
+      diagnose("Bluetooth is \(Self.describe(manager.state)) — nothing can be heard")
     }
   }
 
@@ -450,16 +601,31 @@ extension RosaPayProximity: CBCentralManagerDelegate {
       diagnose("Saw a Rosa Pay phone but could not measure its signal")
       return
     }
+    sightings += 1
+    strongest = max(strongest ?? strength, strength)
     let id = peripheral.identifier
     guard connected[id] == nil else { return }
 
-    // Out of range resets the run: a merchant has to be approached, not merely
-    // glimpsed once through a crowd.
+    // Recorded from every reading, including the ones too weak to follow: the
+    // weakest this phone has given is what "it was brought closer" is measured
+    // against, and the weakest readings are the ones that establish it.
+    let floor = min(resting[id] ?? strength, strength)
+    resting[id] = floor
+
+    // Out of range resets the run, patience included: a merchant has to be
+    // approached, not merely glimpsed once through a crowd.
     guard strength >= Self.nearbyRssi else {
-      diagnose("Merchant seen at \(strength) dBm — too far, needs \(Self.nearbyRssi)")
+      diagnose("Merchant seen at \(strength) dBm — too far to follow, needs \(Self.nearbyRssi)")
       samples[id] = []
+      firstSeen[id] = nil
       return
     }
+
+    if best == nil || best!.at.timeIntervalSinceNow < -1 || strength >= best!.strength {
+      best = (strength, Date())
+    }
+    let waiting = firstSeen[id] ?? Date()
+    firstSeen[id] = waiting
 
     var window = samples[id] ?? []
     window.append(strength)
@@ -472,6 +638,30 @@ extension RosaPayProximity: CBCentralManagerDelegate {
       return
     }
 
+    // Two ways to be close, and either one offers the request straight away.
+    // Reading close outright, or reading far closer than it has all encounter,
+    // is what being held against this phone looks like to a radio nobody
+    // calibrated for these two handsets.
+    let isClose = window.allSatisfy { $0 >= Self.closeRssi }
+    let approached = window.allSatisfy { $0 - floor >= Self.approachDelta }
+    // And a third way, which is the whole point: a counter heard steadily for
+    // a few seconds is the counter this customer is standing at. Distance is
+    // how that is guessed at, never what is being asked for, so it is allowed
+    // to make the match slower and never allowed to stop it happening.
+    let patient = -waiting.timeIntervalSinceNow >= Self.patienceSeconds
+    guard isClose || approached || patient else {
+      diagnose(
+        "Merchant steady at \(strength) dBm, resting \(floor) — hold the phones together"
+      )
+      return
+    }
+
+    // Whichever till is nearer is the one the customer is at.
+    if let best, best.at.timeIntervalSinceNow > -1, strength < best.strength - Self.contenderMargin {
+      diagnose("Merchant at \(strength) dBm, but one at \(best.strength) dBm is closer — waiting")
+      return
+    }
+
     // Every reading in the window agreeing is what makes this a deliberate act
     // rather than a spike, and all of them at touching strength is what lets it
     // stand in for a tap.
@@ -479,7 +669,9 @@ extension RosaPayProximity: CBCentralManagerDelegate {
     diagnose(
       isTouching
         ? "Touching at \(strength) dBm — connecting"
-        : "Near at \(strength) dBm but not touching, needs \(Self.touchingRssi) — connecting"
+        : patient && !isClose && !approached
+          ? "Heard steadily at \(strength) dBm for \(Int(Self.patienceSeconds))s — connecting"
+          : "Close at \(strength) dBm, resting \(floor), but not touching, needs \(Self.touchingRssi) — connecting"
     )
     touching[id] = isTouching
     connected[id] = peripheral

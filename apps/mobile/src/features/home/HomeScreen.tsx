@@ -31,6 +31,7 @@ import {AssetMark} from './AssetMark';
 import {payableAssetByCode} from '../payments/assets';
 import {useNfcTapControl} from '../payments/nfcTapControl';
 import {useProximityStatus} from '../payments/useProximity';
+import {useProximityDiagnostics} from '../payments/useProximityDiagnostics';
 import {currencySymbol} from '../../shared/priceSource';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Main'>;
@@ -119,6 +120,8 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
   */
   const switchedOff = proximity.authorized && !proximity.enabled;
   const proximityBlocked = proximity.supported && (!proximity.authorized || switchedOff);
+  const proximityListening = proximity.supported && proximity.authorized && proximity.enabled;
+  const proximityLog = useProximityDiagnostics();
   const enableProximity = () => {
     if (refused || switchedOff) {
       void Linking.openSettings();
@@ -242,6 +245,39 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
               </PressScale>
             </View>
           ) : null}
+        </View>
+      </AnimatedContent>
+
+      {/*
+        Whether the radio is actually listening, in one line.
+        
+        Holding two phones together and having nothing happen looked identical
+        whether the scanner was armed and simply out of range, or never started
+        at all — and there was nothing on the paying side that said which. The
+        merchant's screen has said this all along; the customer's, which is the
+        half that has to be held up to a counter, said nothing.
+      */}
+      <AnimatedContent delay={95}>
+        <View style={styles.listening} testID="proximity-listening">
+          <View style={[styles.listeningDot, proximityListening && styles.listeningDotOn]} />
+          <Text numberOfLines={2} style={styles.listeningText}>
+            {/*
+              What the radio last did, in its own words, in front of the person
+              holding the phone. Permission being granted is not the same fact
+              as the scan having started, and neither is the same as a counter
+              having been seen and measured — but all three failed identically,
+              as nothing happening. Native narrates each step; the newest line
+              is the one that answers "why is nothing happening".
+            */}
+            {proximityLog[0]?.message
+              ?? (!proximity.supported
+                ? t('This phone has no Bluetooth LE')
+                : !proximity.authorized
+                  ? t('Bluetooth not allowed yet')
+                  : !proximity.enabled
+                    ? t('Bluetooth is switched off')
+                    : t('Listening for a counter nearby'))}
+          </Text>
         </View>
       </AnimatedContent>
 
@@ -659,6 +695,10 @@ const styles = StyleSheet.create({
   actionRow: {flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl},
   // The Bluetooth row already carries the gap above it.
   actionRowUnderTap: {marginTop: spacing.md},
+  listening: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, paddingHorizontal: spacing.xs},
+  listeningDot: {backgroundColor: colors.inkFaint, borderRadius: radius.round, height: 7, width: 7},
+  listeningDotOn: {backgroundColor: colors.success},
+  listeningText: {color: colors.inkMuted, fontSize: 12},
   actionHalf: {flex: 1},
   actionTile: {
     backgroundColor: colors.surface,
