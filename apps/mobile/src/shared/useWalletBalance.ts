@@ -34,7 +34,13 @@ export function useWalletBalance() {
     enabled: Boolean(account),
     refetchInterval: 20_000,
     staleTime: 10_000,
-    retry: 1,
+    // Two concurrent reads against a shared public RPC, so one of them being
+    // slow this cycle is routine rather than exceptional. A single retry gave
+    // that maybe a second to recover before the card had to say "reconnecting"
+    // to someone who was just looking at a real balance a moment ago. Matching
+    // the app's own default (2) buys a few seconds of backoff, which a
+    // transient blip clears well inside.
+    retry: 2,
     queryFn: async (): Promise<Holding[]> => {
       const config = createStellarConfig('testnet');
       /*
