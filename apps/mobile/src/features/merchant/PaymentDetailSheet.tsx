@@ -1,4 +1,4 @@
-import {ExternalLink} from 'lucide-react-native';
+import {ExternalLink, QrCode} from 'lucide-react-native';
 import {Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {colors, radius, spacing, StatusPill, typography} from '@rosapay/ui';
 import {displayAmount, exactAmount} from '../../shared/displayAmount';
@@ -28,9 +28,17 @@ export type MerchantPaymentDetail = {
 
 export function PaymentDetailSheet({
   onClose,
+  onShowCode,
   payment,
 }: {
   onClose(): void;
+  /**
+   * Set only for the request still on the counter, which is the one a merchant
+   * may need to put back in front of a customer. The list is where every
+   * request is opened from, so the way back to its code belongs here rather
+   * than in a second button competing with "new payment" above the list.
+   */
+  onShowCode?: () => void;
   payment: MerchantPaymentDetail | null;
 }) {
   const t = useTranslate();
@@ -90,6 +98,17 @@ export function PaymentDetailSheet({
                   <Text style={styles.explorerText}>{t('View on Explorer')}</Text>
                 </Pressable>
               </>
+            ) : null}
+
+            {onShowCode ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={onShowCode}
+                style={styles.showCode}
+                testID="payment-detail-show-code">
+                <QrCode color={colors.black} size={18} />
+                <Text style={styles.showCodeText}>{t('Show the code again')}</Text>
+              </Pressable>
             ) : null}
 
             <Pressable
@@ -177,6 +196,8 @@ const styles = StyleSheet.create({
   },
   header: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, justifyContent: 'space-between'},
   reference: {...typography.label, color: colors.ink, flex: 1, fontSize: 15},
+  showCode: {alignItems: 'center', backgroundColor: colors.gold, borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm, justifyContent: 'center', marginTop: spacing.lg, minHeight: 50},
+  showCodeText: {...typography.label, color: colors.black, fontSize: 13},
   amountLine: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md},
   amount: {...typography.title, color: colors.ink, flexShrink: 1, fontSize: 34},
   asset: {...typography.mono, color: colors.goldBright, fontSize: 15},

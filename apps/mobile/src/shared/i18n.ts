@@ -191,6 +191,8 @@ const TR: Record<string, string> = {
   'Switch Bluetooth on to pay by holding phones together': 'Telefon yaklaştırarak ödemek için Bluetooth’u aç',
   'Not allowed yet': 'Henüz izin verilmedi',
   'New payment': 'Yeni ödeme',
+  'Show more': 'Daha fazla göster',
+  'Show the code again': 'Kodu tekrar göster',
   Active: 'Aktif',
   Accept: 'Kabul et',
   'into this wallet': 'bu cüzdana',

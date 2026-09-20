@@ -1,6 +1,6 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Bluetooth, ChevronRight, Nfc, Plus, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
-import {useState} from 'react';
+import {Bluetooth, ChevronRight, Nfc, Plus, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
+import {useMemo, useState} from 'react';
 import {Linking, Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
 import type {RootStackParams} from '../../app/navigation';
@@ -8,6 +8,7 @@ import {businessEmailSchema} from '../merchant/merchantProfile';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
 import {RosaMark} from '../../shared/RosaMark';
 import {useMerchantPayments} from '../merchant/merchantRequestStatus';
+import {MERCHANT_PAGE_SIZE, orderMerchantPayments} from '../merchant/paymentOrder';
 import {
   outcomeLabel,
   PaymentDetailSheet,
@@ -385,13 +386,30 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
 
   // On Testnet the API knows every request this merchant made, from any device;
   // a device on its own only has what it recorded itself.
-  const apiPayments = payments.data?.payments ?? [];
+  // A fresh `[]` on every render would defeat the memo below, which is the one
+  // place the list is actually sorted.
+  const apiPayments = useMemo(() => payments.data?.payments ?? [], [payments.data]);
   const useApi = payments.isSuccess;
-  const localReceipts = receipts.filter(receipt => receipt.recipient === merchantProfile?.recipient);
+  const localReceipts = useMemo(
+    () => receipts.filter(receipt => receipt.recipient === merchantProfile?.recipient),
+    [merchantProfile?.recipient, receipts],
+  );
   const received = useApi ? apiPayments : localReceipts;
   const settled = received.filter(payment => payment.status === 'confirmed');
   const statusTone = payments.isError ? 'neutral' : payments.isPending ? 'pending' : 'success';
   const [detail, setDetail] = useState<MerchantPaymentDetail | null>(null);
+  // Live requests first, then the rest a page at a time. A counter reads the
+  // top of this list while a customer waits; the history below it is for
+  // afterwards.
+  // Sorted inside each branch rather than over the union: the API's shape and
+  // the device's differ, and collapsing them here would lose the difference the
+  // rows below still read.
+  const ordered = useMemo(
+    () => (useApi ? orderMerchantPayments(apiPayments) : orderMerchantPayments(localReceipts)),
+    [apiPayments, localReceipts, useApi],
+  );
+  const [shown, setShown] = useState(MERCHANT_PAGE_SIZE);
+  const visible = ordered.slice(0, shown);
   return (
     <>
       <AnimatedContent>
@@ -408,38 +426,27 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
       </AnimatedContent>
 
       {/*
-        One button that quietly became a different button. Once a request
-        existed it read "Open active request" and there was no way left to
-        start another — the merchant's next customer had to go through the last
-        one. Creating is what this button is for, every time; the request
-        already on the counter is offered beside it, and only while there is
-        one.
+        One button, and it always does the one thing this screen is for.
+        
+        It used to become "Open active request" once a request existed, so the
+        merchant's next customer had to go through the last one. Pairing it with
+        a second button for the live request only moved the clutter: every
+        request, live or finished, is already a row in the list below, and
+        tapping a row is already how a merchant opens one. The live one offers
+        its code from there.
       */}
       <AnimatedContent delay={140}>
-        <View style={styles.merchantActions}>
-          <View style={styles.merchantActionMain}>
-            <Button
-              icon={<Plus color={colors.black} size={20} />}
-              onPress={() => {
-                // Cleared so the screen opens on the form rather than on the
-                // card for the last one. Its history lives on the API.
-                setPendingRequest(null);
-                navigation.navigate('MerchantRequest');
-              }}
-              testID="create-new-payment">
-              {t('New payment')}
-            </Button>
-          </View>
-          {pendingRequest ? (
-            <Button
-              icon={<QrCode color={colors.ink} size={20} />}
-              tone="ghost"
-              onPress={() => navigation.navigate('MerchantRequest')}
-              testID="open-active-request">
-              {t('Active')}
-            </Button>
-          ) : null}
-        </View>
+        <Button
+          icon={<Plus color={colors.black} size={20} />}
+          onPress={() => {
+            // Cleared so the screen opens on the form rather than on the card
+            // for the last one. Its history lives on the API and in the list.
+            setPendingRequest(null);
+            navigation.navigate('MerchantRequest');
+          }}
+          testID="create-new-payment">
+          {t('New payment')}
+        </Button>
       </AnimatedContent>
 
       <AnimatedContent delay={190}>
@@ -502,7 +509,7 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
             </View>
           ) : (
             <View style={styles.list}>
-              {received.slice(0, 4).map(payment => {
+              {visible.map(payment => {
                 const outcome = paymentOutcome(payment.status);
                 // A request that is over is still worth listing and still worth
                 // opening, but it should not read as money on the counter. The
@@ -552,12 +559,36 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
                   </PressScale>
                 );
               })}
+              {ordered.length > visible.length ? (
+                <PressScale>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setShown(count => count + MERCHANT_PAGE_SIZE)}
+                    style={styles.showMore}
+                    testID="show-more-payments">
+                    <Text style={styles.showMoreText}>
+                      {`${t('Show more')} (${ordered.length - visible.length})`}
+                    </Text>
+                  </Pressable>
+                </PressScale>
+              ) : null}
             </View>
           )}
         </>
       </AnimatedContent>
 
-      <PaymentDetailSheet onClose={() => setDetail(null)} payment={detail} />
+      <PaymentDetailSheet
+        onClose={() => setDetail(null)}
+        {...(detail && pendingRequest && detail.intentId === pendingRequest.intent.intentId
+          ? {
+              onShowCode: () => {
+                setDetail(null);
+                navigation.navigate('MerchantRequest');
+              },
+            }
+          : {})}
+        payment={detail}
+      />
     </>
   );
 }
@@ -629,8 +660,6 @@ const styles = StyleSheet.create({
   // The Bluetooth row already carries the gap above it.
   actionRowUnderTap: {marginTop: spacing.md},
   actionHalf: {flex: 1},
-  merchantActions: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
-  merchantActionMain: {flex: 1},
   actionTile: {
     backgroundColor: colors.surface,
     borderColor: colors.line,
@@ -674,6 +703,8 @@ const styles = StyleSheet.create({
   assetName: {...typography.body, color: colors.ink, fontSize: 16, fontWeight: '600'},
   assetAmount: {...typography.mono, color: colors.inkFaint, fontSize: 12},
   assetValue: {...typography.body, color: colors.ink, fontSize: 16, fontWeight: '600'},
+  showMore: {alignItems: 'center', borderColor: colors.line, borderRadius: radius.md, borderWidth: 1, justifyContent: 'center', minHeight: 46},
+  showMoreText: {...typography.label, color: colors.inkMuted, fontSize: 12},
   list: {gap: 2},
   listRow: {
     alignItems: 'center',
