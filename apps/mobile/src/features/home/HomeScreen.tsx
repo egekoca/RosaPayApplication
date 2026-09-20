@@ -8,6 +8,12 @@ import {businessEmailSchema} from '../merchant/merchantProfile';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
 import {RosaMark} from '../../shared/RosaMark';
 import {useMerchantPayments} from '../merchant/merchantRequestStatus';
+import {
+  outcomeLabel,
+  PaymentDetailSheet,
+  type MerchantPaymentDetail,
+} from '../merchant/PaymentDetailSheet';
+import {paymentOutcome} from '../merchant/paymentOutcome';
 import {Screen} from '../../shared/Screen';
 import {useWalletBalance} from '../../shared/useWalletBalance';
 import {displayAmount, exactAmount} from '../../shared/displayAmount';
@@ -357,6 +363,7 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
   const received = useApi ? apiPayments : localReceipts;
   const settled = received.filter(payment => payment.status === 'confirmed');
   const statusTone = payments.isError ? 'neutral' : payments.isPending ? 'pending' : 'success';
+  const [detail, setDetail] = useState<MerchantPaymentDetail | null>(null);
   return (
     <>
       <AnimatedContent>
@@ -438,27 +445,62 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
             </View>
           ) : (
             <View style={styles.list}>
-              {received.slice(0, 4).map(payment => (
-                <View key={payment.intentId} style={styles.listRow}>
-                  <View style={styles.listIcon}>
-                    <ReceiptText color={colors.success} size={17} />
-                  </View>
-                  <View style={styles.listCopy}>
-                    <Text numberOfLines={1} style={styles.listName}>
-                      {'reference' in payment ? payment.reference : t('Payment received')}
-                    </Text>
-                    <Text style={styles.listWhen}>{new Date(payment.createdAt).toLocaleDateString()}</Text>
-                  </View>
-                  <View style={styles.listAmountBlock}>
-                    <Text numberOfLines={1} style={styles.listAmount}>+{displayAmount(payment.amount)}</Text>
-                    <Text style={styles.listAsset}>{payment.assetCode}</Text>
-                  </View>
-                </View>
-              ))}
+              {received.slice(0, 4).map(payment => {
+                const outcome = paymentOutcome(payment.status);
+                // A request that is over is still worth listing and still worth
+                // opening, but it should not read as money on the counter. The
+                // plus sign and the green receipt used to be on every row,
+                // including ones nobody ever paid.
+                const closed = outcome === 'closed';
+                return (
+                  <PressScale key={payment.intentId}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() =>
+                        setDetail({
+                          intentId: payment.intentId,
+                          ...('reference' in payment ? {reference: payment.reference} : {}),
+                          amount: payment.amount,
+                          assetCode: payment.assetCode,
+                          createdAt: payment.createdAt,
+                          status: payment.status,
+                          ...(payment.transactionHash ? {transactionHash: payment.transactionHash} : {}),
+                          ...(payment.ledger === undefined ? {} : {ledger: payment.ledger}),
+                          ...(payment.confirmedAt ? {confirmedAt: payment.confirmedAt} : {}),
+                        })
+                      }
+                      style={[styles.listRow, closed && styles.listRowClosed]}
+                      testID={`merchant-payment-${payment.intentId}`}>
+                      <View style={styles.listIcon}>
+                        <ReceiptText
+                          color={outcome === 'paid' ? colors.success : closed ? colors.inkFaint : colors.goldBright}
+                          size={17}
+                        />
+                      </View>
+                      <View style={styles.listCopy}>
+                        <Text numberOfLines={1} style={[styles.listName, closed && styles.listMuted]}>
+                          {'reference' in payment ? payment.reference : t('Payment received')}
+                        </Text>
+                        <Text style={styles.listWhen}>
+                          {`${new Date(payment.createdAt).toLocaleDateString()} · ${t(outcomeLabel(payment.status))}`}
+                        </Text>
+                      </View>
+                      <View style={styles.listAmountBlock}>
+                        <Text numberOfLines={1} style={[styles.listAmount, closed && styles.listMuted]}>
+                          {outcome === 'paid' ? '+' : ''}{displayAmount(payment.amount)}
+                        </Text>
+                        <Text style={[styles.listAsset, closed && styles.listMuted]}>{payment.assetCode}</Text>
+                      </View>
+                    </Pressable>
+                  </PressScale>
+                );
+              })}
             </View>
           )}
         </>
       </AnimatedContent>
+
+      <PaymentDetailSheet onClose={() => setDetail(null)} payment={detail} />
     </>
   );
 }
@@ -568,6 +610,8 @@ const styles = StyleSheet.create({
   listCopy: {flex: 1, gap: 2},
   listName: {...typography.label, color: colors.ink, fontSize: 15},
   listWhen: {color: colors.inkFaint, fontSize: 12},
+  listRowClosed: {opacity: 0.55},
+  listMuted: {color: colors.inkMuted},
   listAmount: {...typography.label, color: colors.ink, fontSize: 14},
 
   emptyRow: {

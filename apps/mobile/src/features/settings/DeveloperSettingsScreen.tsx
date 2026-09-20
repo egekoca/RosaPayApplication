@@ -7,7 +7,13 @@ import {Button, colors, radius, spacing, SurfaceCard, TextField, typography} fro
 import {createStellarConfig} from '@rosapay/stellar';
 import type {RootStackParams} from '../../app/navigation';
 import {Screen} from '../../shared/Screen';
-import {defaultApiBaseUrl, isReachableFromDevice, normalizeApiBaseUrl} from '../../shared/apiConfig';
+import {
+  defaultApiBaseUrl,
+  hasHostedApi,
+  isEmulatorOnlyApiBaseUrl,
+  isReachableFromDevice,
+  normalizeApiBaseUrl,
+} from '../../shared/apiConfig';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {useAppStore} from '../../state/appStore';
 import {
@@ -161,6 +167,32 @@ export function DeveloperSettingsScreen(_props: Props) {
           {...(apiError ? {error: apiError} : {})}
         />
         <Button tone="ghost" onPress={saveApiBaseUrl} testID="save-api-base-url">{t('Use this address')}</Button>
+        {/*
+          A saved address outlives the default that produced it, and on iOS it
+          outlives the app as well — this store lives in the Keychain, which
+          survives deletion. An install that saved a development address before
+          a hosted one existed reaches nothing at all and says nothing about it,
+          so this is the way back without reinstalling anything.
+        */}
+        {hasHostedApi && apiBaseUrl !== defaultApiBaseUrl ? (
+          <>
+            {isEmulatorOnlyApiBaseUrl(apiBaseUrl) ? (
+              <Text style={styles.apiWarning}>
+                {t('This address is a development machine, so this phone reaches nothing.')}
+              </Text>
+            ) : null}
+            <Button
+              tone="ghost"
+              onPress={() => {
+                setApiDraft(defaultApiBaseUrl);
+                setApiError(undefined);
+                setApiBaseUrl(defaultApiBaseUrl);
+              }}
+              testID="reset-api-base-url">
+              {t('Use the hosted address')}
+            </Button>
+          </>
+        ) : null}
       </SurfaceCard>
 
     </Screen>
@@ -194,6 +226,7 @@ const styles = StyleSheet.create({
   subtitle: {color: colors.inkMuted, fontSize: 13, lineHeight: 19},
   card: {gap: spacing.md},
   label: {...typography.label, color: colors.inkMuted, fontSize: 11, letterSpacing: 0.9},
+  apiWarning: {color: colors.amber, fontSize: 12, lineHeight: 17, marginTop: spacing.sm},
   modes: {flexDirection: 'row', gap: spacing.md},
   mode: {backgroundColor: colors.surfaceRaised, borderColor: colors.line, borderRadius: radius.md, borderWidth: 1, flex: 1, gap: spacing.xs, padding: spacing.md},
   modeSelected: {backgroundColor: colors.amberSoft, borderColor: colors.amber},

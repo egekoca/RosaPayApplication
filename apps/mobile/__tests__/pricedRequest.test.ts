@@ -26,15 +26,23 @@ describe('pricing a request in the money on the menu', () => {
 
   it('tells the customer the price they were quoted, beside the merchant’s own note', () => {
     const priced = priceRequest({amount: '500', currency: lira});
-    expect(referenceForRequest('Table 08', priced)).toBe('Table 08 · 500.00 TRY');
+    expect(referenceForRequest('Table 08', priced, '24.5 XLM')).toBe('Table 08 · 500.00 TRY');
   });
 
   it('still names the price when the merchant wrote no note', () => {
     const priced = priceRequest({amount: '500', currency: lira});
-    expect(referenceForRequest('', priced)).toBe('500.00 TRY');
+    expect(referenceForRequest('', priced, '24.5 XLM')).toBe('500.00 TRY');
   });
 
   it('leaves the reference untouched when nothing was converted', () => {
-    expect(referenceForRequest('Table 08', undefined)).toBe('Table 08');
+    expect(referenceForRequest('Table 08', undefined, '24.5 XLM')).toBe('Table 08');
+  });
+
+  it('names the amount when a merchant types nothing at all', () => {
+    // The field is optional, and most counters have nothing to say beyond the
+    // amount. RTP/1 still signs and shows this field, so it must not be empty —
+    // and the honest thing to put there is what is being asked for.
+    expect(referenceForRequest('', undefined, '24.5 XLM')).toBe('24.5 XLM');
+    expect(referenceForRequest('   ', undefined, ' 24.5 XLM ')).toBe('24.5 XLM');
   });
 });

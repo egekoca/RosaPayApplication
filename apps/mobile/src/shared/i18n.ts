@@ -441,6 +441,27 @@ const TR: Record<string, string> = {
   Retry: 'Yeniden dene',
   'Allow Bluetooth': 'Bluetooth’a izin ver',
   'Retry publish': 'Yayını yeniden dene',
+  'REFERENCE (OPTIONAL)': 'AÇIKLAMA (İSTEĞE BAĞLI)',
+  'Use the hosted address': 'Yayındaki adresi kullan',
+  'This address is a development machine, so this phone reaches nothing.':
+    'Bu adres bir geliştirme makinesi; bu telefon hiçbir yere ulaşamıyor.',
+  // The detail a merchant opens from a row in Recent payments.
+  PAID: 'ÖDENDİ',
+  DECLINED: 'REDDEDİLDİ',
+  WAITING: 'BEKLİYOR',
+  'IN PROGRESS': 'İŞLENİYOR',
+  'This payment settled on Stellar Testnet.': 'Bu ödeme Stellar Testnet üzerinde tamamlandı.',
+  'Nobody paid this before its five minutes were up. Make a new request to be paid for it.':
+    'Beş dakikası dolmadan kimse ödemedi. Tahsil etmek için yeni bir istek oluşturun.',
+  'The customer declined this request.': 'Müşteri bu isteği reddetti.',
+  'This payment could not settle. Nothing left the customer’s wallet.':
+    'Bu ödeme tamamlanamadı. Müşterinin cüzdanından hiçbir şey çıkmadı.',
+  'Waiting for a customer. Show the QR or let them hold their phone against yours.':
+    'Müşteri bekleniyor. QR’ı gösterin ya da telefonunu sizinkine yaklaştırsın.',
+  Created: 'Oluşturuldu',
+  Request: 'İstek',
+  Close: 'Kapat',
+  'Table 08, order number, anything': 'Masa 08, sipariş no, ne isterseniz',
   'This payment request is closed': 'Bu ödeme isteği kapandı',
   Price: 'Fiyat',
   'Show QR': 'QR göster',

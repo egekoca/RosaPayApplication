@@ -18,6 +18,7 @@ import {useAppStore} from '../../state/appStore';
 import {useNfcBroadcast} from '../payments/useNfc';
 import {useProximityBroadcast} from '../payments/useProximity';
 import {businessEmailSchema, createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
+import {isOfferable} from './paymentOutcome';
 import {priceRequest, referenceForRequest} from './pricedRequest';
 import {defaultPayableAsset, payableAssets, type PayableAsset} from '../payments/assets';
 import {useRecipientCanReceive} from './useRecipientCanReceive';
@@ -209,7 +210,12 @@ export function MerchantRequestScreen({navigation, route}: Props) {
         merchantProfile,
         {
           amount: priced ? priced.assetAmount : amount,
-          reference: referenceForRequest(reference, priced),
+          // Nothing typed means the request names the amount being asked for.
+          reference: referenceForRequest(
+            reference,
+            priced,
+            `${priced ? priced.assetAmount : amount.trim()} ${payable.code}`,
+          ),
           latestLedger: stellarHealth.data?.latestLedger,
           asset: payable.asset,
         },
@@ -327,11 +333,16 @@ export function MerchantRequestScreen({navigation, route}: Props) {
                     : `${t('Rate')} ${displayAmount(currency.perUnit)} ${currency.currency} ${t('per')} ${payable.code}`}
                 </Text>
               ) : null}
+              {/*
+                Optional, and labelled so. A counter that has a table number
+                puts it here; one that does not is not made to invent one, and
+                the request then names the amount it is asking for.
+              */}
               <TextField
-                label={t('REFERENCE')}
+                label={t('REFERENCE (OPTIONAL)')}
                 maxLength={120}
                 onChangeText={setReference}
-                placeholder="Table 08"
+                placeholder={t('Table 08, order number, anything')}
                 testID="request-reference"
                 value={reference}
               />
@@ -476,7 +487,7 @@ function RequestCard({
   // five-minute window can no longer be verified locally.
   const requestLive =
     published &&
-    settlementStatus === 'awaiting_approval' &&
+    isOfferable(settlementStatus ?? '') &&
     !ledgerUnavailable &&
     latestLedger !== undefined &&
     remaining !== undefined &&

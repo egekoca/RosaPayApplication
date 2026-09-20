@@ -24,8 +24,9 @@ jest.mock('../src/shared/useCurrencyPrices', () => ({useCurrencyPrices: () => ({
 jest.mock('../src/features/wallet/currentAccount', () => ({
   useCurrentAccount: () => ({address: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF', kind: 'classic'}),
 }));
+const mockPayments: {payments: Array<Record<string, unknown>>} = {payments: []};
 jest.mock('../src/features/merchant/merchantRequestStatus', () => ({
-  useMerchantPayments: () => ({data: {payments: []}, isSuccess: true, isPending: false, isError: false}),
+  useMerchantPayments: () => ({data: mockPayments, isSuccess: true, isPending: false, isError: false}),
 }));
 jest.mock('../src/features/home/CurrencyPicker', () => ({CurrencyPicker: () => null}));
 jest.mock('../src/shared/shareAddress', () => ({shareValue: jest.fn()}));
@@ -52,6 +53,7 @@ const merchantProfile = {
 };
 
 beforeEach(() => {
+  mockPayments.payments = [];
   mockProximity.supported = true;
   mockProximity.authorized = true;
   mockProximity.request.mockClear();
@@ -175,5 +177,81 @@ describe('offering to pay by holding the phones together', () => {
     mockProximity.authorized = false;
     const home = await renderHome();
     expect(home.root.findAllByProps({testID: 'home-allow-proximity'})).toHaveLength(0);
+  });
+});
+
+describe('the merchant looking back at what was asked for', () => {
+  const paid = {
+    intentId: 'intent-paid',
+    amount: '24.5',
+    assetCode: 'XLM',
+    reference: 'Table 08',
+    createdAt: '2026-09-18T10:00:00.000Z',
+    status: 'confirmed',
+    transactionHash: 'a'.repeat(64),
+    ledger: 4_300_000,
+    confirmedAt: '2026-09-18T10:00:30.000Z',
+  };
+  const expired = {
+    intentId: 'intent-expired',
+    amount: '9',
+    assetCode: 'XLM',
+    reference: 'Table 02',
+    createdAt: '2026-09-18T09:00:00.000Z',
+    status: 'expired',
+  };
+
+  async function renderMerchantHome() {
+    await ReactTestRenderer.act(() => {
+      useAppStore.setState({
+        account: {name: 'Ege', createdAt: '2026-01-01T00:00:00.000Z'},
+        merchantProfile,
+        mode: 'merchant',
+      });
+      renderer = ReactTestRenderer.create(
+        <HomeScreen navigation={{navigate: jest.fn()} as never} route={{} as never} />,
+      );
+    });
+    return renderer!;
+  }
+
+  it('opens the detail of a request that was tapped', async () => {
+    // Tapping a row did nothing at all: they were plain views. A merchant
+    // asking "did that one go through, and where is the proof" had nowhere
+    // to go.
+    mockPayments.payments = [paid];
+    const home = await renderMerchantHome();
+
+    await ReactTestRenderer.act(() => {
+      home.root.findByProps({testID: 'merchant-payment-intent-paid'}).props.onPress();
+    });
+
+    const shown = JSON.stringify(home.toJSON());
+    expect(shown).toContain('Table 08');
+    expect(shown).toContain('View on Explorer');
+    expect(shown).toContain(paid.transactionHash);
+  });
+
+  it('does not dress an unpaid request up as money received', async () => {
+    // The plus sign and the green receipt used to be on every row, including
+    // ones nobody ever paid.
+    mockPayments.payments = [expired];
+    const home = await renderMerchantHome();
+
+    const row = home.root.findByProps({testID: 'merchant-payment-intent-expired'});
+    expect(JSON.stringify(row.props.style)).toContain('0.55');
+    expect(JSON.stringify(home.toJSON())).toContain('EXPIRED');
+    expect(JSON.stringify(home.toJSON())).not.toContain('+9');
+  });
+
+  it('tells a merchant what to do about a request that ran out of time', async () => {
+    mockPayments.payments = [expired];
+    const home = await renderMerchantHome();
+
+    await ReactTestRenderer.act(() => {
+      home.root.findByProps({testID: 'merchant-payment-intent-expired'}).props.onPress();
+    });
+
+    expect(JSON.stringify(home.toJSON())).toContain('Make a new request');
   });
 });

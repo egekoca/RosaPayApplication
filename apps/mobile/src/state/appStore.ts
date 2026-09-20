@@ -7,7 +7,7 @@ import type {MerchantProfile} from '../features/merchant/merchantProfile';
 import {createNativeRosaPaySigner} from '../native/nativeSigner';
 import {clearBridgeKey, clearSigningKey} from '../features/wallet/keyVault';
 import {decodeSecrets, encodeSecrets, secureSessionStorage} from './persistence';
-import {defaultApiBaseUrl} from '../shared/apiConfig';
+import {defaultApiBaseUrl, hasHostedApi, isEmulatorOnlyApiBaseUrl} from '../shared/apiConfig';
 
 
 /**
@@ -165,6 +165,26 @@ type AppState = {
  * intact. Anything else is dropped, so a broken session asks the user to set up
  * again instead of failing later with an unreadable key.
  */
+/**
+ * Rescues an install still pointing at a developer's machine.
+ *
+ * The API address is saved with everything else, and for a while the default
+ * was `http://127.0.0.1:4100` because no deployment had published one yet. On a
+ * real phone that address is the phone itself: no merchant can publish a
+ * request, no QR ever appears, and no customer can settle — silently, because
+ * the address is perfectly well formed. The saved value outlived the default
+ * that produced it, and on iOS it outlives the app too, since this store is
+ * kept in the Keychain and the Keychain survives deletion.
+ *
+ * This runs once, on the version bump, so a developer who deliberately points a
+ * simulator at their own machine afterwards keeps that choice.
+ */
+export function repointStaleApiBaseUrl(state: Partial<AppState>): Partial<AppState> {
+  if (!hasHostedApi) return state;
+  if (typeof state.apiBaseUrl !== 'string' || !isEmulatorOnlyApiBaseUrl(state.apiBaseUrl)) return state;
+  return {...state, apiBaseUrl: defaultApiBaseUrl};
+}
+
 export function dropUnusableSecrets(state: Partial<AppState>): Partial<AppState> {
   const merchantProfile =
     state.merchantProfile && isSigningKey(state.merchantProfile.developmentSigningSecret, 32)
@@ -356,10 +376,11 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'rosapay-session',
-      // Version 6 adds validated ramp activity while retaining the classic
-      // account adapter and existing receipts.
-      version: 6,
-      migrate: state => dropUnusableSecrets(state as Partial<AppState>),
+      // Version 7 repoints installs that saved a development API address before
+      // this build shipped a hosted one. See `repointStaleApiBaseUrl`.
+      version: 7,
+      migrate: state =>
+        repointStaleApiBaseUrl(dropUnusableSecrets(state as Partial<AppState>)),
       merge: (persisted, current) => ({...current, ...dropUnusableSecrets(persisted as Partial<AppState>)}),
       onRehydrateStorage: () => state => {
         // Only an owner who asked to be challenged is challenged. Everyone else

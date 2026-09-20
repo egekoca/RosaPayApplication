@@ -208,6 +208,14 @@ kurtarma-cümlesi hesabı seçilirse o yola hiç girilmez.
               Face ID her hâlükârda sorulur: imza anahtarı cihaz
               kimlik doğrulaması olmadan imzalamayı reddediyor.
 
+  YÜKLEME     Her TestFlight yüklemesinden ÖNCE yapı numarasını artır.
+              App Store Connect aynı numarayı ikinci kez kabul etmez ve
+              hatayı ancak yükleme bittikten sonra söyler.
+              iOS:     apps/mobile/ios/RosaPay.xcodeproj  -> CURRENT_PROJECT_VERSION (iki yerde)
+              Android: apps/mobile/android/app/build.gradle -> versionCode
+              MARKETING_VERSION / versionName su an "1.0.3".
+              Arşiv numarayı içine gömer: artırdıktan sonra YENİDEN arşivle.
+
   SEP-12      Anchor bölümünde `packages/anchor` testini çalıştır.
               `createMockSep12Anchor` ile NEEDS_INFO -> ACCEPTED akışını göster.
               Bu yalnızca protokol demosudur; gerçek kimlik bilgisi girme.

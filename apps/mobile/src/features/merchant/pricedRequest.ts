@@ -36,8 +36,19 @@ export function priceRequest(input: {
  * The priced amount travels in the reference because that field is already
  * signed and already shown. Without it a customer asked for 500 lira would see
  * only an amount of lumens and have no way to check it against the till.
+ *
+ * A merchant is not made to type anything. Most counters have nothing to say
+ * beyond the amount, and a required field with nothing true to put in it is
+ * answered with a keystroke — so when it is left empty the request carries what
+ * is being asked for instead. RTP/1 requires the field to be non-empty because
+ * it is signed and shown, which is why this always returns something.
  */
-export function referenceForRequest(reference: string, priced: PricedRequest | undefined): string {
-  if (!priced) return reference;
-  return [reference.trim(), priced.label].filter(Boolean).join(' · ');
+export function referenceForRequest(
+  reference: string,
+  priced: PricedRequest | undefined,
+  /** What to say when the merchant said nothing: the amount, as asked. */
+  fallback: string,
+): string {
+  const named = [reference.trim(), priced?.label].filter(Boolean).join(' · ');
+  return named || fallback.trim();
 }

@@ -45,3 +45,16 @@ export function isReachableFromDevice(url: string): boolean {
   // A phone has its own loopback, so localhost only works on an emulator.
   return !/^https?:\/\/(127\.0\.0\.1|localhost)\b/i.test(url) || Platform.OS !== 'android';
 }
+
+/**
+ * Whether an address only ever meant anything on a developer's machine.
+ *
+ * `127.0.0.1` and `localhost` are the phone's own loopback on a real handset,
+ * and `10.0.2.2` is the Android emulator's name for the host it is running on.
+ * A build installed on a physical phone that points at one of these reaches
+ * nothing at all — no merchant can publish a request, no customer can settle —
+ * and it does so silently, because the address is perfectly well-formed.
+ */
+export function isEmulatorOnlyApiBaseUrl(url: string): boolean {
+  return /^https?:\/\/(127\.0\.0\.1|localhost|10\.0\.2\.2)\b/i.test(url.trim());
+}
