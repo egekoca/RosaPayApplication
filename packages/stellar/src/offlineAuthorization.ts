@@ -263,19 +263,30 @@ export type OfflineAccountSigner = {
   ): Promise<{signedAuthEntry: string}>;
 };
 
+/**
+ * The key this phone will sign with, and which kind of key it is.
+ *
+ * Two kinds, because there are two kinds of account: a contract wallet
+ * authorizes the whole entry with the key in its enclave, and an account
+ * restored from a phrase signs the preimage the way any Stellar key does.
+ * Neither reaches the network, and neither leaves the phone — what crosses a
+ * radio afterwards is the signature, never this.
+ *
+ * One value rather than two optional ones, so "no key at all" cannot be
+ * written down. It used to be two optional fields filled in by a spread, and a
+ * phone once reported having no key to sign with after its owner had already
+ * answered Face ID — a state that should never have been expressible.
+ */
+export type OfflineSigningKey =
+  | {kind: 'device'; signer: HardwareDigestSigner}
+  | {kind: 'account'; signer: OfflineAccountSigner};
+
 export type OfflineAuthorizationInput = {
   request: UnsignedAuthRequest;
   /** The merchant-signed RTP/1 intent the customer is looking at. */
   intent: unknown;
   customerAddress: string;
-  /**
-   * How this phone proves the payment, and there are two because there are two
-   * kinds of account. A contract wallet authorizes the whole entry with its
-   * device key; a classic account signs the preimage the way any Stellar key
-   * does. Exactly one is required, and neither reaches the network.
-   */
-  signer?: HardwareDigestSigner;
-  accountSigner?: OfflineAccountSigner;
+  key: OfflineSigningKey;
   reason?: string;
   /** When known, refuses a request the ledger has already passed. */
   latestLedger?: number;
@@ -305,11 +316,12 @@ export async function authorizeOffline(input: OfflineAuthorizationInput): Promis
    * it the way the host expects. All of that is arithmetic on bytes already in
    * hand — nothing is fetched, which is the only property that matters here.
    */
-  if (input.accountSigner) {
+  if (input.key.kind === 'account') {
+    const accountSigner = input.key.signer;
     const signed = await authorizeEntry(
       entry,
       async (preimage: xdr.HashIdPreimage) => {
-        const {signedAuthEntry} = await input.accountSigner!.signAuthEntry(preimage.toXDR('base64'), {
+        const {signedAuthEntry} = await accountSigner.signAuthEntry(preimage.toXDR('base64'), {
           address: input.customerAddress,
           networkPassphrase: input.request.networkPassphrase,
         });
@@ -326,21 +338,6 @@ export async function authorizeOffline(input: OfflineAuthorizationInput): Promis
     };
   }
 
-  if (!input.signer) {
-    // Named from the address, which is always here even when the key is not:
-    // a contract account is the wallet this app makes, anything else is an
-    // account restored from a phrase. The two are asked for in different
-    // places, so a refusal that named neither said nothing about where to look.
-    throw new OfflineAuthorizationError(
-      'MALFORMED_REQUEST',
-      `No key was handed over to sign this payment for ${
-        input.customerAddress.startsWith('C')
-          ? 'the wallet this app created'
-          : 'the account restored from a recovery phrase'
-      }`,
-    );
-  }
-
   const credentials = entry.credentials().address();
   const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
     new xdr.HashIdPreimageSorobanAuthorization({
@@ -353,7 +350,7 @@ export async function authorizeOffline(input: OfflineAuthorizationInput): Promis
   const payload = hash(preimage.toXDR());
 
   const signature = await signWalletAuthPayload(
-    input.signer,
+    input.key.signer,
     Buffer.from(payload),
     input.reason ?? 'Approve this payment',
   );

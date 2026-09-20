@@ -119,7 +119,7 @@ describe('authorizing a payment with no network', () => {
       request: authRequest(),
       intent: paymentIntent(),
       customerAddress,
-      signer,
+      key: {kind: 'device', signer},
     });
 
     // The whole point: a phone in airplane mode can produce this.
@@ -135,7 +135,7 @@ describe('authorizing a payment with no network', () => {
       request: authRequest(),
       intent: paymentIntent(),
       customerAddress,
-      signer: deviceSigner(),
+      key: {kind: 'device', signer: deviceSigner()},
     });
 
     const entry = xdr.SorobanAuthorizationEntry.fromXDR(authorization.entryXdr, 'base64');
@@ -221,7 +221,7 @@ describe('refusing to sign the wrong thing', () => {
         request: authRequest(paymentIntent({amount: '245.5'})),
         intent: paymentIntent(),
         customerAddress,
-        signer,
+        key: {kind: 'device', signer},
       }),
     ).rejects.toThrow(OfflineAuthorizationError);
 
@@ -256,11 +256,14 @@ it('lets an account held as twelve words sign offline, the way a wallet extensio
       request,
       intent,
       customerAddress: keypair.publicKey(),
-      accountSigner: {
-        async signAuthEntry(preimageXdr) {
+      key: {
+        kind: 'account',
+        signer: {
+          async signAuthEntry(preimageXdr: string) {
           signedPreimage = preimageXdr;
-          const payload = hash(Buffer.from(preimageXdr, 'base64'));
-          return {signedAuthEntry: keypair.sign(payload).toString('base64')};
+            const payload = hash(Buffer.from(preimageXdr, 'base64'));
+            return {signedAuthEntry: keypair.sign(payload).toString('base64')};
+          },
         },
       },
     });
@@ -303,18 +306,12 @@ it('lets an account held as twelve words sign offline, the way a wallet extensio
         request,
         intent: paymentIntent({amount: '1'}),
         customerAddress: keypair.publicKey(),
-        accountSigner: {signAuthEntry},
+        key: {kind: 'account', signer: {signAuthEntry}},
       }),
     ).rejects.toBeInstanceOf(OfflineAuthorizationError);
     expect(signAuthEntry).not.toHaveBeenCalled();
   });
 
-  it('refuses a payment it has no key at all to sign', async () => {
-    const intent = paymentIntent();
-    await expect(
-      authorizeOffline({request: authRequest(intent), intent, customerAddress}),
-    ).rejects.toBeInstanceOf(OfflineAuthorizationError);
-  });
 it('says what the two sides read, not only which field disagreed', async () => {
     // "amount differs" is the same sentence whether the merchant changed the
     // price, the two sides wrote the same price differently, or the field never
@@ -326,7 +323,7 @@ it('says what the two sides read, not only which field disagreed', async () => {
         request: authRequest(intent),
         intent: paymentIntent({amount: '1'}),
         customerAddress,
-        signer: deviceSigner(),
+        key: {kind: 'device', signer: deviceSigner()},
       }),
     ).rejects.toThrow(/amount differs \(this phone read 10000000, the merchant sent 245000000\)/);
   });
@@ -345,7 +342,7 @@ it('says what the two sides read, not only which field disagreed', async () => {
         request: {...request, entryXdr: entry.toXDR('base64')},
         intent,
         customerAddress,
-        signer: deviceSigner(),
+        key: {kind: 'device', signer: deviceSigner()},
       }),
     ).rejects.toThrow(/the merchant sent nothing/);
   });

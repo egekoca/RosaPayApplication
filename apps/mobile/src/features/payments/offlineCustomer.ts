@@ -1,5 +1,5 @@
 import {hashPaymentIntent, type SignedPaymentIntentV1} from '@rosapay/protocol';
-import {authorizeOffline, type UnsignedAuthRequest} from '@rosapay/stellar';
+import {authorizeOffline, type OfflineSigningKey, type UnsignedAuthRequest} from '@rosapay/stellar';
 import {createCustomerSigner} from '../wallet/walletSigner';
 import type {LocalReceipt} from '../../state/appStore';
 import {useAppStore} from '../../state/appStore';
@@ -133,26 +133,30 @@ export async function payOfflineOverCounter(input: OfflineCustomerInput): Promis
     // the exact payment behind it rather than while the merchant is still
     // working out what that payment is.
     /*
-     * Each kind of account asks for its own key and hands it over by name.
+     * The key is fetched here and used here. It never leaves the phone: what
+     * crosses the radio afterwards is a signature over this one invocation.
      *
-     * This was one call with the key spread in from a variable that held either
-     * `{signer}` or `{accountSigner}`, and a phone reported having no key to
-     * sign with after its owner had already answered Face ID — which is only
-     * reachable if neither name arrived. Whatever swallowed it, a spread is not
-     * worth defending here: the two accounts prove themselves in genuinely
-     * different ways, and saying so twice is shorter to read than the union was.
+     * An account restored from a phrase reads its key out of the keychain,
+     * which is what raises the device prompt; the wallet this app creates keeps
+     * its key in the enclave and is prompted by the signature itself. Either
+     * way the key travels no further than the next line.
      */
-    const common = {request, intent, customerAddress, reason, latestLedger: offer.latestLedger};
-    const authorization =
+    const key: OfflineSigningKey =
       account.kind === 'smart-wallet'
-        ? await authorizeOffline({
-            ...common,
+        ? {
+            kind: 'device',
             signer: createHardwareDigestSigner(useAppStore.getState().smartWallet!.devicePublicKey),
-          })
-        : await authorizeOffline({
-            ...common,
-            accountSigner: await createCustomerSigner(reason),
-          });
+          }
+        : {kind: 'account', signer: await createCustomerSigner(reason)};
+
+    const authorization = await authorizeOffline({
+      request,
+      intent,
+      customerAddress,
+      key,
+      reason,
+      latestLedger: offer.latestLedger,
+    });
 
     await channel.send('authorization', {
       v: 'RTP/1',

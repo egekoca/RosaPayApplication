@@ -215,7 +215,7 @@ async function main() {
       request,
       intent,
       customerAddress: walletContractId,
-      signer: deviceSigner(),
+      key: {kind: 'device', signer: deviceSigner()},
       reason: `Approve ${amount} XLM to ${intent.merchantName}`,
     }),
   );

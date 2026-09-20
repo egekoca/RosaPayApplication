@@ -188,7 +188,10 @@ describe('paying with no network, from the customer side', () => {
     // a digest — the device prompt is raised by the key store, not by an enclave.
     expect(channel.sent[0]!.body).toMatchObject({payer: classic, account: 'classic'});
     expect(mockAuthorizeOffline).toHaveBeenCalledWith(
-      expect.objectContaining({customerAddress: classic, accountSigner}),
+      expect.objectContaining({
+        customerAddress: classic,
+        key: {kind: 'account', signer: accountSigner},
+      }),
     );
     expect(receipt.transactionHash).toBe('e'.repeat(64));
   });
