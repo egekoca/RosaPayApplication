@@ -327,9 +327,17 @@ export async function authorizeOffline(input: OfflineAuthorizationInput): Promis
   }
 
   if (!input.signer) {
+    // Named from the address, which is always here even when the key is not:
+    // a contract account is the wallet this app makes, anything else is an
+    // account restored from a phrase. The two are asked for in different
+    // places, so a refusal that named neither said nothing about where to look.
     throw new OfflineAuthorizationError(
       'MALFORMED_REQUEST',
-      'This payment has no key on this phone to sign it with',
+      `No key was handed over to sign this payment for ${
+        input.customerAddress.startsWith('C')
+          ? 'the wallet this app created'
+          : 'the account restored from a recovery phrase'
+      }`,
     );
   }
 

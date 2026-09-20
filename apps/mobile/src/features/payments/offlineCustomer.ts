@@ -132,32 +132,27 @@ export async function payOfflineOverCounter(input: OfflineCustomerInput): Promis
     // Asked for here rather than up front, so the device prompt arrives with
     // the exact payment behind it rather than while the merchant is still
     // working out what that payment is.
-    const proof =
+    /*
+     * Each kind of account asks for its own key and hands it over by name.
+     *
+     * This was one call with the key spread in from a variable that held either
+     * `{signer}` or `{accountSigner}`, and a phone reported having no key to
+     * sign with after its owner had already answered Face ID — which is only
+     * reachable if neither name arrived. Whatever swallowed it, a spread is not
+     * worth defending here: the two accounts prove themselves in genuinely
+     * different ways, and saying so twice is shorter to read than the union was.
+     */
+    const common = {request, intent, customerAddress, reason, latestLedger: offer.latestLedger};
+    const authorization =
       account.kind === 'smart-wallet'
-        ? {signer: createHardwareDigestSigner(useAppStore.getState().smartWallet!.devicePublicKey)}
-        : {accountSigner: await createCustomerSigner(reason)};
-
-    // Which account this phone tried to sign with, said out loud. Without it a
-    // phone that produced no key reports only that there was none, and the two
-    // kinds fail for completely different reasons — an enclave key that was
-    // never minted, or a recovery phrase whose key is not in the keychain.
-    if (!('signer' in proof ? proof.signer : proof.accountSigner)) {
-      throw new OfflineCustomerError(
-        'NO_WALLET',
-        `This phone holds no usable key for its ${
-          account.kind === 'smart-wallet' ? 'device wallet' : 'recovery-phrase account'
-        }`,
-      );
-    }
-
-    const authorization = await authorizeOffline({
-      request,
-      intent,
-      customerAddress,
-      ...proof,
-      reason,
-      latestLedger: offer.latestLedger,
-    });
+        ? await authorizeOffline({
+            ...common,
+            signer: createHardwareDigestSigner(useAppStore.getState().smartWallet!.devicePublicKey),
+          })
+        : await authorizeOffline({
+            ...common,
+            accountSigner: await createCustomerSigner(reason),
+          });
 
     await channel.send('authorization', {
       v: 'RTP/1',
