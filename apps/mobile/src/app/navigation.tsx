@@ -148,15 +148,17 @@ function MainTabs() {
 }
 
 /**
- * Keeps the customer side ready for a merchant while the app is in a normal
- * foreground screen. Scan owns its reader session, and MerchantRequest owns
- * the outgoing radios, so neither route is armed here or a phone would be
- * talking to itself over two transports at once.
+ * Where the radio listens for a counter.
+ *
+ * Every ordinary screen a customer might be standing on, plus Scan — which is
+ * exactly where someone who has just pressed Pay is standing, holding their
+ * phone up to a counter. Merchant request and Confirm stay out for the reasons
+ * they always did: one is advertising, the other is already paying.
  */
 // `getCurrentRoute()` returns the focused child of the tab navigator, not only
-// the stack's `Main` route. Include all three tab leaves so a tap works while
-// the app is open on Wallet, Dashboard or Profile.
-const foregroundNfcRoutes = new Set<string>([
+// the stack's `Main` route. Include all three tab leaves so a counter is heard
+// while the app is open on Wallet, Dashboard or Profile.
+const listeningRoutes = new Set<string>([
   'Main',
   'WalletTab',
   'DashboardTab',
@@ -165,27 +167,11 @@ const foregroundNfcRoutes = new Set<string>([
   'DeveloperSettings',
   'AnchorTransfer',
   'Receipt',
+  'Scan',
 ]);
 
-export function shouldListenInForeground(routeName: string | undefined, locked: boolean): boolean {
-  return !locked && routeName !== undefined && foregroundNfcRoutes.has(routeName);
-}
-
-/**
- * Where the Bluetooth scanner listens, which is everywhere the NFC reader does
- * and the camera screen as well.
- *
- * The two radios were armed by one flag, so Scan's exclusion — it owns an NFC
- * reader session, and a second one would have the phone talking to itself —
- * silently took Bluetooth down with it. Nothing on Scan owns a Bluetooth
- * scanner, and Scan is where a customer who has just pressed Pay is standing:
- * they hold their phone up to the merchant's, on the one screen that had
- * switched the transport off. Merchant request and Confirm stay out for the
- * reasons they always did — one is advertising, the other is already paying.
- */
 export function shouldListenForProximity(routeName: string | undefined, locked: boolean): boolean {
-  if (locked || routeName === undefined) return false;
-  return foregroundNfcRoutes.has(routeName) || routeName === 'Scan';
+  return !locked && routeName !== undefined && listeningRoutes.has(routeName);
 }
 
 export function RootPaymentListener() {
@@ -213,8 +199,7 @@ export function RootPaymentListener() {
   }, [navigation]);
 
   const locked = useAppStore(state => state.locked);
-  const active = shouldListenInForeground(routeName, locked);
-  const proximityActive = shouldListenForProximity(routeName, locked);
+  const active = shouldListenForProximity(routeName, locked);
 
   // Read on arrival rather than on a timer. This listener is armed for as long
   // as someone has the app open, so polling here would be a network request
@@ -223,7 +208,6 @@ export function RootPaymentListener() {
   return (
     <ForegroundPaymentListener
       active={active}
-      proximityActive={proximityActive}
       latestLedger={undefined}
       refreshLedger={readLatestLedger}
       navigation={navigation}

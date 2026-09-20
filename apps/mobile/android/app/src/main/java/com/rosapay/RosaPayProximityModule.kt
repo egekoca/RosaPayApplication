@@ -175,6 +175,12 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
   private var payload: ByteArray? = null
   private val subscriberMtu = ConcurrentHashMap<String, Int>()
 
+  /** How far one customer's copy of the request has got, and how it is cut. */
+  private data class Transfer(var next: Int, val capacity: Int, val total: Int)
+
+  /** One entry per customer being sent to, so the next frame waits its turn. */
+  private val sending = ConcurrentHashMap<String, Transfer>()
+
   // Customer role.
   private var scanCallback: ScanCallback? = null
   private val reading = ConcurrentHashMap<String, BluetoothGatt>()
@@ -369,6 +375,7 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
   private fun stopBroadcasting() {
     payload = null
     subscriberMtu.clear()
+    sending.clear()
     advertiseCallback?.let { callback ->
       runCatching { adapter?.bluetoothLeAdvertiser?.stopAdvertising(callback) }
     }
@@ -399,25 +406,40 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
       if (descriptor?.uuid != CCCD_UUID || device == null) return
       val subscribing = value != null &&
         value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-      if (subscribing) send(device)
+      if (subscribing) beginSend(device)
+    }
+
+    override fun onNotificationSent(device: BluetoothDevice?, status: Int) {
+      val address = device?.address ?: return
+      val progress = sending[address] ?: return
+      if (status != BluetoothGatt.GATT_SUCCESS) {
+        sending.remove(address)
+        return
+      }
+      progress.next += 1
+      send(device)
     }
 
     override fun onConnectionStateChange(device: BluetoothDevice?, status: Int, newState: Int) {
       if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-        device?.address?.let { subscriberMtu.remove(it) }
+        device?.address?.let {
+          subscriberMtu.remove(it)
+          sending.remove(it)
+        }
       }
     }
   }
 
   /** Pushes the request in frames the subscriber's MTU can carry. */
-  private fun send(device: BluetoothDevice) {
-    val server = gattServer ?: return
+  /**
+   * Starts sending the request to a customer who has just subscribed.
+   *
+   * The frame size is fixed here and kept for the whole transfer: the MTU can
+   * change while frames are in flight, and recomputing it mid-send would cut
+   * the payload at different offsets than the frames already delivered.
+   */
+  private fun beginSend(device: BluetoothDevice) {
     val body = payload ?: return
-    val characteristic = server
-      .getService(SERVICE_UUID)
-      ?.getCharacteristic(REQUEST_UUID)
-      ?: return
-
     // Three bytes of ATT overhead, then two of our own framing. Until the
     // customer negotiates a larger MTU this is the 23-byte default, which is
     // why the frame count is allowed to run to 255.
@@ -425,21 +447,52 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
     val capacity = (mtu - 3 - 2).coerceAtLeast(1)
     val total = (body.size + capacity - 1) / capacity
     if (total <= 0 || total > MAX_FRAMES) return
+    sending[device.address] = Transfer(0, capacity, total)
+    send(device)
+  }
 
+  /**
+   * Sends the next frame, and only the next one.
+   *
+   * Android carries one notification at a time: a second
+   * `notifyCharacteristicChanged` before `onNotificationSent` has reported the
+   * first is dropped, silently and without failing. The whole request used to
+   * go out in one tight loop, so at the 23-byte default MTU nearly forty
+   * frames were fired and the customer received the first and almost nothing
+   * else — a merchant saying it had sent the request to a phone that could
+   * never assemble one. Each frame now waits for the stack to confirm the one
+   * before it.
+   */
+  private fun send(device: BluetoothDevice) {
+    val server = gattServer ?: return
+    val body = payload ?: return
+    val progress = sending[device.address] ?: return
+    val characteristic = server
+      .getService(SERVICE_UUID)
+      ?.getCharacteristic(REQUEST_UUID)
+      ?: return
+
+    if (progress.next >= progress.total) {
+      sending.remove(device.address)
+      return
+    }
+
+    val start = progress.next * progress.capacity
+    val end = minOf(start + progress.capacity, body.size)
+    val frame = ByteArray(2 + (end - start))
+    frame[0] = progress.next.toByte()
+    frame[1] = progress.total.toByte()
+    body.copyInto(frame, 2, start, end)
     try {
-      for (index in 0 until total) {
-        val start = index * capacity
-        val end = minOf(start + capacity, body.size)
-        val frame = ByteArray(2 + (end - start))
-        frame[0] = index.toByte()
-        frame[1] = total.toByte()
-        body.copyInto(frame, 2, start, end)
-        @Suppress("DEPRECATION")
-        characteristic.value = frame
-        @Suppress("DEPRECATION")
-        server.notifyCharacteristicChanged(device, characteristic, false)
-      }
+      @Suppress("DEPRECATION")
+      characteristic.value = frame
+      @Suppress("DEPRECATION")
+      val queued = server.notifyCharacteristicChanged(device, characteristic, false)
+      // A refused frame brings no callback, so nothing would resume this send.
+      // The customer abandons a read that stops and discovery starts over.
+      if (!queued) sending.remove(device.address)
     } catch (error: SecurityException) {
+      sending.remove(device.address)
       emit(ERROR_EVENT, "Rosa Pay lost Bluetooth permission while sharing this request")
     }
   }
@@ -605,6 +658,7 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
       samples.remove(address)
       resting.remove(address)
       firstSeen.remove(address)
+      touching.remove(address)
     }
     runCatching { gatt.close() }
   }

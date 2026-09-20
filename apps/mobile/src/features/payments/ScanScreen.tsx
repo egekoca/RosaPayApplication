@@ -1,5 +1,5 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {CameraOff, Nfc, ScanLine} from 'lucide-react-native';
+import {Bluetooth, CameraOff, ScanLine} from 'lucide-react-native';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {Linking, StyleSheet, Text, View} from 'react-native';
 import {Camera, CameraType} from 'react-native-camera-kit';
@@ -18,7 +18,6 @@ import {AssetMark} from '../home/AssetMark';
 import {useAppStore, type PaymentTransport} from '../../state/appStore';
 import {requestCameraPermission, type CameraPermission} from './cameraPermission';
 import {readPaymentQr} from './readPaymentQr';
-import {useNfcReader} from './useNfc';
 import {useProximityStatus} from './useProximity';
 import {useTranslate} from '../../shared/i18n';
 
@@ -92,15 +91,11 @@ export function ScanScreen({navigation}: Props) {
       }
       handled.current = true;
       setError(undefined);
+      // The camera got the customer this far, and Approve is where that path
+      // has always ended: a scan never raises the device prompt by itself.
       navigation.navigate(
         'Confirm',
-        // A tap taken here is the same deliberate act as one taken from the
-        // home screen, so it raises the device prompt by itself. A scan does
-        // not: the camera got the customer this far, and Approve is where that
-        // path has always ended.
-        transport === 'qr'
-          ? {payload: result.payload}
-          : {payload: result.payload, transport, automatic: transport === 'nfc'},
+        transport === 'qr' ? {payload: result.payload} : {payload: result.payload, transport},
       );
     },
     [navigation, scanContext, stellarHealth.data?.latestLedger, t],
@@ -126,13 +121,6 @@ export function ScanScreen({navigation}: Props) {
     askedForProximity.current = true;
     requestProximity();
   }, [proximityAuthorized, proximitySupported, requestProximity]);
-
-  // A tap and a scan carry the same signed request, so both go through the same
-  // verification before anything is confirmed.
-  const nfc = useNfcReader(screenFocused && !handled.current, {
-    onRequest: useCallback((payload: string) => accept(payload, 'nfc'), [accept]),
-    onError: useCallback((message: string) => setError(message), []),
-  });
 
   // One phone can play both sides on Testnet: make the request in merchant
   // mode, then read it back here. The request is the real signed one, so it
@@ -176,23 +164,15 @@ export function ScanScreen({navigation}: Props) {
       </View>
       </View>
 
-      {nfc.supported && nfc.enabled && !nfc.needsUserAction ? (
-        <View style={styles.nfcRow}>
-          <Nfc color={colors.amber} size={18} />
-          <Text style={styles.nfcText}>{t("You can also hold this phone against the merchant's")}</Text>
-        </View>
-      ) : null}
-
       {/*
-        iOS cannot listen for a tap in the background: the reader is a system
-        sheet, so it opens on a deliberate press and covers the camera only
-        while it is up.
+        The radio is listening here too, and says so: Scan is where a customer
+        who has just pressed Pay is standing, and holding the phone up to the
+        counter is the other half of what this screen is for.
       */}
-      {nfc.startTap ? (
-        <Button tone="secondary" onPress={nfc.startTap} testID="scan-start-tap">
-          {t('Pay by tapping instead')}
-        </Button>
-      ) : null}
+      <View style={styles.radioRow}>
+        <Bluetooth color={colors.amber} size={18} />
+        <Text style={styles.radioText}>{t("You can also hold this phone against the merchant's")}</Text>
+      </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -349,6 +329,6 @@ const styles = StyleSheet.create({
   cameraText: {...typography.label, color: colors.ink, maxWidth: 260, textAlign: 'center'},
   fallback: {fontSize: 13, lineHeight: 18, color: colors.inkMuted, textAlign: 'center'},
   error: {...typography.label, color: colors.danger, textAlign: 'center'},
-  nfcRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
-  nfcText: {fontSize: 13, color: colors.inkMuted},
+  radioRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
+  radioText: {fontSize: 13, color: colors.inkMuted},
 });

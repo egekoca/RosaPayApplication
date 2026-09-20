@@ -1,6 +1,6 @@
 import {useEffect, useState, type ReactNode} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Bluetooth, Nfc, Plus, RefreshCw, Store} from 'lucide-react-native';
+import {Bluetooth, Plus, RefreshCw, Store} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, LoadingDots, radius, spacing, StatusPill, Stepper, SurfaceCard, TextField, typography} from '@rosapay/ui';
@@ -15,7 +15,6 @@ import {useCurrencyPrices} from '../../shared/useCurrencyPrices';
 import {OptionField, OptionSheet, type SheetOption} from '../../shared/OptionSheet';
 import {displayCurrencyMeta} from '../../shared/priceSource';
 import {useAppStore} from '../../state/appStore';
-import {useNfcBroadcast} from '../payments/useNfc';
 import {useProximityBroadcast} from '../payments/useProximity';
 import {useProximityDiagnostics} from '../payments/useProximityDiagnostics';
 import {businessEmailSchema, createSignedPaymentRequest, MerchantProfileError} from './merchantProfile';
@@ -596,11 +595,9 @@ function RequestCard({
   const encoded = encodePaymentQr(request);
   // Do not offer a request until the API knows it, or after its one payment.
   const offered = requestLive ? encoded : null;
-  const nfc = useNfcBroadcast(offered);
-  // Both radios carry the same bytes, and a counter does not know what the
-  // customer walking up is holding. NFC is the better tap where both phones are
-  // Android; Bluetooth is what lets an iPhone customer — or an iPhone running
-  // this very screen — take part at all, since iOS grants no card emulation.
+  // Bluetooth is what lets an iPhone customer — or an iPhone running this very
+  // screen — be part of this at all, since iOS grants no card emulation, and it
+  // is now the only radio here.
   const proximity = useProximityBroadcast(offered);
   return (
     <>
@@ -633,7 +630,7 @@ function RequestCard({
             </Text>
             {publishError ? (
               <>
-                <Text style={styles.nfcText}>{t('The API did not confirm the request. Retry before asking a customer to pay.')}</Text>
+                <Text style={styles.radioText}>{t('The API did not confirm the request. Retry before asking a customer to pay.')}</Text>
                 <Button
                   icon={<RefreshCw color={colors.black} size={16} />}
                   onPress={onRetryPublish}
@@ -646,7 +643,7 @@ function RequestCard({
           </View>
         )}
         {requestLive ? (
-          <ProximityOffer nfc={nfc} proximity={proximity} />
+          <ProximityOffer proximity={proximity} />
         ) : null}
         <View style={styles.expiry}>
           <View style={[styles.dot, expired && styles.dotError, settlementStatus === 'confirmed' && styles.dotDone]} />
@@ -670,29 +667,28 @@ function RequestCard({
 }
 
 /**
- * One line for the radios, because to a merchant they are one fact: whether a
- * customer can be served without pointing a camera at the counter. Two rows
- * saying "let them tap" and "let them hold their phone here" described an
- * implementation split, not anything happening on the counter.
+ * One line for the radio, because to a merchant it is one fact: whether a
+ * customer can be served without pointing a camera at the counter. It used to
+ * carry which of two radios was speaking, which described an implementation
+ * split rather than anything happening on the counter — and there is one now.
  */
 export type ProximityOfferState =
   | {kind: 'hidden'}
-  | {kind: 'live'; bluetooth: boolean}
-  | {kind: 'preparing'; bluetooth: boolean}
+  | {kind: 'live'}
+  | {kind: 'preparing'}
   | {kind: 'needs-bluetooth'}
   | {kind: 'bluetooth-off'}
-  | {kind: 'failed'; bluetooth: boolean};
+  | {kind: 'failed'};
 
 /**
  * What the counter should say about being approached rather than scanned.
  *
- * Bluetooth outranks NFC in this message even when both are on the air, because
- * it is the half that reaches every customer: an iPhone merchant has no NFC to
- * offer, and an iPhone customer cannot be made to tap silently. A merchant who
- * has not granted it is told so rather than quietly serving Android alone.
+ * Bluetooth is the only way a counter can be approached rather than scanned, so
+ * a merchant who has not granted it is told so plainly. Saying nothing would
+ * leave a counter showing a QR and no answer to whether anyone can be served
+ * without pointing a camera at it.
  */
 export function proximityOfferState(input: {
-  nfc: {canBroadcast: boolean; enabled: boolean; broadcasting: boolean; broadcastError?: string};
   proximity: {
     supported: boolean;
     canBroadcast: boolean;
@@ -702,22 +698,17 @@ export function proximityOfferState(input: {
     broadcastError?: string;
   };
 }): ProximityOfferState {
-  const {nfc, proximity} = input;
-  const nfcUsable = nfc.canBroadcast && nfc.enabled;
-  const bluetoothUsable = proximity.canBroadcast && proximity.authorized && proximity.enabled;
+  const {proximity} = input;
+  const usable = proximity.canBroadcast && proximity.authorized && proximity.enabled;
 
-  if (bluetoothUsable && proximity.broadcasting) return {kind: 'live', bluetooth: true};
-  // Before falling back to "NFC is on the air", because NFC being on the air is
-  // exactly when a merchant would otherwise believe the counter was ready. An
-  // Android tap serves Android customers; an iPhone customer needs the half
-  // that has not been switched on.
+  if (usable && proximity.broadcasting) return {kind: 'live'};
+  // A merchant who has not granted Bluetooth is told so. Silence here is the
+  // state hardest to act on: a counter showing a QR and saying nothing about
+  // whether anyone can be served without pointing a camera at it.
   if (proximity.supported && !proximity.authorized) return {kind: 'needs-bluetooth'};
   if (proximity.supported && !proximity.enabled) return {kind: 'bluetooth-off'};
-  if (nfcUsable && nfc.broadcasting) return {kind: 'live', bluetooth: false};
-  if (proximity.broadcastError) return {kind: 'failed', bluetooth: true};
-  if (nfc.broadcastError) return {kind: 'failed', bluetooth: false};
-  if (bluetoothUsable) return {kind: 'preparing', bluetooth: true};
-  if (nfcUsable) return {kind: 'preparing', bluetooth: false};
+  if (proximity.broadcastError) return {kind: 'failed'};
+  if (usable) return {kind: 'preparing'};
   return {kind: 'hidden'};
 }
 
@@ -727,15 +718,9 @@ export function proximityOfferState(input: {
  * saying "let them tap" and "let them hold their phone here" described an
  * implementation split, not anything happening on the counter.
  */
-function ProximityOffer({
-  nfc,
-  proximity,
-}: {
-  nfc: ReturnType<typeof useNfcBroadcast>;
-  proximity: ReturnType<typeof useProximityBroadcast>;
-}) {
+function ProximityOffer({proximity}: {proximity: ReturnType<typeof useProximityBroadcast>}) {
   const t = useTranslate();
-  const state = proximityOfferState({nfc, proximity});
+  const state = proximityOfferState({proximity});
   // What the radio last did, in its own words. "Hidden" meant a counter showing
   // a QR could say nothing at all about whether anyone could hold a phone to
   // it, which is the state hardest to act on and the one that looks exactly
@@ -754,22 +739,15 @@ function ProximityOffer({
   const [showLog, setShowLog] = useState(false);
   if (state.kind === 'hidden' && !latest) return null;
 
-  // `hidden` now reaches here whenever the radio has something to report, so it
-  // has no `bluetooth` flag to read; a narrated line is always the radio's.
-  const bluetooth =
-    state.kind === 'needs-bluetooth' ||
-    state.kind === 'bluetooth-off' ||
-    state.kind === 'hidden' ||
-    state.bluetooth;
   return (
     <>
     <Pressable
       accessibilityRole="button"
       onPress={() => setShowLog(open => !open)}
-      style={styles.nfcRow}
+      style={styles.radioRow}
       testID={`proximity-${state.kind}`}>
-      {bluetooth ? <Bluetooth color={colors.amber} size={18} /> : <Nfc color={colors.amber} size={18} />}
-      <Text numberOfLines={2} style={styles.nfcText}>
+      <Bluetooth color={colors.amber} size={18} />
+      <Text numberOfLines={2} style={styles.radioText}>
         {latest ?? (state.kind === 'live'
           ? t('Or let the customer hold their phone against this one')
           : state.kind === 'needs-bluetooth'
@@ -778,7 +756,7 @@ function ProximityOffer({
               ? t('Turn on Bluetooth so an iPhone customer can pay by holding their phone here')
               : state.kind === 'failed'
                 ? t('Holding phones together is unavailable right now; use the QR code')
-                : t('Preparing to be tapped'))}
+                : t('Preparing to be held against'))}
       </Text>
       {state.kind === 'needs-bluetooth' ? (
         <Button onPress={proximity.request} testID="allow-proximity-broadcast" tone="ghost">
@@ -787,10 +765,7 @@ function ProximityOffer({
       ) : state.kind === 'failed' ? (
         <Button
           icon={<RefreshCw color={colors.black} size={16} />}
-          onPress={() => {
-            if (proximity.broadcastError) proximity.retry();
-            if (nfc.broadcastError) nfc.retry();
-          }}
+          onPress={() => proximity.retry()}
           testID="retry-proximity-broadcast"
           tone="ghost">
           {t('Retry')}
@@ -853,8 +828,8 @@ const styles = StyleSheet.create({
   conversion: {color: colors.inkMuted, fontSize: 13, lineHeight: 18, marginTop: spacing.xs},
   asset: {color: colors.goldBright, fontSize: 15},
   reference: {color: colors.inkMuted, fontSize: 12, marginTop: spacing.xs},
-  nfcRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
-  nfcText: {fontSize: 13, color: colors.inkMuted},
+  radioRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
+  radioText: {fontSize: 13, color: colors.inkMuted},
   radioLog: {backgroundColor: colors.black, borderRadius: radius.sm, gap: 2, padding: spacing.sm},
   radioLogLine: {color: colors.inkMuted, fontSize: 11, lineHeight: 15},
   qr: {alignItems: 'center', alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.sm, padding: spacing.lg},

@@ -11,7 +11,8 @@ import {useMerchantPayments} from '../merchant/merchantRequestStatus';
 /**
  * A small, honest overview of activity recorded by this wallet.
  *
- * QR/NFC is attached when a payment is scanned or tapped on this device. The
+ * The transport is attached when a payment is scanned or taken off the radio
+ * on this device. The
  * merchant API does not currently persist transport metadata, so channel cards
  * deliberately use local confirmed receipts while the merchant total uses the
  * server's confirmed payment list when available.
@@ -25,8 +26,9 @@ export function DashboardScreen() {
 
   const confirmedReceipts = receipts.filter(receipt => receipt.status === 'confirmed');
   const qrTotal = totalForTransport(confirmedReceipts, 'qr');
-  // One number for both radios: to whoever paid, each was holding the phones
-  // together, and which one carried the bytes is an implementation detail.
+  // Bluetooth now, NFC in receipts kept from before it was taken out. To
+  // whoever paid, both were holding the phones together, and which radio
+  // carried the bytes was never something they saw.
   const tapTotal = sumAmounts([
     totalForTransport(confirmedReceipts, 'nfc'),
     totalForTransport(confirmedReceipts, 'ble'),
@@ -67,7 +69,7 @@ export function DashboardScreen() {
         <Text style={styles.sectionLabel}>{t('PAYMENT CHANNELS')}</Text>
         <View style={styles.grid}>
           <MetricCard icon={<ScanLine color={colors.goldBright} size={19} />} label={t('QR RECEIVED')} value={qrTotal} confirmedLabel={t('confirmed')} />
-          <MetricCard icon={<Radio color={colors.goldBright} size={19} />} label={t('TAP RECEIVED')} value={tapTotal} confirmedLabel={t('confirmed')} />
+          <MetricCard icon={<Radio color={colors.goldBright} size={19} />} label={t('HELD TOGETHER')} value={tapTotal} confirmedLabel={t('confirmed')} />
         </View>
       </AnimatedContent>
 

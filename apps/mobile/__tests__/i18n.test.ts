@@ -36,9 +36,9 @@ const USED = [
   'CUSTOMER SENDS',
   // The welcome screen's whole copy: the name carries the rest.
   'Scan. Approve. Settled.',
-  // The iPhone tap path: iOS cannot listen in the background, so the customer
-  // opens the reader from this button.
-  'Pay by tapping instead',
+  // What the counter says while its radio is starting up, which is the state a
+  // merchant sees first and the one most likely to be read in a hurry.
+  'Preparing to be held against',
   // The balance strip above the camera, and the two states it can be in
   // instead of a figure.
   'YOUR BALANCE',
@@ -96,7 +96,6 @@ const USED = [
   'Not registered on Testnet',
   'One app for both sides of the counter. Your money moves on Stellar, and only this phone can approve it.',
   'Only used to send you a receipt. It is not a login.',
-  'Or let the customer tap their phone here',
   'PAID IN',
   'PAYMENT COMPLETE',
   'PAYMENT STATUS',
@@ -155,7 +154,7 @@ const USED = [
   'YOU ARE PAYING',
   'YOU GET',
   'YOU SEND',
-  'TAP RECEIVED',
+  'HELD TOGETHER',
   'Turn on paying by holding phones together',
   'Allow Bluetooth in Settings',
   // The merchant's payment detail, which a Turkish merchant reads at the till.

@@ -141,13 +141,25 @@ class RosaPayProximity: RCTEventEmitter {
    */
   private static let requiredSamples = 3
 
+  /// How long a half-finished read is given before it is abandoned and retried.
+  private static let readTimeout: TimeInterval = 10
+
   private var peripheral: CBPeripheralManager?
   private var central: CBCentralManager?
   /// Callers waiting for the person to answer the system's Bluetooth prompt.
   private var permissionResolvers: [RCTPromiseResolveBlock] = []
 
+  /// How far one customer's copy of the request has got, and how it is cut.
+  private struct Transfer {
+    var next: Int
+    let capacity: Int
+    let total: Int
+  }
+
   /// Held for the peripheral role: what to hand a customer who subscribes.
   private var advertised: Data?
+  /// One entry per customer being sent to, so a paused send can carry on.
+  private var sending: [UUID: Transfer] = [:]
   private var requestCharacteristic: CBMutableCharacteristic?
   private var advertisingWanted = false
 
@@ -161,6 +173,8 @@ class RosaPayProximity: RCTEventEmitter {
   private var resting: [UUID: Int] = [:]
   /// When each peer was first heard in range, which patience is measured from.
   private var firstSeen: [UUID: Date] = [:]
+  /// When a read began, so one that never finishes can be started over.
+  private var readingSince: [UUID: Date] = [:]
   /// The strongest reading from any peer just now, so the nearer till wins.
   private var best: (strength: Int, at: Date)?
   private var touching: [UUID: Bool] = [:]
@@ -321,6 +335,8 @@ class RosaPayProximity: RCTEventEmitter {
     guard advertisingWanted, advertised != nil else { return }
     manager.stopAdvertising()
     manager.removeAllServices()
+    // Whatever was half-sent belonged to the request being replaced.
+    sending.removeAll()
 
     // Notify rather than read: a request is well past the 512-byte ceiling on a
     // readable attribute, so the peripheral pushes it in MTU-sized frames once
@@ -346,34 +362,68 @@ class RosaPayProximity: RCTEventEmitter {
     advertisingWanted = false
     advertised = nil
     requestCharacteristic = nil
+    sending.removeAll()
     peripheral?.stopAdvertising()
     peripheral?.removeAllServices()
   }
 
-  /// Pushes the request in frames a subscriber's MTU can carry.
+  /**
+   Starts sending the request to a customer who has just subscribed.
+
+   The frame size is fixed here and kept for the whole transfer. It comes from
+   the negotiated MTU, which can change while a transfer is in flight, and a
+   resumed send that recomputed it would cut the payload at different offsets
+   than the frames already delivered — the receiver would assemble the pieces
+   in order and get something that was never sent.
+   */
+  private func beginSend(to central: CBCentral) {
+    guard let payload = advertised else { return }
+    let capacity = max(central.maximumUpdateValueLength - 2, 1)
+    let total = (payload.count + capacity - 1) / capacity
+    guard total > 0, total <= Self.maxFrames else {
+      diagnose("This request needs \(total) frames, which is more than can be sent")
+      return
+    }
+    sending[central.identifier] = Transfer(next: 0, capacity: capacity, total: total)
+    diagnose("Sending the request in \(total) frames of \(capacity) bytes")
+    send(to: central)
+  }
+
+  /**
+   Pushes as many frames as the queue will take, and remembers where it stopped.
+
+   Resuming is the whole point. `updateValue` returns false when iOS has no
+   room left, and the send used to start again from the first frame every time
+   `IsReadyToUpdateSubscribers` fired. A request is around 700 bytes, and a
+   connection that has not yet negotiated a larger MTU carries 18 of them per
+   frame — so the queue filled long before the last frame, the resend began at
+   frame one again, filled at the same place, and the customer received the
+   opening frames over and over for as long as the two phones were held
+   together. The merchant said it was sending, the customer had subscribed, and
+   the request could never arrive.
+   */
   private func send(to central: CBCentral) {
     guard
       let manager = peripheral,
       let characteristic = requestCharacteristic,
-      let payload = advertised
+      let payload = advertised,
+      var progress = sending[central.identifier]
     else { return }
 
-    let capacity = max(central.maximumUpdateValueLength - 2, 1)
-    let total = (payload.count + capacity - 1) / capacity
-    guard total > 0, total <= Self.maxFrames else { return }
-
-    for index in 0..<total {
-      let start = index * capacity
-      let end = min(start + capacity, payload.count)
-      var frame = Data([UInt8(index), UInt8(total)])
+    while progress.next < progress.total {
+      let start = progress.next * progress.capacity
+      let end = min(start + progress.capacity, payload.count)
+      var frame = Data([UInt8(progress.next), UInt8(progress.total)])
       frame.append(payload.subdata(in: start..<end))
-      // A false return means the queue is full; `IsReadyToUpdateSubscribers`
-      // re-runs the whole send, which the receiver tolerates because frames
-      // carry their own index.
-      if !manager.updateValue(frame, for: characteristic, onSubscribedCentrals: [central]) {
+      guard manager.updateValue(frame, for: characteristic, onSubscribedCentrals: [central]) else {
+        // Full. Keep the place; `IsReadyToUpdateSubscribers` carries on here.
+        sending[central.identifier] = progress
         return
       }
+      progress.next += 1
     }
+    sending.removeValue(forKey: central.identifier)
+    diagnose("Sent the whole request — \(progress.total) frames")
   }
 
   // MARK: - Customer: find a merchant being held against this phone
@@ -454,6 +504,16 @@ class RosaPayProximity: RCTEventEmitter {
       }
       self.sightings = 0
       self.strongest = nil
+
+      // A read that stops halfway used to hold the connection for ever: the
+      // peer stays in `connected`, so it is never offered again, and the phone
+      // goes quiet while being held against a counter that is still asking to
+      // be paid. Let it go and let discovery start over.
+      for (id, started) in self.readingSince where -started.timeIntervalSinceNow > Self.readTimeout {
+        guard let peer = self.connected[id] else { continue }
+        self.diagnose("A merchant connected but never finished sending — starting over")
+        self.finish(peer)
+      }
     }
   }
 
@@ -471,18 +531,36 @@ class RosaPayProximity: RCTEventEmitter {
     samples.removeAll()
     resting.removeAll()
     firstSeen.removeAll()
+    readingSince.removeAll()
     best = nil
     touching.removeAll()
   }
 
   private func finish(_ peer: CBPeripheral) {
-    connected.removeValue(forKey: peer.identifier)
-    assembling.removeValue(forKey: peer.identifier)
-    expected.removeValue(forKey: peer.identifier)
-    samples.removeValue(forKey: peer.identifier)
-    resting.removeValue(forKey: peer.identifier)
-    firstSeen.removeValue(forKey: peer.identifier)
+    forget(peer.identifier)
     central?.cancelPeripheralConnection(peer)
+  }
+
+  /**
+   Drops everything known about one phone, so the next encounter is a new one.
+
+   Both ways a read can end have to leave the same state behind. Ending it here
+   cleared all of it; a merchant that dropped the connection by itself cleared
+   only half, leaving the patience clock and the resting level of an encounter
+   that was over — so the very next reading counted as a phone that had been
+   heard steadily for six seconds and it reconnected on the spot, over and over.
+   */
+  private func forget(_ id: UUID) {
+    connected.removeValue(forKey: id)
+    assembling.removeValue(forKey: id)
+    expected.removeValue(forKey: id)
+    samples.removeValue(forKey: id)
+    resting.removeValue(forKey: id)
+    firstSeen.removeValue(forKey: id)
+    readingSince.removeValue(forKey: id)
+    // Already taken by a completed read, which reads it before finishing; this
+    // is for the encounter that ended without one.
+    touching.removeValue(forKey: id)
   }
 
   private func emit(_ event: String, _ value: String) {
@@ -564,15 +642,22 @@ extension RosaPayProximity: CBPeripheralManagerDelegate {
     didSubscribeTo _: CBCharacteristic
   ) {
     diagnose("A customer's phone connected — sending the request")
-    send(to: central)
+    beginSend(to: central)
   }
 
-  func peripheralManagerIsReady(toUpdateSubscribers manager: CBPeripheralManager) {
+  func peripheralManager(
+    _: CBPeripheralManager,
+    central: CBCentral,
+    didUnsubscribeFrom _: CBCharacteristic
+  ) {
+    sending.removeValue(forKey: central.identifier)
+  }
+
+  func peripheralManagerIsReady(toUpdateSubscribers _: CBPeripheralManager) {
     guard let characteristic = requestCharacteristic else { return }
-    for central in characteristic.subscribedCentrals ?? [] {
+    for central in characteristic.subscribedCentrals ?? [] where sending[central.identifier] != nil {
       send(to: central)
     }
-    _ = manager
   }
 }
 
@@ -676,6 +761,7 @@ extension RosaPayProximity: CBCentralManagerDelegate {
     touching[id] = isTouching
     connected[id] = peripheral
     assembling[id] = [:]
+    readingSince[id] = Date()
     peripheral.delegate = self
     manager.connect(peripheral, options: nil)
   }
@@ -689,10 +775,7 @@ extension RosaPayProximity: CBCentralManagerDelegate {
   }
 
   func centralManager(_: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error _: Error?) {
-    connected.removeValue(forKey: peripheral.identifier)
-    assembling.removeValue(forKey: peripheral.identifier)
-    expected.removeValue(forKey: peripheral.identifier)
-    samples.removeValue(forKey: peripheral.identifier)
+    forget(peripheral.identifier)
   }
 }
 
@@ -737,7 +820,14 @@ extension RosaPayProximity: CBPeripheralDelegate {
     var frames = assembling[id] ?? [:]
     frames[index] = frame.subdata(in: (frame.startIndex + 2)..<frame.endIndex)
     assembling[id] = frames
-    guard frames.count == total else { return }
+    guard frames.count == total else {
+      // Sparsely, because a small MTU makes this dozens of frames and the log
+      // is short. Enough to see a transfer stop, and where.
+      if frames.count == 1 || frames.count % 8 == 0 {
+        diagnose("Reading the request — \(frames.count) of \(total) frames")
+      }
+      return
+    }
 
     var payload = Data()
     for position in 0..<total {

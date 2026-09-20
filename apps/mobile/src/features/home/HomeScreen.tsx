@@ -1,5 +1,5 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Bluetooth, ChevronRight, Nfc, Plus, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
+import {Bluetooth, ChevronRight, Plus, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
 import {useMemo, useState} from 'react';
 import {Linking, Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
@@ -29,7 +29,6 @@ import {greetingFor} from './greeting';
 import {PaymentCard} from './PaymentCard';
 import {AssetMark} from './AssetMark';
 import {payableAssetByCode} from '../payments/assets';
-import {useNfcTapControl} from '../payments/nfcTapControl';
 import {useProximityStatus} from '../payments/useProximity';
 import {useProximityDiagnostics} from '../payments/useProximityDiagnostics';
 import {currencySymbol} from '../../shared/priceSource';
@@ -104,7 +103,6 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
   const identity = useAppStore(state => state.account);
   const receipts = useAppStore(state => state.receipts);
   // Set only where a reader has to be opened by hand, which today means iOS.
-  const startTap = useNfcTapControl(state => state.startTap);
   const proximity = useProximityStatus();
   // Both platforms ask about Bluetooth exactly once. After a refusal the prompt
   // never comes back, so a second press has to lead somewhere that can still
@@ -204,15 +202,12 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
       {/*
         The two ways to pay, side by side and the same size, because they are
         the same decision: a customer who has walked up to a counter picks the
-        one the merchant's phone is offering. Stacked full-width rows made the
-        second look like a lesser version of the first.
-
-        On iOS a Core NFC reader cannot sit armed, so tapping needs a press to
-        open it; on Android the phone is already listening and no opener
-        exists, which leaves scanning alone and full width.
+        one the merchant's phone is offering — and the second needs no button,
+        because the radio is already listening on this screen. So scanning is
+        the only thing here to press, and it takes the full width.
       */}
       <AnimatedContent delay={90}>
-        <View style={[styles.actionRow, proximityBlocked || startTap ? styles.actionRowUnderTap : null]}>
+        <View style={[styles.actionRow, proximityBlocked ? styles.actionRowUnderTap : null]}>
           <View style={styles.actionHalf}>
             <PressScale>
               <Pressable
@@ -228,23 +223,6 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
               </Pressable>
             </PressScale>
           </View>
-          {startTap ? (
-            <View style={styles.actionHalf}>
-              <PressScale>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={startTap}
-                  style={styles.actionTile}
-                  testID="home-tap-to-pay">
-                  <View style={styles.tapIcon}>
-                    <Nfc color={colors.black} size={24} />
-                  </View>
-                  <Text style={styles.tileTitle}>{t('Tap to pay')}</Text>
-                  <Text style={styles.tileHint}>{t("Hold this phone against the merchant's")}</Text>
-                </Pressable>
-              </PressScale>
-            </View>
-          ) : null}
         </View>
       </AnimatedContent>
 

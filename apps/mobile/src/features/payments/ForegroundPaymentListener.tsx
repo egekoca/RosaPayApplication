@@ -6,13 +6,11 @@ import type {RootStackParams} from '../../app/navigation';
 import type {ProximityRequest} from '../../native/nativeProximity';
 import type {PaymentTransport} from '../../state/appStore';
 import {useTranslate} from '../../shared/i18n';
-import {useNfcTapControl} from './nfcTapControl';
 import {readPaymentQr} from './readPaymentQr';
-import {useNfcReader} from './useNfc';
 import {useProximityScanner} from './useProximity';
 
 /**
- * How long a request that has already been shown stays un-reoffered by a radio.
+ * How long a request that has already been shown stays un-reoffered by the radio.
  *
  * Long enough that declining one and putting the phone down is not undone by
  * the merchant still advertising, short enough that changing your mind at the
@@ -23,22 +21,25 @@ export const REOFFER_DELAY_MS = 30_000;
 /**
  * Keeps this phone ready to be paid at, on whatever screen it is already on.
  *
- * Two radios feed it. NFC is the better experience and stays the default where
- * both phones are Android. Bluetooth exists because iOS gives no third-party
- * app card emulation, so an iPhone merchant can never be tapped — without it,
- * two iPhones could only ever exchange a QR code. Both carry the identical
- * signed request, and both are checked identically before anything is offered.
+ * Bluetooth is the whole transport. NFC used to sit beside it and was taken out
+ * once it became clear it could never serve the pair this exists for: iOS grants
+ * no third-party card emulation, so an iPhone merchant publishes nothing to tap
+ * and an iPhone customer can only ever read a phone that is not an iPhone.
+ * What it did instead was get in the way — a reader that had to be opened by
+ * hand, on the screen where the request was about to arrive.
+ *
+ * Nothing here is trusted more than a camera is. The payload is the public,
+ * merchant-signed request; the signature and the expiry are checked here, and
+ * the customer still answers a device prompt before anything is spent.
  */
 export function ForegroundPaymentListener({
   active,
-  proximityActive,
   latestLedger,
   refreshLedger,
   navigation,
 }: {
+  /** Whether this screen is one the radio should be listening on. */
   active: boolean;
-  /** Bluetooth listens on the camera screen too; only NFC conflicts there. */
-  proximityActive: boolean;
   latestLedger: number | undefined;
   refreshLedger?: () => Promise<number | undefined>;
   navigation: Pick<NavigationContainerRef<RootStackParams>, 'navigate'>;
@@ -61,7 +62,7 @@ export function ForegroundPaymentListener({
   const showError = useCallback((title: string, message: string) => {
     // The guard has to be released however the alert goes away. On Android the
     // back button dismisses it without running `onPress`, and a listener latched
-    // on `handled` would then ignore every later tap until the route changed.
+    // on `handled` would then ignore every later arrival until the route changed.
     const release = () => {
       handled.current = false;
     };
@@ -71,11 +72,6 @@ export function ForegroundPaymentListener({
     });
   }, [t]);
 
-  /**
-   * One path for both radios. An Android merchant publishes over NFC and
-   * Bluetooth at once, so the same request often arrives twice; `handled` means
-   * whichever gets there first is the one that counts.
-   */
   const accept = useCallback(async (
     payload: string,
     transport: PaymentTransport,
@@ -101,8 +97,12 @@ export function ForegroundPaymentListener({
 
     // The ledger call can outlive the screen that accepted the request. Do not
     // navigate from a stale callback after a route change, lock, or background
-    // transition.
-    if (!activeRef.current || lifecycleRef.current !== lifecycle) return;
+    // transition. Releasing the guard matters as much as returning: a request
+    // dropped here without it would leave the radio deaf on the next screen.
+    if (!activeRef.current || lifecycleRef.current !== lifecycle) {
+      handled.current = false;
+      return;
+    }
 
     if (ledger === undefined) {
       showError(t('Payment request could not be verified'), t('Testnet unavailable, so an expiry cannot be set'));
@@ -119,16 +119,17 @@ export function ForegroundPaymentListener({
       return;
     }
 
-    if (!activeRef.current || lifecycleRef.current !== lifecycle) return;
+    if (!activeRef.current || lifecycleRef.current !== lifecycle) {
+      handled.current = false;
+      return;
+    }
 
     const {intentId} = result.payload.intent;
     // A customer who backs out of a request while still standing at the counter
     // is still in range of it. Without this the screen would be taken straight
-    // back, over and over, and the only way out would be to walk away. A tap is
-    // exempt: reaching out and touching the phone again says "yes, again" in a
-    // way a radio still shouting across a metre never does.
+    // back, over and over, and the only way out would be to walk away.
     const lastOffered = offered.current.get(intentId);
-    if (transport !== 'nfc' && lastOffered !== undefined && Date.now() - lastOffered < REOFFER_DELAY_MS) {
+    if (lastOffered !== undefined && Date.now() - lastOffered < REOFFER_DELAY_MS) {
       handled.current = false;
       return;
     }
@@ -142,75 +143,33 @@ export function ForegroundPaymentListener({
     navigation.navigate('Confirm', {payload: result.payload, transport, automatic});
   }, [latestLedger, navigation, refreshLedger, showError, t]);
 
-  // A tap is a few centimetres or nothing, so it is always deliberate.
-  const onNfcRequest = useCallback((payload: string) => void accept(payload, 'nfc', true), [accept]);
   // A radio reaches across a room. Only a signal that said the phones were
-  // being held together stands in for a tap; anything weaker opens the screen
-  // and waits for the customer to press Approve.
+  // being held together stands in for a deliberate touch; anything weaker opens
+  // the screen and waits for the customer to press Approve.
   const onProximityRequest = useCallback(
     (request: ProximityRequest) => void accept(request.payload, 'ble', request.touching),
     [accept],
   );
 
   /**
-   * One radio failing must not make the other deaf.
-   *
-   * Both errors used to raise `handled` — the same flag `accept` reads — so a
-   * tap that found nothing silenced Bluetooth until its alert was dismissed.
-   * On two iPhones that is the whole story: iOS grants no card emulation, so
-   * an iPhone merchant publishes nothing to tap, the reader always fails, and
-   * it failed at exactly the moment the phones were being held together, with
-   * the alert covering the screen the request would have appeared on. The
-   * customer pressed "tap to pay", was told tapping failed, and never learned
-   * that the request had been on the air the whole time.
-   *
-   * `handled` now means one request has been taken; `alerting` means a message
-   * is already on screen, which is all the errors ever needed to know about
-   * each other.
+   * A radio finding nothing is the normal state, not an error worth an alert.
+   * A scanner that cannot start at all is worth one: anything quieter would
+   * leave someone holding two phones together wondering why nothing happened.
    */
   const alerting = useRef(false);
-  const reportFailure = useCallback((title: string, message: string) => {
+  const onProximityError = useCallback((message: string) => {
     if (alerting.current) return;
     alerting.current = true;
     const release = () => {
       alerting.current = false;
     };
-    Alert.alert(title, t(message), [{text: t('OK'), onPress: release}], {
+    Alert.alert(t('Payment request could not be verified'), t(message), [{text: t('OK'), onPress: release}], {
       cancelable: true,
       onDismiss: release,
     });
   }, [t]);
 
-  const onError = useCallback(
-    (message: string) => reportFailure(t('NFC reading failed'), message),
-    [reportFailure, t],
-  );
-
-  /**
-   * A radio finding nothing is the normal state, not an error worth an alert.
-   * A scanner that cannot start at all is reported the same way a tap failure
-   * is; anything quieter than that would leave someone holding two phones
-   * together wondering why nothing happened.
-   */
-  const onProximityError = useCallback(
-    (message: string) => reportFailure(t('Payment request could not be verified'), message),
-    [reportFailure, t],
-  );
-
-  const reader = useNfcReader(active, {onRequest: onNfcRequest, onError});
-  useProximityScanner(proximityActive, {onRequest: onProximityRequest, onError: onProximityError});
-
-  // iOS hands back an opener because a Core NFC session is a system sheet that
-  // cannot be armed silently. Publish it so the home screen can offer tapping
-  // from the screen the customer is already on, instead of making them walk
-  // into the scanner to find it. Android never sets one: it is already
-  // listening, and a button would imply it was not.
-  const setStartTap = useNfcTapControl(state => state.setStartTap);
-  const startTap = active ? reader.startTap : undefined;
-  useEffect(() => {
-    setStartTap(startTap);
-    return () => setStartTap(undefined);
-  }, [setStartTap, startTap]);
+  useProximityScanner(active, {onRequest: onProximityRequest, onError: onProximityError});
 
   return null;
 }

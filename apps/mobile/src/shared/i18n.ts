@@ -184,8 +184,6 @@ const TR: Record<string, string> = {
   "Scan this device's request": 'Bu cihazın isteğini okut',
   "You can also hold this phone against the merchant's":
     'Telefonu satıcınınkine de yaklaştırabilirsiniz',
-  'Pay by tapping instead': 'Bunun yerine yaklaştırarak öde',
-  'Tap to pay': 'Yaklaştırarak öde',
   'Turn on paying by holding phones together': 'Telefonları yaklaştırarak ödemeyi aç',
   'Allow Bluetooth in Settings': 'Ayarlar’dan Bluetooth’a izin ver',
   'Switch Bluetooth on to pay by holding phones together': 'Telefon yaklaştırarak ödemek için Bluetooth’u aç',
@@ -208,7 +206,6 @@ const TR: Record<string, string> = {
   'Rosa Pay finds the merchant you are standing at, and nothing else.': 'Rosa Pay yalnızca önünde durduğunuz satıcıyı bulur, başka hiçbir şeyi değil.',
   "Hold this phone against the merchant's": 'Bu telefonu satıcınınkine yaklaştırın',
   'Payment request could not be verified': 'Ödeme isteği doğrulanamadı',
-  'NFC reading failed': 'NFC okuması başarısız',
   OK: 'Tamam',
   // The brand line, the same one the website is titled with. Kept to three
   // words in Turkish too: it sits under the name as a mark, not a sentence.
@@ -253,7 +250,7 @@ const TR: Record<string, string> = {
   'Confirmed payments on this phone': 'Bu telefondaki doğrulanmış ödemeler',
   'PAYMENT CHANNELS': 'ÖDEME KANALLARI',
   'QR RECEIVED': 'QR İLE ALINAN',
-  'TAP RECEIVED': 'NFC İLE ALINAN',
+  'HELD TOGETHER': 'YAKLAŞTIRARAK ALINAN',
   'MONEY MOVEMENT': 'PARA HAREKETİ',
   'Money deposited': 'Para yatırma',
   'Money withdrawn': 'Para çekme',
@@ -300,8 +297,6 @@ const TR: Record<string, string> = {
   'Register this business': 'Bu işletmeyi kaydet',
   'The settlement contract only accepts requests from a registered merchant key.':
     'Ödeşme kontratı yalnızca kayıtlı bir satıcı anahtarından gelen istekleri kabul eder.',
-  'Or let the customer tap their phone here':
-    'Ya da müşteri telefonunu buraya dokundursun',
   'Set up business': 'İşletmeyi kur',
   'Set up your business profile before creating a payment request.':
     'Ödeme isteği oluşturmadan önce işletme profilinizi kurun.',
@@ -454,7 +449,7 @@ const TR: Record<string, string> = {
   'Allow Bluetooth so an iPhone customer can pay by holding their phone here': 'iPhone müşteri telefonunu yaklaştırarak ödeyebilsin diye Bluetooth’a izin verin',
   'Turn on Bluetooth so an iPhone customer can pay by holding their phone here': 'iPhone müşteri telefonunu yaklaştırarak ödeyebilsin diye Bluetooth’u açın',
   'Holding phones together is unavailable right now; use the QR code': 'Telefonları yaklaştırma şu anda kullanılamıyor; QR kodunu kullanın',
-  'Preparing to be tapped': 'Yaklaştırma hazırlanıyor',
+  'Preparing to be held against': 'Yaklaştırmaya hazırlanıyor',
   Retry: 'Yeniden dene',
   'Allow Bluetooth': 'Bluetooth’a izin ver',
   'Retry publish': 'Yayını yeniden dene',
