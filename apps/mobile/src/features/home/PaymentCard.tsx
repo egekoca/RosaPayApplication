@@ -87,7 +87,22 @@ export function PaymentCard({holdings, value, currency, address, state, onCopy, 
           <View style={styles.middle}>
             <View style={styles.amountRow}>
               <AssetMark code={primary?.code ?? 'XLM'} size={26} />
-              <CountUp value={Number(primary?.amount ?? 0)} decimals={2} style={styles.amount} />
+              {/*
+                An empty `holdings` array means two different things and looked
+                like one: a wallet that truly holds nothing, and a read that
+                has not landed yet — loading, or the RPC call failing outright.
+                Animating to 0.00 in both cases put an owner's real balance a
+                single flaky read away from looking spent, with nothing to
+                notice but a caption at the bottom of the card. Only a `ready`
+                state has actually asked the chain and gotten an answer, so
+                only it earns the number; anything else holds this dash, which
+                cannot be mistaken for a balance.
+              */}
+              {state === 'ready' ? (
+                <CountUp value={Number(primary?.amount ?? 0)} decimals={2} style={styles.amount} />
+              ) : (
+                <Text style={styles.amount}>—</Text>
+              )}
               <Text style={styles.asset}>{primary?.code ?? 'XLM'}</Text>
             </View>
             {/*
