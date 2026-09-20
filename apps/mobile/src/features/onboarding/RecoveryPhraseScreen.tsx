@@ -57,18 +57,26 @@ export function RecoveryPhraseScreen({route, navigation}: Props) {
       await saveSigningKey(keypair.secret());
       // A derived address is not yet an account: the ledger has never heard of
       // it until something funds it. Doing that here means the wallet the
-      // customer lands on is one they can actually pay from.
-      await fundOnTestnet(keypair.publicKey()).catch(cause => {
-        // A wallet that exists but is unfunded is still theirs, and the balance
-        // screen says so. Losing the phrase they just wrote down would be worse.
-        logger.error('new_wallet_funding_failed', {
-          message: cause instanceof Error ? cause.message : 'unknown',
-        });
-      });
+      // customer lands on is one they can actually pay from. Three tries
+      // against a free faucet clears the ordinary hiccup; what is left after
+      // that is worth telling the customer about rather than logging where
+      // only we would ever read it.
+      const funded = await fundOnTestnet(keypair.publicKey(), undefined, undefined, {attempts: 3}).then(
+        () => true,
+        cause => {
+          // A wallet that exists but is unfunded is still theirs, and the home
+          // screen says so and offers to try again. Losing the phrase they just
+          // wrote down would be worse than that.
+          logger.error('new_wallet_funding_failed', {
+            message: cause instanceof Error ? cause.message : 'unknown',
+          });
+          return false;
+        },
+      );
       // Together, and only now: the wallet is on the phone, so the account it
       // belongs to is real too.
       createAccount({name, ...(email ? {email} : {})});
-      setWallet({address: keypair.publicKey(), origin: 'created'});
+      setWallet({address: keypair.publicKey(), origin: 'created', ...(funded ? {} : {fundingPending: true})});
       navigation.replace('Main');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : t('The wallet could not be saved on this phone'));

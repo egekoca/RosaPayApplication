@@ -1,8 +1,9 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Bluetooth, ChevronRight, Plus, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
+import {AlertTriangle, Bluetooth, ChevronRight, Plus, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
 import {useMemo, useState} from 'react';
 import {Linking, Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
+import {fundOnTestnet} from '../wallet/accountSetup';
 import type {RootStackParams} from '../../app/navigation';
 import {businessEmailSchema} from '../merchant/merchantProfile';
 import {ModeSwitcher} from '../../shared/ModeSwitcher';
@@ -67,6 +68,8 @@ export function HomeScreen({navigation}: Props) {
 /** Stays mounted in the same position while the task below it changes. */
 function WalletOverview() {
   const account = useCurrentAccount();
+  const wallet = useAppStore(state => state.wallet);
+  const setWallet = useAppStore(state => state.setWallet);
   const displayCurrency = useAppStore(state => state.displayCurrency);
   const setDisplayCurrency = useAppStore(state => state.setDisplayCurrency);
   const [pickingCurrency, setPickingCurrency] = useState(false);
@@ -88,6 +91,9 @@ function WalletOverview() {
           onCopy={() => address && void shareValue('My Rosa Pay wallet', address)}
         />
       </AnimatedContent>
+      {wallet?.fundingPending ? (
+        <FundingRetryBanner wallet={wallet} onFunded={() => setWallet({...wallet, fundingPending: false})} />
+      ) : null}
       <CurrencyPicker
         onClose={() => setPickingCurrency(false)}
         onSelect={setDisplayCurrency}
@@ -95,6 +101,57 @@ function WalletOverview() {
         visible={pickingCurrency}
       />
     </>
+  );
+}
+
+/**
+ * What a customer sees when setup could not reach the Testnet faucet.
+ *
+ * The account and the recovery phrase are real regardless — refusing to
+ * finish setup over a faucet hiccup would have cost someone the twelve words
+ * they just wrote down, which is worse than an empty wallet. But an empty
+ * wallet with no explanation reads as broken, and there was no way back to
+ * this from the balance card alone. This is that way back.
+ */
+function FundingRetryBanner({wallet, onFunded}: {wallet: {address: string}; onFunded(): void}) {
+  const t = useTranslate();
+  const [retrying, setRetrying] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const retry = async () => {
+    setRetrying(true);
+    setFailed(false);
+    try {
+      await fundOnTestnet(wallet.address, undefined, undefined, {attempts: 3});
+      onFunded();
+    } catch {
+      setFailed(true);
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  return (
+    <AnimatedContent delay={20}>
+      <SurfaceCard accent="amber" style={styles.fundingBanner}>
+        <View style={styles.fundingBannerRow}>
+          <AlertTriangle color={colors.amber} size={20} />
+          <View style={styles.fundingBannerCopy}>
+            <Text style={styles.fundingBannerTitle}>{t('This wallet has no starting balance')}</Text>
+            <Text style={styles.fundingBannerBody}>
+              {t(
+                failed
+                  ? 'The Testnet faucet still could not fund this wallet. Try again in a moment.'
+                  : 'The Testnet faucet did not answer when this account was created. Your recovery phrase is safe either way.',
+              )}
+            </Text>
+          </View>
+        </View>
+        <Button loading={retrying} onPress={retry} tone="secondary">
+          {t('Try funding again')}
+        </Button>
+      </SurfaceCard>
+    </AnimatedContent>
   );
 }
 
@@ -634,6 +691,11 @@ function SectionTitle({title, action, onAction}: {title: string; action?: string
 }
 
 const styles = StyleSheet.create({
+  fundingBanner: {gap: spacing.md},
+  fundingBannerRow: {flexDirection: 'row', gap: spacing.sm},
+  fundingBannerCopy: {flex: 1, gap: 4},
+  fundingBannerTitle: {...typography.body, color: colors.ink, fontSize: 15, fontWeight: '600'},
+  fundingBannerBody: {...typography.body, color: colors.inkMuted, fontSize: 13, lineHeight: 18},
   modeStage: {gap: spacing.lg},
   header: {alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between'},
   identity: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},

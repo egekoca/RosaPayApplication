@@ -33,6 +33,13 @@ export async function accountExists(
   }
 }
 
+export type FundOnTestnetOptions = {
+  /** How many times to ask, in total. One is the old behaviour: ask once. */
+  attempts?: number;
+  retryDelayMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+};
+
 /**
  * Gives a brand-new account its base reserve on Testnet.
  *
@@ -40,11 +47,18 @@ export async function accountExists(
  * funded deployer. It is Testnet-only by design: on a live network the customer
  * arrives with an account that already exists, and inventing one for them is not
  * this app's business.
+ *
+ * `attempts` defaults to one, which is the whole of what this used to do. A
+ * customer's own onboarding asks for more: the account is created either way,
+ * so a single dropped request or a momentary faucet hiccup used to be the
+ * difference between a wallet that could pay and one that silently could not,
+ * with nothing on screen to tell the two apart.
  */
 export async function fundOnTestnet(
   address: string,
   config: StellarConfig = createStellarConfig('testnet'),
   fetcher: typeof fetch = fetch,
+  {attempts = 1, retryDelayMs = 1_500, sleep = defaultSleep}: FundOnTestnetOptions = {},
 ): Promise<void> {
   if (!config.friendbotUrl) {
     throw new AccountSetupError(
@@ -53,25 +67,37 @@ export async function fundOnTestnet(
     );
   }
 
-  let response: Response;
-  try {
-    response = await fetcher(`${config.friendbotUrl}?addr=${encodeURIComponent(address)}`);
-  } catch {
-    throw new AccountSetupError(
-      'FUNDING_UNAVAILABLE',
-      'The Testnet faucet could not be reached, so this wallet has no starting balance yet.',
-    );
-  }
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      let response: Response;
+      try {
+        response = await fetcher(`${config.friendbotUrl}?addr=${encodeURIComponent(address)}`);
+      } catch {
+        throw new AccountSetupError(
+          'FUNDING_UNAVAILABLE',
+          'The Testnet faucet could not be reached, so this wallet has no starting balance yet.',
+        );
+      }
 
-  // Friendbot answers 400 for an account it has already funded, which is a
-  // success from here: the wallet exists and can pay.
-  if (!response.ok && !(await accountExists(address, config))) {
-    logger.error('friendbot_failed', {status: String(response.status)});
-    throw new AccountSetupError(
-      'NOT_FUNDED',
-      'The Testnet faucet would not fund this wallet. It has no starting balance yet.',
-    );
+      // Friendbot answers 400 for an account it has already funded, which is a
+      // success from here: the wallet exists and can pay.
+      if (!response.ok && !(await accountExists(address, config))) {
+        logger.error('friendbot_failed', {status: String(response.status), attempt});
+        throw new AccountSetupError(
+          'NOT_FUNDED',
+          'The Testnet faucet would not fund this wallet. It has no starting balance yet.',
+        );
+      }
+      return;
+    } catch (error) {
+      if (attempt >= attempts) throw error;
+      await sleep(retryDelayMs);
+    }
   }
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**

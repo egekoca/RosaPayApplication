@@ -27,6 +27,18 @@ import {defaultApiBaseUrl, hasHostedApi, isEmulatorOnlyApiBaseUrl} from '../shar
 export type StellarAccount = {
   address: string;
   origin: 'created' | 'imported';
+  /**
+   * Set when this wallet was created but the Testnet faucet never answered.
+   *
+   * The address and the phrase are real either way, so setup does not fail for
+   * this — losing twelve words someone just wrote down would cost more than an
+   * empty wallet does. But nothing else on this phone knew it happened: the
+   * failure was logged and nothing else, so a customer who could not tell an
+   * unfunded wallet from a funded one had no way to learn why they could not
+   * pay, let alone fix it. This is what the home screen reads to say so and
+   * offer to try again.
+   */
+  fundingPending?: boolean;
 };
 
 /** The production wallet controlled by the platform's non-exportable P-256 key. */
