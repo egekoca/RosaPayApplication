@@ -24,8 +24,19 @@ class RosaPayProximity: RCTEventEmitter {
   /// recognisably one protocol: F0 52 6F 73 61 50 61 79 01, then "ROSAPA".
   private static let serviceUUID = CBUUID(string: "F0526F73-6150-4179-9C01-524F53415041")
   private static let requestUUID = CBUUID(string: "F0526F73-6150-4179-9C02-524F53415041")
+  /**
+   The channel the customer answers on.
 
-  private static let readEvent = "RosaPayProximityRequestRead"
+   The merchant's characteristic notifies and cannot be written to, which was
+   enough while the radio only carried a request. Paying without a network is a
+   conversation — who is paying, the entry to sign, the signature, what the
+   chain said — so the customer needs a way to speak. A second, writable
+   characteristic is that way, and it keeps the merchant's outbound stream
+   exactly as it was.
+   */
+  private static let replyUUID = CBUUID(string: "F0526F73-6150-4179-9C03-524F53415041")
+
+  private static let messageEvent = "RosaPayProximityMessage"
   private static let errorEvent = "RosaPayProximityError"
   /// Narration of what the radio is doing, for the diagnostics screen only.
   /// Nothing in the payment path reads it.
@@ -36,6 +47,22 @@ class RosaPayProximity: RCTEventEmitter {
   private static let maxPayloadBytes = 4_096
   /// One byte of sequence and one of total, so a frame count must fit in a byte.
   private static let maxFrames = 255
+  /// One byte of kind, one of sequence, one of total.
+  private static let frameHeader = 3
+  /// The opening message: the signed request itself, which a QR also carries.
+  private static let requestKind: UInt8 = 1
+
+  /**
+   How long a connected phone is kept while nothing arrives from it.
+
+   Reading a request used to be the end of the encounter, so the link was
+   dropped the moment the last frame landed. An offline payment starts there
+   instead: the customer has to answer, and between the two there is a person
+   reading an amount and a device prompt waiting to be answered. This is the
+   budget for all of that, after which an abandoned payment stops holding a
+   radio link open.
+   */
+  private static let sessionTimeout: TimeInterval = 180
 
   /**
    How close a phone has to read before it is worth following at all, in dBm.
@@ -153,18 +180,34 @@ class RosaPayProximity: RCTEventEmitter {
   /// Callers waiting for the person to answer the system's Bluetooth prompt.
   private var permissionResolvers: [RCTPromiseResolveBlock] = []
 
-  /// How far one customer's copy of the request has got, and how it is cut.
+  /// How far one message being sent to one peer has got, and how it is cut.
   private struct Transfer {
+    let kind: UInt8
+    let payload: Data
     var next: Int
     let capacity: Int
     let total: Int
+  }
+
+  /// A message waiting its turn on one peer's link.
+  private struct Outbound {
+    let kind: UInt8
+    let payload: Data
   }
 
   /// Held for the peripheral role: what to hand a customer who subscribes.
   private var advertised: Data?
   /// One entry per customer being sent to, so a paused send can carry on.
   private var sending: [UUID: Transfer] = [:]
+  /// What is still to say to each customer, in order.
+  private var outbox: [UUID: [Outbound]] = [:]
+  /// The customers currently subscribed, so a later message can be addressed.
+  private var subscribers: [UUID: CBCentral] = [:]
+  /// Half-received answers from each customer.
+  private var incoming: [UUID: [Int: Data]] = [:]
+  private var incomingKind: [UUID: UInt8] = [:]
   private var requestCharacteristic: CBMutableCharacteristic?
+  private var replyCharacteristic: CBMutableCharacteristic?
   private var advertisingWanted = false
 
   /// Held for the central role, one entry per peer being read.
@@ -179,6 +222,23 @@ class RosaPayProximity: RCTEventEmitter {
   private var firstSeen: [UUID: Date] = [:]
   /// When a read began, so one that never finishes can be started over.
   private var readingSince: [UUID: Date] = [:]
+  /// When the last thing was heard from a peer, so an abandoned link is let go.
+  private var lastHeard: [UUID: Date] = [:]
+  /// The channel this phone answers a merchant on, once discovered.
+  private var replyTo: [UUID: CBCharacteristic] = [:]
+  /// Frames still to write to each merchant, and the one in flight.
+  private var writing: [UUID: [Data]] = [:]
+  /**
+   Peers a payment on screen is still talking to.
+
+   Leaving the screen the radio listens on tears the scanner down, and that used
+   to be the end of every link it had made — which was right while reading a
+   request was the whole encounter. It is exactly wrong now: the customer reads
+   the request, the screen changes to show it, and the conversation that pays it
+   has not started yet. A held peer survives the scanner being stopped and is
+   let go by the screen that holds it, or by the timeout below.
+   */
+  private var held: Set<UUID> = []
   /// The strongest reading from any peer just now, so the nearer till wins.
   private var best: (strength: Int, at: Date)?
   private var touching: [UUID: Bool] = [:]
@@ -205,7 +265,7 @@ class RosaPayProximity: RCTEventEmitter {
   }
 
   override func supportedEvents() -> [String] {
-    [Self.readEvent, Self.errorEvent, Self.diagnosticEvent]
+    [Self.messageEvent, Self.errorEvent, Self.diagnosticEvent]
   }
 
   override func invalidate() {
@@ -339,8 +399,11 @@ class RosaPayProximity: RCTEventEmitter {
     guard advertisingWanted, advertised != nil else { return }
     manager.stopAdvertising()
     manager.removeAllServices()
-    // Whatever was half-sent belonged to the request being replaced.
+    // Whatever was half-said belonged to the request being replaced.
     sending.removeAll()
+    outbox.removeAll()
+    incoming.removeAll()
+    incomingKind.removeAll()
 
     // Notify rather than read: a request is well past the 512-byte ceiling on a
     // readable attribute, so the peripheral pushes it in MTU-sized frames once
@@ -351,9 +414,18 @@ class RosaPayProximity: RCTEventEmitter {
       value: nil,
       permissions: [.readable]
     )
+    // The customer's half of the conversation. Written rather than notified,
+    // because the customer is the central here and a central cannot notify.
+    let reply = CBMutableCharacteristic(
+      type: Self.replyUUID,
+      properties: [.write, .writeWithoutResponse],
+      value: nil,
+      permissions: [.writeable]
+    )
     let service = CBMutableService(type: Self.serviceUUID, primary: true)
-    service.characteristics = [characteristic]
+    service.characteristics = [characteristic, reply]
     requestCharacteristic = characteristic
+    replyCharacteristic = reply
     // Advertising starts in `didAdd`, not here. A service is added
     // asynchronously, and a phone that advertises before its service exists is
     // found and then answers nothing — which looks from the outside exactly
@@ -366,13 +438,24 @@ class RosaPayProximity: RCTEventEmitter {
     advertisingWanted = false
     advertised = nil
     requestCharacteristic = nil
+    replyCharacteristic = nil
     sending.removeAll()
+    outbox.removeAll()
+    subscribers.removeAll()
+    incoming.removeAll()
+    incomingKind.removeAll()
     peripheral?.stopAdvertising()
     peripheral?.removeAllServices()
   }
 
+  /// Puts a message on one customer's queue and starts it if nothing is in flight.
+  private func enqueue(_ kind: UInt8, _ payload: Data, to central: CBCentral) {
+    outbox[central.identifier, default: []].append(Outbound(kind: kind, payload: payload))
+    if sending[central.identifier] == nil { beginSend(to: central) }
+  }
+
   /**
-   Starts sending the request to a customer who has just subscribed.
+   Starts the next message waiting for this customer.
 
    The frame size is fixed here and kept for the whole transfer. It comes from
    the negotiated MTU, which can change while a transfer is in flight, and a
@@ -381,15 +464,20 @@ class RosaPayProximity: RCTEventEmitter {
    in order and get something that was never sent.
    */
   private func beginSend(to central: CBCentral) {
-    guard let payload = advertised else { return }
-    let capacity = max(central.maximumUpdateValueLength - 2, 1)
-    let total = (payload.count + capacity - 1) / capacity
+    let id = central.identifier
+    guard var queue = outbox[id], !queue.isEmpty else { return }
+    let next = queue.removeFirst()
+    outbox[id] = queue
+
+    let capacity = max(central.maximumUpdateValueLength - Self.frameHeader, 1)
+    let total = (next.payload.count + capacity - 1) / capacity
     guard total > 0, total <= Self.maxFrames else {
-      diagnose("This request needs \(total) frames, which is more than can be sent")
+      diagnose("A message needs \(total) frames, which is more than can be sent")
+      beginSend(to: central)
       return
     }
-    sending[central.identifier] = Transfer(next: 0, capacity: capacity, total: total)
-    diagnose("Sending the request in \(total) frames of \(capacity) bytes")
+    sending[id] = Transfer(kind: next.kind, payload: next.payload, next: 0, capacity: capacity, total: total)
+    diagnose("Sending message \(next.kind) in \(total) frames of \(capacity) bytes")
     send(to: central)
   }
 
@@ -410,15 +498,14 @@ class RosaPayProximity: RCTEventEmitter {
     guard
       let manager = peripheral,
       let characteristic = requestCharacteristic,
-      let payload = advertised,
       var progress = sending[central.identifier]
     else { return }
 
     while progress.next < progress.total {
       let start = progress.next * progress.capacity
-      let end = min(start + progress.capacity, payload.count)
-      var frame = Data([UInt8(progress.next), UInt8(progress.total)])
-      frame.append(payload.subdata(in: start..<end))
+      let end = min(start + progress.capacity, progress.payload.count)
+      var frame = Data([progress.kind, UInt8(progress.next), UInt8(progress.total)])
+      frame.append(progress.payload.subdata(in: start..<end))
       guard manager.updateValue(frame, for: characteristic, onSubscribedCentrals: [central]) else {
         // Full. Keep the place; `IsReadyToUpdateSubscribers` carries on here.
         sending[central.identifier] = progress
@@ -427,7 +514,147 @@ class RosaPayProximity: RCTEventEmitter {
       progress.next += 1
     }
     sending.removeValue(forKey: central.identifier)
-    diagnose("Sent the whole request — \(progress.total) frames")
+    diagnose("Sent a whole message — \(progress.total) frames")
+    // Whatever is next for this customer follows immediately; an offline
+    // payment is several messages and waiting between them is waiting at a till.
+    beginSend(to: central)
+  }
+
+  // MARK: - Either role: one addressed message
+
+  /**
+   Sends one message to one peer, whichever end of the link this phone is.
+
+   A merchant answers a customer it is advertising to; a customer answers the
+   merchant it connected to. The caller does not say which, because at the level
+   of the conversation there is no difference — there is a peer, and something
+   to tell it.
+   */
+  @objc(sendMessage:kind:payload:resolver:rejecter:)
+  func sendMessage(
+    _ peerId: String,
+    kind: NSNumber,
+    payload: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    guard let data = payload.data(using: .utf8), !data.isEmpty else {
+      reject("BLE_PAYLOAD_EMPTY", "There was nothing to send", nil)
+      return
+    }
+    guard data.count <= Self.maxPayloadBytes else {
+      reject("BLE_PAYLOAD_TOO_LARGE", "That message is too large to send over Bluetooth", nil)
+      return
+    }
+    guard let id = UUID(uuidString: peerId) else {
+      reject("BLE_PEER_UNKNOWN", "That phone is no longer connected", nil)
+      return
+    }
+
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      let code = UInt8(truncating: kind)
+      if let central = self.subscribers[id] {
+        self.enqueue(code, data, to: central)
+        resolve(nil)
+        return
+      }
+      if let peer = self.connected[id] {
+        self.write(code, data, to: peer)
+        resolve(nil)
+        return
+      }
+      reject("BLE_PEER_UNKNOWN", "That phone is no longer connected", nil)
+    }
+  }
+
+  /**
+   Keeps a link open past the screen that made it.
+
+   Called by the customer's side the moment a request is taken into a payment.
+   Until it is released, stopping the scanner leaves this one peer connected.
+   */
+  @objc(holdPeer:resolver:rejecter:)
+  func holdPeer(
+    _ peerId: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter _: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async { [weak self] in
+      guard let self, let id = UUID(uuidString: peerId) else {
+        resolve(nil)
+        return
+      }
+      self.held.insert(id)
+      self.lastHeard[id] = Date()
+      self.startHeartbeat(force: true)
+      resolve(nil)
+    }
+  }
+
+  /// Lets a peer go once its payment is over, one way or the other.
+  @objc(releasePeer:resolver:rejecter:)
+  func releasePeer(
+    _ peerId: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter _: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async { [weak self] in
+      guard let self, let id = UUID(uuidString: peerId) else {
+        resolve(nil)
+        return
+      }
+      self.outbox.removeValue(forKey: id)
+      self.sending.removeValue(forKey: id)
+      self.incoming.removeValue(forKey: id)
+      self.incomingKind.removeValue(forKey: id)
+      self.held.remove(id)
+      if let peer = self.connected[id] { self.finish(peer) }
+      resolve(nil)
+    }
+  }
+
+  /**
+   Writes a message to a merchant, one frame at a time.
+
+   Writes are answered rather than fired: `.withResponse` is what makes a link
+   with a small MTU deliver dozens of frames in order instead of dropping the
+   ones that arrived while the last was still being handled. The queue here is
+   the other half of that — only one write is ever in flight.
+   */
+  private func write(_ kind: UInt8, _ payload: Data, to peer: CBPeripheral) {
+    guard let characteristic = replyTo[peer.identifier] else {
+      diagnose("This merchant offers no way to answer it")
+      emit(Self.errorEvent, "That phone cannot take an answer over Bluetooth")
+      return
+    }
+    let capacity = max(peer.maximumWriteValueLength(for: .withResponse) - Self.frameHeader, 1)
+    let total = (payload.count + capacity - 1) / capacity
+    guard total > 0, total <= Self.maxFrames else {
+      diagnose("An answer needs \(total) frames, which is more than can be sent")
+      return
+    }
+
+    var frames: [Data] = []
+    for index in 0..<total {
+      let start = index * capacity
+      let end = min(start + capacity, payload.count)
+      var frame = Data([kind, UInt8(index), UInt8(total)])
+      frame.append(payload.subdata(in: start..<end))
+      frames.append(frame)
+    }
+
+    let idle = (writing[peer.identifier] ?? []).isEmpty
+    writing[peer.identifier, default: []].append(contentsOf: frames)
+    diagnose("Answering the merchant in \(total) frames of \(capacity) bytes")
+    if idle { writeNext(to: peer, characteristic: characteristic) }
+  }
+
+  private func writeNext(to peer: CBPeripheral, characteristic: CBCharacteristic) {
+    guard var queue = writing[peer.identifier], !queue.isEmpty else { return }
+    let frame = queue.removeFirst()
+    writing[peer.identifier] = queue
+    peer.writeValue(frame, for: characteristic, type: .withResponse)
   }
 
   // MARK: - Customer: find a merchant being held against this phone
@@ -495,12 +722,24 @@ class RosaPayProximity: RCTEventEmitter {
    a phone that is heard but never close enough says so instead of appearing
    never to have been heard at all.
    */
-  private func startHeartbeat() {
+  private func startHeartbeat(force: Bool = false) {
+    if force, heartbeat != nil { return }
     heartbeat?.invalidate()
     sightings = 0
     strongest = nil
     heartbeat = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-      guard let self, self.scanningWanted else { return }
+      guard let self else { return }
+      // A payment in progress outlives the scan that found it, so the sweep
+      // below has to keep running after scanning has stopped.
+      guard self.scanningWanted || !self.held.isEmpty else {
+        self.heartbeat?.invalidate()
+        self.heartbeat = nil
+        return
+      }
+      if !self.scanningWanted {
+        self.sweepAbandonedSessions()
+        return
+      }
       if self.sightings == 0 {
         self.diagnose("Still listening — no Rosa Pay phone on the air")
       } else if let peak = self.strongest {
@@ -513,31 +752,45 @@ class RosaPayProximity: RCTEventEmitter {
       // peer stays in `connected`, so it is never offered again, and the phone
       // goes quiet while being held against a counter that is still asking to
       // be paid. Let it go and let discovery start over.
-      for (id, started) in self.readingSince where -started.timeIntervalSinceNow > Self.readTimeout {
+      for (id, started) in self.readingSince
+      where -started.timeIntervalSinceNow > Self.readTimeout && !self.held.contains(id) {
         guard let peer = self.connected[id] else { continue }
         self.diagnose("A merchant connected but never finished sending — starting over")
         self.finish(peer)
       }
+      self.sweepAbandonedSessions()
+    }
+  }
+
+  /// Drops a payment nobody is carrying on with, so it stops holding a link.
+  private func sweepAbandonedSessions() {
+    for id in held {
+      let since = lastHeard[id] ?? Date.distantPast
+      guard -since.timeIntervalSinceNow > Self.sessionTimeout else { continue }
+      diagnose("A payment went quiet for too long — letting the merchant go")
+      held.remove(id)
+      if let peer = connected[id] { finish(peer) }
     }
   }
 
   private func teardownCentral() {
     scanningWanted = false
-    heartbeat?.invalidate()
-    heartbeat = nil
-    central?.stopScan()
-    for peer in connected.values {
-      central?.cancelPeripheralConnection(peer)
+    // The sweep that eventually lets an abandoned payment go is the same timer,
+    // so it only stops when there is no payment left to watch.
+    if held.isEmpty {
+      heartbeat?.invalidate()
+      heartbeat = nil
     }
-    connected.removeAll()
-    assembling.removeAll()
-    expected.removeAll()
+    central?.stopScan()
+    // A payment already under way is not part of scanning and must survive it.
+    for (id, peer) in connected where !held.contains(id) {
+      central?.cancelPeripheralConnection(peer)
+      forget(id)
+    }
     samples.removeAll()
     resting.removeAll()
     firstSeen.removeAll()
-    readingSince.removeAll()
     best = nil
-    touching.removeAll()
   }
 
   private func finish(_ peer: CBPeripheral) {
@@ -558,6 +811,12 @@ class RosaPayProximity: RCTEventEmitter {
     connected.removeValue(forKey: id)
     assembling.removeValue(forKey: id)
     expected.removeValue(forKey: id)
+    incoming.removeValue(forKey: id)
+    incomingKind.removeValue(forKey: id)
+    lastHeard.removeValue(forKey: id)
+    replyTo.removeValue(forKey: id)
+    writing.removeValue(forKey: id)
+    held.remove(id)
     samples.removeValue(forKey: id)
     resting.removeValue(forKey: id)
     firstSeen.removeValue(forKey: id)
@@ -588,10 +847,20 @@ class RosaPayProximity: RCTEventEmitter {
     }
   }
 
-  /// A request, and whether the phones were touching when it was read.
-  private func emitRequest(_ payload: String, touching: Bool) {
+  /**
+   One message from one peer.
+
+   The peer's identifier travels with it because an offline payment is a
+   sequence rather than a single arrival: everything said back is addressed to
+   the phone that started it, and a counter with two customers in front of it is
+   holding two of these conversations at once.
+   */
+  private func emitMessage(peerId: String, kind: UInt8, payload: String, touching: Bool) {
     if bridge != nil {
-      sendEvent(withName: Self.readEvent, body: ["payload": payload, "touching": touching])
+      sendEvent(
+        withName: Self.messageEvent,
+        body: ["peerId": peerId, "kind": Int(kind), "payload": payload, "touching": touching]
+      )
     }
   }
 }
@@ -645,8 +914,10 @@ extension RosaPayProximity: CBPeripheralManagerDelegate {
     central: CBCentral,
     didSubscribeTo _: CBCharacteristic
   ) {
+    guard let payload = advertised else { return }
     diagnose("A customer's phone connected — sending the request")
-    beginSend(to: central)
+    subscribers[central.identifier] = central
+    enqueue(Self.requestKind, payload, to: central)
   }
 
   func peripheralManager(
@@ -655,6 +926,28 @@ extension RosaPayProximity: CBPeripheralManagerDelegate {
     didUnsubscribeFrom _: CBCharacteristic
   ) {
     sending.removeValue(forKey: central.identifier)
+    outbox.removeValue(forKey: central.identifier)
+    subscribers.removeValue(forKey: central.identifier)
+    incoming.removeValue(forKey: central.identifier)
+    incomingKind.removeValue(forKey: central.identifier)
+  }
+
+  /**
+   Takes the customer's half of the conversation, frame by frame.
+
+   Every write is answered before the next is sent, so these arrive in order and
+   none is dropped for arriving while the last was still being handled. The
+   reassembly is the same one the customer does on the other channel — the two
+   directions are one protocol, not two.
+   */
+  func peripheralManager(_ manager: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
+    for request in requests {
+      guard request.characteristic.uuid == Self.replyUUID, let frame = request.value else { continue }
+      receive(frame, from: request.central.identifier)
+    }
+    if let first = requests.first {
+      manager.respond(to: first, withResult: .success)
+    }
   }
 
   func peripheralManagerIsReady(toUpdateSubscribers _: CBPeripheralManager) {
@@ -792,7 +1085,7 @@ extension RosaPayProximity: CBPeripheralDelegate {
       finish(peripheral)
       return
     }
-    peripheral.discoverCharacteristics([Self.requestUUID], for: service)
+    peripheral.discoverCharacteristics([Self.requestUUID, Self.replyUUID], for: service)
   }
 
   func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
@@ -803,32 +1096,73 @@ extension RosaPayProximity: CBPeripheralDelegate {
       finish(peripheral)
       return
     }
+    // A merchant that offers no reply channel is an older build. It can still
+    // be paid the way it always could — online — so the request is read and the
+    // absence only shows up if the customer tries to answer.
+    if let reply = service.characteristics?.first(where: { $0.uuid == Self.replyUUID }) {
+      replyTo[peripheral.identifier] = reply
+    }
     peripheral.setNotifyValue(true, for: characteristic)
   }
 
+  func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+    guard error == nil else {
+      diagnose("The merchant did not take the answer: \(error!.localizedDescription)")
+      emit(Self.errorEvent, "The answer could not be sent to that phone")
+      writing.removeValue(forKey: peripheral.identifier)
+      return
+    }
+    writeNext(to: peripheral, characteristic: characteristic)
+  }
+
   func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-    guard error == nil, let frame = characteristic.value, frame.count > 2 else {
+    guard error == nil, let frame = characteristic.value else {
       if error != nil { finish(peripheral) }
       return
     }
+    receive(frame, from: peripheral.identifier)
+  }
+}
 
-    let index = Int(frame[frame.startIndex])
-    let total = Int(frame[frame.startIndex + 1])
+// MARK: - Reassembling one message, from either direction
+
+extension RosaPayProximity {
+
+  /**
+   Takes one frame and emits the message it completes, if it completes one.
+
+   Both roles arrive here. The merchant's frames come in as writes on the reply
+   channel and the customer's as notifications on the request channel, but a
+   frame is a frame: a kind, a place in a sequence, and a piece of a payload.
+   Keeping one reassembler is what stops the two directions drifting apart.
+   */
+  private func receive(_ frame: Data, from id: UUID) {
+    guard frame.count > Self.frameHeader else { return }
+    let kind = frame[frame.startIndex]
+    let index = Int(frame[frame.startIndex + 1])
+    let total = Int(frame[frame.startIndex + 2])
     guard total > 0, total <= Self.maxFrames, index < total else {
-      finish(peripheral)
+      if let peer = connected[id] { finish(peer) }
       return
     }
 
-    let id = peripheral.identifier
+    lastHeard[id] = Date()
+    // A new message on a link that was mid-way through another one replaces it:
+    // the sender moved on, so the half it left behind can never be completed.
+    if incomingKind[id] != kind {
+      incomingKind[id] = kind
+      incoming[id] = [:]
+      assembling[id] = [:]
+    }
     expected[id] = total
     var frames = assembling[id] ?? [:]
-    frames[index] = frame.subdata(in: (frame.startIndex + 2)..<frame.endIndex)
+    frames[index] = frame.subdata(in: (frame.startIndex + Self.frameHeader)..<frame.endIndex)
     assembling[id] = frames
     guard frames.count == total else {
       // Sparsely, because a small MTU makes this dozens of frames and the log
       // is short. Enough to see a transfer stop, and where.
       if frames.count == 1 || frames.count % 8 == 0 {
-        diagnose("Reading the request — \(frames.count) of \(total) frames")
+        diagnose("Reading a message — \(frames.count) of \(total) frames")
       }
       return
     }
@@ -838,17 +1172,26 @@ extension RosaPayProximity: CBPeripheralDelegate {
       guard let part = frames[position] else { return }
       payload.append(part)
     }
-    let wasTouching = touching.removeValue(forKey: id) ?? false
-    // Stop before emitting: the screen this wakes may tear the scanner down,
-    // and a half-read second peer would then be left connected.
-    finish(peripheral)
+    assembling[id] = [:]
+    incoming[id] = [:]
+    incomingKind.removeValue(forKey: id)
+    readingSince.removeValue(forKey: id)
 
     guard payload.count <= Self.maxPayloadBytes, let value = String(data: payload, encoding: .utf8) else {
-      diagnose("A phone answered but its request could not be read")
-      emit(Self.errorEvent, "That phone did not share a readable payment request")
+      diagnose("A phone answered but the message could not be read")
+      emit(Self.errorEvent, "That phone did not send anything readable")
       return
     }
-    diagnose(wasTouching ? "Request read — opening it as a tap" : "Request read — asking for approval")
-    emitRequest(value, touching: wasTouching)
+
+    // Only the opening request carries a verdict about how the phones were
+    // held. Everything after it belongs to a payment already on screen, where
+    // proximity has already done its one job.
+    let wasTouching = kind == Self.requestKind ? (touching.removeValue(forKey: id) ?? false) : false
+    if kind == Self.requestKind {
+      diagnose(wasTouching ? "Request read — opening it as a tap" : "Request read — asking for approval")
+    } else {
+      diagnose("Read message \(kind) — \(total) frames")
+    }
+    emitMessage(peerId: id.uuidString, kind: kind, payload: value, touching: wasTouching)
   }
 }

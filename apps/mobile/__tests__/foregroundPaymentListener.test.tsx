@@ -1,6 +1,10 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
-import {ForegroundPaymentListener, REOFFER_DELAY_MS} from '../src/features/payments/ForegroundPaymentListener';
+import {
+  ForegroundPaymentListener,
+  LEDGER_DEADLINE_MS,
+  REOFFER_DELAY_MS,
+} from '../src/features/payments/ForegroundPaymentListener';
 import {DEFAULT_INTENT_LIFETIME_LEDGERS, encodePaymentQr} from '@rosapay/protocol';
 import {mockSignedIntent} from './fixtures/signedIntent';
 
@@ -21,13 +25,98 @@ jest.mock('../src/features/payments/useProximity', () => ({
 
 jest.mock('../src/shared/i18n', () => ({useTranslate: () => (value: string) => value}));
 
+const mockHold = jest.fn().mockResolvedValue(undefined);
+jest.mock('../src/native/nativeProximity', () => ({
+  holdProximityPeer: (...args: unknown[]) => mockHold(...args),
+}));
+
 /** What a merchant held against this phone looks like arriving. */
 const arrival = (touching = true) => ({payload: encodePaymentQr(mockSignedIntent), touching});
+
+/** The same arrival, from a merchant still on the other end of the link. */
+const arrivalOverCounter = () => ({...arrival(), peerId: 'merchant-1'});
 
 describe('foreground payment receiving', () => {
   beforeEach(() => {
     mockProximity.active = false;
     mockProximity.handlers = undefined;
+    mockHold.mockClear();
+  });
+
+  it('opens a request with no ledger at all when the merchant is still on the line', async () => {
+    // The whole point of the transport: this phone is in airplane mode, so it
+    // has no ledger and cannot get one. The merchant that sent the request is
+    // the half with a connection, and it checks the expiry before it simulates.
+    const navigate = jest.fn();
+    const refreshLedger = jest.fn().mockResolvedValue(undefined);
+    ReactTestRenderer.act(() => {
+      ReactTestRenderer.create(
+        <ForegroundPaymentListener
+          active
+          latestLedger={undefined}
+          refreshLedger={refreshLedger}
+          navigation={{navigate} as never}
+        />,
+      );
+    });
+
+    await ReactTestRenderer.act(async () => {
+      mockProximity.handlers!.onRequest(arrivalOverCounter() as never);
+      await Promise.resolve();
+    });
+
+    expect(navigate).toHaveBeenCalledWith('Confirm', {
+      payload: mockSignedIntent,
+      transport: 'ble',
+      peerId: 'merchant-1',
+    });
+  });
+
+  it('holds the merchant before leaving the screen that found it', async () => {
+    // Navigating stops the scanner, and stopping the scanner used to drop every
+    // link it had made — including the one the payment is about to happen over.
+    const navigate = jest.fn();
+    ReactTestRenderer.act(() => {
+      ReactTestRenderer.create(
+        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={{navigate} as never} />,
+      );
+    });
+
+    await ReactTestRenderer.act(async () => {
+      mockProximity.handlers!.onRequest(arrivalOverCounter() as never);
+      await Promise.resolve();
+    });
+
+    expect(mockHold).toHaveBeenCalledWith('merchant-1');
+    expect(mockHold.mock.invocationCallOrder[0]!).toBeLessThan(navigate.mock.invocationCallOrder[0]!);
+  });
+
+  it('does not wait out a network timeout when a merchant is already on the line', async () => {
+    // A phone on a captive Wi-Fi has a route and no internet, so this read sits
+    // for the system's own timeout. The request screen must not sit with it.
+    jest.useFakeTimers();
+    const navigate = jest.fn();
+    const refreshLedger = jest.fn().mockReturnValue(new Promise(() => undefined));
+    ReactTestRenderer.act(() => {
+      ReactTestRenderer.create(
+        <ForegroundPaymentListener
+          active
+          latestLedger={undefined}
+          refreshLedger={refreshLedger}
+          navigation={{navigate} as never}
+        />,
+      );
+    });
+
+    await ReactTestRenderer.act(async () => {
+      mockProximity.handlers!.onRequest(arrivalOverCounter() as never);
+      jest.advanceTimersByTime(LEDGER_DEADLINE_MS + 10);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(navigate).toHaveBeenCalledWith('Confirm', expect.objectContaining({peerId: 'merchant-1'}));
+    jest.useRealTimers();
   });
 
   it('routes a verified request from the home app state to confirmation', async () => {

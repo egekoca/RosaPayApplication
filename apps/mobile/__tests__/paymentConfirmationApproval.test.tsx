@@ -11,7 +11,13 @@ let mockFunding: Record<string, unknown>;
 
 jest.mock('@tanstack/react-query', () => ({
   useMutation: () => ({mutate: mockMutate, isPending: false, isError: false, error: null}),
-  useQuery: () => mockFunding,
+  // Two queries run on this screen now — the funding choice and what the wallet
+  // last held — so answering every one of them with the funding shape handed
+  // the balance reader an object it could not read.
+  useQuery: (options: {queryKey?: readonly unknown[]}) =>
+    options?.queryKey?.[0] === 'wallet-balance'
+      ? {data: [{code: 'XLM', amount: '100'}], isPending: false, isError: false, dataUpdatedAt: 1}
+      : mockFunding,
 }));
 
 jest.mock('@rosapay/stellar', () => ({
@@ -53,7 +59,12 @@ jest.mock('../src/features/wallet/currentAccount', () => ({
   useCurrentAccount: () => ({address: 'GABC'}),
 }));
 jest.mock('../src/shared/i18n', () => ({useTranslate: () => (value: string) => value}));
-jest.mock('../src/state/appStore', () => ({useAppStore: () => ({addReceipt: jest.fn()})}));
+jest.mock('../src/state/appStore', () => {
+  // Selector-aware, because the screen reads receipts through one: a payment
+  // this phone has already made is what makes a stale balance honest.
+  const state = {addReceipt: jest.fn(), receipts: []};
+  return {useAppStore: (select?: (value: typeof state) => unknown) => (select ? select(state) : state)};
+});
 
 const directFunding = {
   data: {

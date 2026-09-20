@@ -15,6 +15,10 @@ import {logger} from '../../shared/logger';
 import type {SettlementPipelineProgress} from '@rosapay/stellar';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {settlePaymentIntent} from './settlementAdapter';
+import {payOfflineOverCounter, type OfflineCustomerStage} from './offlineCustomer';
+import {releaseProximityPeer} from '../../native/nativeProximity';
+import {useWalletBalance} from '../../shared/useWalletBalance';
+import {knownHolding} from '../../shared/unreconciledSpend';
 import {AssetMark} from '../home/AssetMark';
 import {describeSettlementError, settlementErrorDetail} from './settlementErrors';
 import {resolveFundingChoice, type FundingOption} from './fundingChoice';
@@ -31,13 +35,46 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
   // The scanner's legacy route carries only the payload; that path is QR.
   // Merchant preview also renders a QR request, so treating an omitted source
   // as QR keeps channel totals useful without changing the public payload.
-  const {payload, transport = 'qr'} = route.params;
+  const {payload, transport = 'qr', peerId} = route.params;
   const {intent} = payload;
   const {addReceipt} = useAppStore();
   const stellarHealth = useStellarHealth();
   const [stage, setStage] = useState<SettlementPipelineProgress['stage'] | undefined>();
   const [submittedHash, setSubmittedHash] = useState<string | undefined>();
   const account = useCurrentAccount();
+
+  /**
+   * Paying across the counter rather than across the internet.
+   *
+   * When the request arrived over Bluetooth the merchant's phone is still on
+   * the other end of that link, and it is the half with a connection. So this
+   * phone does not need one: it checks what it is being asked to sign against
+   * the request it already verified, signs it, and hands it back. Everything
+   * this screen would otherwise fetch — the ledger, the balances, a funding
+   * quote — needs a network, and the whole point is that there may not be one.
+   */
+  const overCounter = Boolean(peerId);
+  const [counterStage, setCounterStage] = useState<OfflineCustomerStage | undefined>();
+
+  /**
+   * What this phone last knew it held, less anything it has spent since.
+   *
+   * Across the counter there is no funding quote to ask for, so this is the
+   * only thing that can warn a customer before the prompt. It warns and never
+   * blocks: the reading may be minutes old and money can arrive from anyone
+   * while this phone is offline, so being sure is the merchant's simulation's
+   * job — which refuses the payment outright, before anything is signed.
+   */
+  const knownBalance = useWalletBalance();
+  const knownAmount = knownHolding(knownBalance.data, intent.asset.code);
+  const shortOfKnownBalance =
+    overCounter && knownAmount !== undefined && knownAmount < Number(intent.amount);
+
+  // A customer who reads the amount and walks away must not leave the merchant's
+  // phone holding a radio link open for the rest of its timeout.
+  useEffect(() => () => {
+    if (peerId) void releaseProximityPeer(peerId);
+  }, [peerId]);
 
   /**
    * What this wallet can actually pay with.
@@ -51,7 +88,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
    */
   const funding = useQuery({
     queryKey: ['funding-choice', intent.intentId, account?.address],
-    enabled: Boolean(account?.address),
+    enabled: Boolean(account?.address) && !overCounter,
     // A pool moves, so a quote goes stale; long enough to read the screen.
     staleTime: 30_000,
     queryFn: () =>
@@ -79,7 +116,15 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
   const mutation = useMutation({
     mutationFn: () => {
       setStage(undefined);
+      setCounterStage(undefined);
       setSubmittedHash(undefined);
+      if (peerId) {
+        return payOfflineOverCounter({
+          payload,
+          peerId,
+          onStage: setCounterStage,
+        });
+      }
       return settlePaymentIntent(payload, {
         transport,
         ...(selected?.kind === 'swap' ? {funding: selected.funding} : {}),
@@ -124,17 +169,24 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
     !verified ||
     wrongNetwork ||
     expired ||
-    unaffordable ||
-    funding.isPending ||
-    funding.isError ||
-    !selected ||
-    latestLedger === undefined ||
-    stellarHealth.isError ||
-    // `isPending`, not `isFetching`: the ledger is re-read every five seconds,
-    // and blocking on each background refetch would grey out Approve at random
-    // and keep restarting the NFC authorization timer against a ledger the
-    // screen already holds.
-    stellarHealth.isPending;
+    // Everything below needs a network, and across the counter there may not be
+    // one. None of it is a safety check this screen performs: the balance is
+    // decided by the merchant's simulation, which fails before anything is
+    // signed, and the expiry is checked by the merchant and again by the
+    // contract. Blocking on them here would refuse the one payment this
+    // transport exists for.
+    (!overCounter &&
+      (unaffordable ||
+        funding.isPending ||
+        funding.isError ||
+        !selected ||
+        latestLedger === undefined ||
+        stellarHealth.isError ||
+        // `isPending`, not `isFetching`: the ledger is re-read every five
+        // seconds, and blocking on each background refetch would grey out
+        // Approve at random and keep restarting the authorization timer
+        // against a ledger the screen already holds.
+        stellarHealth.isPending));
   const screenFocused = useIsFocused();
   const issuer = intent.asset.issuer ?? intent.asset.contractId;
   const {mutate} = mutation;
@@ -146,6 +198,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
       <AnimatedContent><View style={styles.header}><View><Text style={styles.eyebrow}>{t('SECURE CHECKOUT')}</Text><SplitText delay={90} splitBy="word" style={styles.title} text={t('Review payment')} /></View><View style={styles.pills}><StatusPill tone="success">{t('TESTNET')}</StatusPill><StatusPill tone={verified ? 'success' : 'danger'}>{verified ? t('VERIFIED') : t('UNVERIFIED')}</StatusPill></View></View></AnimatedContent>
       <AnimatedContent delay={90} scaleFrom={0.98}><SurfaceCard accent="amber" style={styles.merchantCard}><View style={styles.merchant}><View style={styles.initial}><Text style={styles.initialText}>{initialsOf(intent.merchantName)}</Text></View><View style={styles.merchantCopy}><Text style={styles.merchantName}>{intent.merchantName}</Text><View style={styles.verified}>{verified ? <BadgeCheck color={colors.success} size={16} /> : <ShieldAlert color={colors.danger} size={16} />}<Text style={[styles.verifiedText, !verified && styles.unverifiedText]}>{verified ? t('Signature matches this merchant key') : t('Signature does not match this merchant key')}</Text></View></View></View></SurfaceCard></AnimatedContent>
       <AnimatedContent delay={150}><SurfaceCard style={styles.amountBlock}><Text style={styles.label}>{t('YOU ARE PAYING')}</Text><View style={styles.amountLine}><AssetMark code={intent.asset.code} size={32} /><Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.amount}>{exactAmount(intent.amount)} <Text style={styles.asset}>{intent.asset.code}</Text></Text></View><Text style={styles.reference}>{intent.reference}</Text></SurfaceCard></AnimatedContent>
+      {overCounter ? null : (
       <AnimatedContent delay={180}>
         <FundingPanel
           intentAsset={intent.asset.code}
@@ -156,6 +209,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
           t={t}
         />
       </AnimatedContent>
+      )}
       <AnimatedContent delay={210}>
         <SurfaceCard padded={false} style={styles.details}>
           <Detail label={t('Network')} value={intent.network === 'testnet' ? 'Stellar Testnet' : 'Stellar Public'} />
@@ -167,16 +221,16 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
       </AnimatedContent>
       <Text style={styles.recipientHint}>{t('Long-press the recipient or issuer to copy it.')}</Text>
       {mutation.isPending || mutation.isError ? (
-        <Stepper activeIndex={stageIndex(stage)} failed={mutation.isError} steps={settlementSteps.map(step => ({...step, label: t(step.label)}))} />
+        <Stepper activeIndex={overCounter ? counterIndex(counterStage) : stageIndex(stage)} failed={mutation.isError} steps={settlementSteps.map(step => ({...step, label: t(step.label)}))} />
       ) : (
         <Pulse active={false} style={styles.security}><ShieldCheck color={blocked ? colors.inkMuted : colors.success} size={18} /><Text style={[styles.securityText, blocked && styles.securityTextBlocked]}>{blocked ? t('This request cannot be authorized.') : t('Your device will authorize this exact amount.')}</Text></Pulse>
       )}
       {!verified && <Text style={styles.error}>{t('The merchant signature failed verification. Ask for a new payment request.')}</Text>}
       {verified && wrongNetwork ? <Text style={styles.error}>{t('This request is no longer valid: it has expired or targets another network.')}</Text> : null}
-      {verified && !expired && unaffordable ? (
+      {verified && !expired && unaffordable && !overCounter ? (
         <Text style={styles.error}>{`${t('This wallet cannot cover this request in')} ${intent.asset.code} ${t('or in anything it can be exchanged for.')}`}</Text>
       ) : null}
-      {funding.isError ? (
+      {funding.isError && !overCounter ? (
         <>
           <Text style={styles.error}>{t('The wallet balance could not be verified, so this payment is paused.')}</Text>
           <Button tone="secondary" onPress={() => void funding.refetch()} testID="retry-funding-check">
@@ -184,8 +238,18 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
           </Button>
         </>
       ) : null}
-      {stellarHealth.isError ? (
+      {stellarHealth.isError && !overCounter ? (
         <Text style={styles.error}>{t('Testnet is unavailable, so this request expiry cannot be verified.')}</Text>
+      ) : null}
+      {shortOfKnownBalance ? (
+        <Text style={styles.error} testID="counter-shortfall">
+          {`${t('This wallet last held')} ${exactAmount(String(knownAmount))} ${intent.asset.code}. ${t('The merchant will refuse this if it is still short.')}`}
+        </Text>
+      ) : null}
+      {overCounter ? (
+        <Text style={styles.counterNote}>
+          {t('This phone needs no connection. The merchant submits it and tells you what the ledger said.')}
+        </Text>
       ) : null}
       {verified && expired && <Text style={styles.error}>{`${t('This request expired at ledger')} ${intent.expiresAtLedger}. ${t('Ask for a new one.')}`}</Text>}
       {submittedHash ? (
@@ -207,11 +271,11 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
           ) : null}
         </>
       ) : null}
-      <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={startAuthorization} testID="approve-payment">{mutation.isPending ? t(stageLabel(stage)) : mutation.isError ? t('Retry payment') : t('Approve payment')}</Button>
+      <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={startAuthorization} testID="approve-payment">{mutation.isPending ? t(overCounter ? counterLabel(counterStage) : stageLabel(stage)) : mutation.isError ? t('Retry payment') : t('Approve payment')}</Button>
     </Screen>
     <RosaLoadingOverlay
-      detail={t(settlementDetail(stage))}
-      title={t(stageLabel(stage))}
+      detail={t(overCounter ? counterDetail(counterStage) : settlementDetail(stage))}
+      title={t(overCounter ? counterLabel(counterStage) : stageLabel(stage))}
       visible={mutation.isPending}
     />
     </>
@@ -237,6 +301,62 @@ function stageIndex(stage: SettlementPipelineProgress['stage'] | undefined): num
       return 3;
     default:
       return 0;
+  }
+}
+
+/**
+ * The same four steps, from the side that cannot see the chain.
+ *
+ * A customer with no network has no way to watch a transaction, so what this
+ * reports is honestly what it knows: it asked, it signed, and it is waiting to
+ * be told. The merchant's phone is what turns that last step into a fact.
+ */
+function counterIndex(stage: OfflineCustomerStage | undefined): number {
+  switch (stage) {
+    case 'claiming':
+    case 'authorizing':
+      return 1;
+    case 'signing':
+      return 2;
+    case 'submitting':
+    case 'confirmed':
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+function counterLabel(stage: OfflineCustomerStage | undefined): string {
+  switch (stage) {
+    case 'claiming':
+      return 'Telling the merchant who is paying';
+    case 'authorizing':
+      return 'Waiting for the exact payment';
+    case 'signing':
+      return 'Authorizing on this device';
+    case 'submitting':
+      return 'The merchant is sending it to Stellar';
+    case 'confirmed':
+      return 'Confirmed';
+    default:
+      return 'Reaching the merchant';
+  }
+}
+
+function counterDetail(stage: OfflineCustomerStage | undefined): string {
+  switch (stage) {
+    case 'claiming':
+      return 'The payment names who pays, so the merchant needs this phone first.';
+    case 'authorizing':
+      return 'The merchant is preparing the exact call this device will sign.';
+    case 'signing':
+      return 'Checked against the request on screen. Nothing here needs a network.';
+    case 'submitting':
+      return 'Your signature has crossed over. The merchant pays the fee and submits it.';
+    case 'confirmed':
+      return 'The merchant saw it reach a Stellar ledger.';
+    default:
+      return 'Hold this phone near the merchant until it answers.';
   }
 }
 
@@ -417,6 +537,7 @@ const styles = StyleSheet.create({
   detailRow: {alignItems: 'center', borderBottomColor: colors.line, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.md, justifyContent: 'space-between', minHeight: 50, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm},
   detailRowLast: {borderBottomWidth: 0},
   recipientHint: {color: colors.inkMuted, fontSize: 11, marginTop: -spacing.sm},
+  counterNote: {color: colors.inkMuted, fontSize: 12, textAlign: 'center'},
   unverifiedText: {color: colors.danger},
   securityTextBlocked: {color: colors.inkMuted},
   submitted: {...typography.mono, color: colors.inkMuted, fontSize: 11, textAlign: 'center'},

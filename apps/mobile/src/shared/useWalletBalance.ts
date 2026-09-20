@@ -1,8 +1,11 @@
+import {useMemo} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Asset} from '@stellar/stellar-sdk';
 import {createStellarConfig, readAssetBalance} from '@rosapay/stellar';
 import {payableAssets} from '../features/payments/assets';
 import {needsTrustlines, useCurrentAccount} from '../features/wallet/currentAccount';
+import {useAppStore} from '../state/appStore';
+import {applyUnreconciledSpend, unreconciledSpend} from './unreconciledSpend';
 
 export type Holding = {code: string; amount: string};
 
@@ -24,8 +27,9 @@ function contractIdOf(asset: (typeof payableAssets)[number], networkPassphrase: 
  */
 export function useWalletBalance() {
   const account = useCurrentAccount();
+  const receipts = useAppStore(state => state.receipts);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['wallet-balance', account?.address],
     enabled: Boolean(account),
     refetchInterval: 20_000,
@@ -67,4 +71,26 @@ export function useWalletBalance() {
       return held.length > 0 ? held : [{code: 'XLM', amount: '0'}];
     },
   });
+
+  /**
+   * What is left, rather than what was there when this last reached the chain.
+   *
+   * This is the half of the picture a phone keeps for itself. Paying across a
+   * counter with no connection settles on the chain but changes nothing this
+   * phone can see, so without it the card would keep showing the balance from
+   * before the payment for as long as the customer stayed offline — and go on
+   * showing it while they walked to the next counter.
+   */
+  const spent = useMemo(
+    () => unreconciledSpend(receipts, query.dataUpdatedAt),
+    [receipts, query.dataUpdatedAt],
+  );
+  const data = useMemo(() => applyUnreconciledSpend(query.data, spent), [query.data, spent]);
+
+  return {
+    ...query,
+    data,
+    /** True while this is showing a balance the chain has not confirmed back. */
+    unreconciled: spent.size > 0,
+  };
 }

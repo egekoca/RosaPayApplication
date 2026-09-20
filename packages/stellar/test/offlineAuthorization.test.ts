@@ -1,4 +1,4 @@
-import {Address, Keypair, Networks, StrKey, nativeToScVal, xdr} from '@stellar/stellar-sdk';
+import {Address, Keypair, Networks, StrKey, hash, nativeToScVal, scValToNative, xdr} from '@stellar/stellar-sdk';
 import {p256} from '@noble/curves/nist.js';
 import {describe, expect, it, vi} from 'vitest';
 import {Buffer} from 'buffer';
@@ -241,5 +241,78 @@ describe('a merchant preparing what the customer signs', () => {
         signatureExpirationLedger,
       }),
     ).toThrow(/does not ask the named customer/);
+  });
+it('lets an account held as twelve words sign offline, the way a wallet extension does', async () => {
+    // The key is on the phone either way. A classic account signs the hash of
+    // the authorization preimage — entirely local arithmetic — and refusing it
+    // would have meant only wallets this app created could pay without a
+    // network, which was arbitrary rather than a security boundary.
+    const keypair = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 11));
+    const intent = paymentIntent();
+    const request = authRequest(intent, keypair.publicKey());
+    let signedPreimage: string | undefined;
+
+    const authorization = await authorizeOffline({
+      request,
+      intent,
+      customerAddress: keypair.publicKey(),
+      accountSigner: {
+        async signAuthEntry(preimageXdr) {
+          signedPreimage = preimageXdr;
+          const payload = hash(Buffer.from(preimageXdr, 'base64'));
+          return {signedAuthEntry: keypair.sign(payload).toString('base64')};
+        },
+      },
+    });
+
+    expect(signedPreimage).toBeDefined();
+    expect(authorization.authorizer).toBe(keypair.publicKey());
+    expect(authorization.signatureExpirationLedger).toBe(signatureExpirationLedger);
+
+    // The signature has to reach the host in the shape it checks: a vector of
+    // {public_key, signature}, over the preimage the expiry was written into.
+    const signed = xdr.SorobanAuthorizationEntry.fromXDR(authorization.entryXdr, 'base64');
+    const credentials = signed.credentials().address();
+    expect(credentials.signatureExpirationLedger()).toBe(signatureExpirationLedger);
+    const [entry] = scValToNative(credentials.signature()) as Array<{
+      public_key: Uint8Array;
+      signature: Uint8Array;
+    }>;
+    expect(Buffer.from(entry!.public_key)).toEqual(
+      Buffer.from(StrKey.decodeEd25519PublicKey(keypair.publicKey())),
+    );
+    const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
+      new xdr.HashIdPreimageSorobanAuthorization({
+        networkId: hash(Buffer.from(networkPassphrase, 'utf8')),
+        nonce: credentials.nonce(),
+        signatureExpirationLedger: signatureExpirationLedger,
+        invocation: signed.rootInvocation(),
+      }),
+    );
+    expect(keypair.verify(hash(preimage.toXDR()), Buffer.from(entry!.signature))).toBe(true);
+  });
+
+  it('checks a classic entry against the intent before it signs anything', async () => {
+    const keypair = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 12));
+    const intent = paymentIntent();
+    const request = authRequest(intent, keypair.publicKey());
+    const signAuthEntry = vi.fn();
+
+    await expect(
+      authorizeOffline({
+        request,
+        intent: paymentIntent({amount: '1'}),
+        customerAddress: keypair.publicKey(),
+        accountSigner: {signAuthEntry},
+      }),
+    ).rejects.toBeInstanceOf(OfflineAuthorizationError);
+    expect(signAuthEntry).not.toHaveBeenCalled();
+  });
+
+  it('refuses a payment it has no key at all to sign', async () => {
+    const intent = paymentIntent();
+    await expect(
+      authorizeOffline({request: authRequest(intent), intent, customerAddress}),
+    ).rejects.toBeInstanceOf(OfflineAuthorizationError);
   });
 });

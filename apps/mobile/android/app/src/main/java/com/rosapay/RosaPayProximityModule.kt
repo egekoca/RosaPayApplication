@@ -61,16 +61,31 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
     /** Carries the NFC AID in its first two groups, then "ROSAPA". */
     val SERVICE_UUID: UUID = UUID.fromString("F0526F73-6150-4179-9C01-524F53415041")
     val REQUEST_UUID: UUID = UUID.fromString("F0526F73-6150-4179-9C02-524F53415041")
+
+    /**
+     * The channel the customer answers on.
+     *
+     * The merchant's characteristic notifies and cannot be written to, which
+     * was enough while the radio only carried a request. Paying without a
+     * network is a conversation — who is paying, the entry to sign, the
+     * signature, what the chain said — so the customer needs a way to speak.
+     */
+    val REPLY_UUID: UUID = UUID.fromString("F0526F73-6150-4179-9C03-524F53415041")
+
     /** The standard Client Characteristic Configuration descriptor. */
     val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805F9B34FB")
 
-    const val READ_EVENT = "RosaPayProximityRequestRead"
+    const val MESSAGE_EVENT = "RosaPayProximityMessage"
     const val ERROR_EVENT = "RosaPayProximityError"
 
     /** RTP/1 bounds its QR URI at 4,096 characters; nothing larger is a request. */
     const val MAX_PAYLOAD_BYTES = 4_096
     /** One byte of sequence and one of total, so the frame count fits in a byte. */
     const val MAX_FRAMES = 255
+    /** One byte of kind, one of sequence, one of total. */
+    const val FRAME_HEADER = 3
+    /** The opening message: the signed request itself, which a QR also carries. */
+    const val REQUEST_KIND = 1
 
     /**
      * How close a phone has to read before it is worth following at all, in
@@ -175,16 +190,48 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
   private var payload: ByteArray? = null
   private val subscriberMtu = ConcurrentHashMap<String, Int>()
 
-  /** How far one customer's copy of the request has got, and how it is cut. */
-  private data class Transfer(var next: Int, val capacity: Int, val total: Int)
+  /** How far one message to one peer has got, and how it is cut. */
+  private data class Transfer(
+    val kind: Int,
+    val payload: ByteArray,
+    var next: Int,
+    val capacity: Int,
+    val total: Int,
+  )
+
+  /** A message waiting its turn on one peer's link. */
+  private data class Outbound(val kind: Int, val payload: ByteArray)
 
   /** One entry per customer being sent to, so the next frame waits its turn. */
   private val sending = ConcurrentHashMap<String, Transfer>()
+
+  /** What is still to say to each customer, in order. */
+  private val outbox = ConcurrentHashMap<String, ArrayDeque<Outbound>>()
+
+  /** The customers currently subscribed, so a later message can be addressed. */
+  private val subscribers = ConcurrentHashMap<String, BluetoothDevice>()
 
   // Customer role.
   private var scanCallback: ScanCallback? = null
   private val reading = ConcurrentHashMap<String, BluetoothGatt>()
   private val frames = ConcurrentHashMap<String, MutableMap<Int, ByteArray>>()
+  /** Which message each half-assembled pile of frames belongs to. */
+  private val incomingKind = ConcurrentHashMap<String, Int>()
+  /** The channel this phone answers a merchant on, once discovered. */
+  private val replyTo = ConcurrentHashMap<String, BluetoothGattCharacteristic>()
+  /** Frames still to write to each merchant, one in flight at a time. */
+  private val writing = ConcurrentHashMap<String, ArrayDeque<ByteArray>>()
+
+  /**
+   * Peers a payment on screen is still talking to.
+   *
+   * Leaving the screen the radio listens on stops the scanner, and that used to
+   * be the end of every link it had made — right while reading a request was
+   * the whole encounter, and exactly wrong now. The customer reads the request,
+   * the screen changes to show it, and the conversation that pays it has not
+   * started yet. A held peer survives the scanner stopping.
+   */
+  private val held = java.util.Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
   /** The last few signal readings per merchant, and what they said on connect. */
   private val samples = ConcurrentHashMap<String, MutableList<Int>>()
   /** The weakest reading each merchant has given, which an approach is measured against. */
@@ -334,8 +381,17 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
           BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
         ),
       )
+      // The customer's half of the conversation. Written rather than notified,
+      // because the customer is the GATT client here and a client cannot notify.
+      val reply = BluetoothGattCharacteristic(
+        REPLY_UUID,
+        BluetoothGattCharacteristic.PROPERTY_WRITE or
+          BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE,
+        BluetoothGattCharacteristic.PERMISSION_WRITE,
+      )
       val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
       service.addCharacteristic(characteristic)
+      service.addCharacteristic(reply)
       server.addService(service)
 
       val settings = AdvertiseSettings.Builder()
@@ -376,6 +432,8 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
     payload = null
     subscriberMtu.clear()
     sending.clear()
+    outbox.clear()
+    subscribers.clear()
     advertiseCallback?.let { callback ->
       runCatching { adapter?.bluetoothLeAdvertiser?.stopAdvertising(callback) }
     }
@@ -406,7 +464,38 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
       if (descriptor?.uuid != CCCD_UUID || device == null) return
       val subscribing = value != null &&
         value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-      if (subscribing) beginSend(device)
+      if (!subscribing) return
+      val body = payload ?: return
+      subscribers[device.address] = device
+      enqueue(device, REQUEST_KIND, body)
+    }
+
+    /**
+     * Takes the customer's half of the conversation, frame by frame.
+     *
+     * Every write is answered before the next is sent, so these arrive in order
+     * and none is lost for arriving while the last was still being handled. The
+     * reassembly is the one the customer does on the other channel: the two
+     * directions are one protocol, not two.
+     */
+    override fun onCharacteristicWriteRequest(
+      device: BluetoothDevice?,
+      requestId: Int,
+      characteristic: BluetoothGattCharacteristic?,
+      preparedWrite: Boolean,
+      responseNeeded: Boolean,
+      offset: Int,
+      value: ByteArray?,
+    ) {
+      if (responseNeeded) {
+        runCatching {
+          gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+        }
+      }
+      val address = device?.address ?: return
+      if (characteristic?.uuid != REPLY_UUID || value == null) return
+      if (!subscribers.containsKey(address)) subscribers[address] = device
+      receive(address, value) { }
     }
 
     override fun onNotificationSent(device: BluetoothDevice?, status: Int) {
@@ -417,6 +506,14 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
         return
       }
       progress.next += 1
+      if (progress.next >= progress.total) {
+        sending.remove(address)
+        // Whatever is next for this customer follows immediately; an offline
+        // payment is several messages and a pause between them is a pause at
+        // the counter.
+        beginSend(device)
+        return
+      }
       send(device)
     }
 
@@ -425,29 +522,42 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
         device?.address?.let {
           subscriberMtu.remove(it)
           sending.remove(it)
+          outbox.remove(it)
+          subscribers.remove(it)
+          frames.remove(it)
+          incomingKind.remove(it)
         }
       }
     }
   }
 
-  /** Pushes the request in frames the subscriber's MTU can carry. */
+  /** Puts a message on one customer's queue, and starts it if nothing is in flight. */
+  private fun enqueue(device: BluetoothDevice, kind: Int, body: ByteArray) {
+    outbox.getOrPut(device.address) { ArrayDeque() }.addLast(Outbound(kind, body))
+    if (sending[device.address] == null) beginSend(device)
+  }
+
   /**
-   * Starts sending the request to a customer who has just subscribed.
+   * Starts the next message waiting for this customer.
    *
    * The frame size is fixed here and kept for the whole transfer: the MTU can
    * change while frames are in flight, and recomputing it mid-send would cut
    * the payload at different offsets than the frames already delivered.
    */
   private fun beginSend(device: BluetoothDevice) {
-    val body = payload ?: return
-    // Three bytes of ATT overhead, then two of our own framing. Until the
+    val queue = outbox[device.address] ?: return
+    val next = queue.removeFirstOrNull() ?: return
+    // Three bytes of ATT overhead, then three of our own framing. Until the
     // customer negotiates a larger MTU this is the 23-byte default, which is
     // why the frame count is allowed to run to 255.
     val mtu = subscriberMtu[device.address] ?: 23
-    val capacity = (mtu - 3 - 2).coerceAtLeast(1)
-    val total = (body.size + capacity - 1) / capacity
-    if (total <= 0 || total > MAX_FRAMES) return
-    sending[device.address] = Transfer(0, capacity, total)
+    val capacity = (mtu - 3 - FRAME_HEADER).coerceAtLeast(1)
+    val total = (next.payload.size + capacity - 1) / capacity
+    if (total <= 0 || total > MAX_FRAMES) {
+      beginSend(device)
+      return
+    }
+    sending[device.address] = Transfer(next.kind, next.payload, 0, capacity, total)
     send(device)
   }
 
@@ -465,8 +575,8 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
    */
   private fun send(device: BluetoothDevice) {
     val server = gattServer ?: return
-    val body = payload ?: return
     val progress = sending[device.address] ?: return
+    val body = progress.payload
     val characteristic = server
       .getService(SERVICE_UUID)
       ?.getCharacteristic(REQUEST_UUID)
@@ -479,10 +589,11 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
 
     val start = progress.next * progress.capacity
     val end = minOf(start + progress.capacity, body.size)
-    val frame = ByteArray(2 + (end - start))
-    frame[0] = progress.next.toByte()
-    frame[1] = progress.total.toByte()
-    body.copyInto(frame, 2, start, end)
+    val frame = ByteArray(FRAME_HEADER + (end - start))
+    frame[0] = progress.kind.toByte()
+    frame[1] = progress.next.toByte()
+    frame[2] = progress.total.toByte()
+    body.copyInto(frame, FRAME_HEADER, start, end)
     try {
       @Suppress("DEPRECATION")
       characteristic.value = frame
@@ -571,14 +682,29 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
       runCatching { adapter?.bluetoothLeScanner?.stopScan(callback) }
     }
     scanCallback = null
-    reading.values.forEach { gatt -> runCatching { gatt.close() } }
-    reading.clear()
-    frames.clear()
+    // A payment already under way is not part of scanning and must survive it.
+    reading.entries.filter { it.key !in held }.forEach { (address, gatt) ->
+      runCatching { gatt.close() }
+      forget(address)
+    }
     samples.clear()
     resting.clear()
     firstSeen.clear()
     best = null
-    touching.clear()
+  }
+
+  /** Drops everything known about one peer, so the next encounter is a new one. */
+  private fun forget(address: String) {
+    reading.remove(address)
+    frames.remove(address)
+    incomingKind.remove(address)
+    replyTo.remove(address)
+    writing.remove(address)
+    samples.remove(address)
+    resting.remove(address)
+    firstSeen.remove(address)
+    touching.remove(address)
+    held.remove(address)
   }
 
   /**
@@ -651,15 +777,7 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
   }
 
   private fun release(gatt: BluetoothGatt) {
-    val address = gatt.device?.address
-    if (address != null) {
-      reading.remove(address)
-      frames.remove(address)
-      samples.remove(address)
-      resting.remove(address)
-      firstSeen.remove(address)
-      touching.remove(address)
-    }
+    gatt.device?.address?.let { forget(it) }
     runCatching { gatt.close() }
   }
 
@@ -675,16 +793,26 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
     }
 
     override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+      // Kept for this end too: the customer's answers are framed by the same
+      // negotiated size the merchant's request arrived under.
+      gatt.device?.address?.let { subscriberMtu[it] = mtu }
       // A refused MTU is survivable — it only means more, smaller frames.
       runCatching { gatt.discoverServices() }
     }
 
     override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-      val characteristic = gatt.getService(SERVICE_UUID)?.getCharacteristic(REQUEST_UUID)
+      val service = gatt.getService(SERVICE_UUID)
+      val characteristic = service?.getCharacteristic(REQUEST_UUID)
       if (status != BluetoothGatt.GATT_SUCCESS || characteristic == null) {
         release(gatt)
         return
       }
+      // A merchant that offers no reply channel is an older build. It can still
+      // be paid the way it always could — online — so the request is read and
+      // the absence only shows up if the customer tries to answer.
+      val address = gatt.device?.address
+      val reply = service.getCharacteristic(REPLY_UUID)
+      if (address != null && reply != null) replyTo[address] = reply
       try {
         gatt.setCharacteristicNotification(characteristic, true)
         val descriptor = characteristic.getDescriptor(CCCD_UUID)
@@ -713,20 +841,61 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
     ) {
       onFrame(gatt, value)
     }
+
+    /**
+     * Writes are answered rather than fired, and only one is ever in flight.
+     *
+     * The same rule as the merchant's notifications, for the same reason: a
+     * second write handed to the stack before the first is acknowledged is
+     * dropped without failing, and an answer that arrives with a hole in it is
+     * an offline payment that silently never completes.
+     */
+    override fun onCharacteristicWrite(
+      gatt: BluetoothGatt,
+      characteristic: BluetoothGattCharacteristic,
+      status: Int,
+    ) {
+      val address = gatt.device?.address ?: return
+      if (status != BluetoothGatt.GATT_SUCCESS) {
+        writing.remove(address)
+        emit(ERROR_EVENT, "The answer could not be sent to that phone")
+        return
+      }
+      writeNext(address)
+    }
   }
 
   private fun onFrame(gatt: BluetoothGatt, frame: ByteArray?) {
-    if (frame == null || frame.size <= 2) return
     val address = gatt.device?.address ?: return
-    val index = frame[0].toInt() and 0xFF
-    val total = frame[1].toInt() and 0xFF
+    receive(address, frame) { release(gatt) }
+  }
+
+  /**
+   * Takes one frame and emits the message it completes, if it completes one.
+   *
+   * Both roles arrive here. The merchant's frames come in as writes on the
+   * reply channel and the customer's as notifications on the request channel,
+   * but a frame is a frame: a kind, a place in a sequence, and a piece of a
+   * payload. Keeping one reassembler is what stops the two directions drifting.
+   */
+  private fun receive(address: String, frame: ByteArray?, onMalformed: () -> Unit) {
+    if (frame == null || frame.size <= FRAME_HEADER) return
+    val kind = frame[0].toInt() and 0xFF
+    val index = frame[1].toInt() and 0xFF
+    val total = frame[2].toInt() and 0xFF
     if (total == 0 || total > MAX_FRAMES || index >= total) {
-      release(gatt)
+      onMalformed()
       return
     }
 
-    val collected = frames[address] ?: return
-    collected[index] = frame.copyOfRange(2, frame.size)
+    // A new message on a link that was mid-way through another one replaces it:
+    // the sender moved on, so the half it left behind can never be completed.
+    if (incomingKind[address] != kind) {
+      incomingKind[address] = kind
+      frames[address] = mutableMapOf()
+    }
+    val collected = frames.getOrPut(address) { mutableMapOf() }
+    collected[index] = frame.copyOfRange(FRAME_HEADER, frame.size)
     if (collected.size != total) return
 
     val body = ByteArray(collected.values.sumOf { it.size })
@@ -736,21 +905,131 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
       part.copyInto(body, offset)
       offset += part.size
     }
-    val wasTouching = touching.remove(address) ?: false
-    // Release before emitting: the screen this wakes may tear the scanner down,
-    // and a half-read second merchant would otherwise stay connected.
-    release(gatt)
+    frames[address] = mutableMapOf()
+    incomingKind.remove(address)
 
     if (body.size > MAX_PAYLOAD_BYTES) {
-      emit(ERROR_EVENT, "That phone did not share a readable payment request")
+      emit(ERROR_EVENT, "That phone did not send anything readable")
       return
     }
     val value = String(body, StandardCharsets.UTF_8)
     if (value.isEmpty()) {
-      emit(ERROR_EVENT, "That phone did not share a payment request")
+      emit(ERROR_EVENT, "That phone sent an empty message")
       return
     }
-    emitRequest(value, wasTouching)
+    // Only the opening request carries a verdict about how the phones were
+    // held. Everything after belongs to a payment already on screen, where
+    // proximity has done its one job.
+    val wasTouching = if (kind == REQUEST_KIND) touching.remove(address) ?: false else false
+    emitMessage(address, kind, value, wasTouching)
+  }
+
+  // MARK: Either role — one addressed message
+
+  /**
+   * Sends one message to one peer, whichever end of the link this phone is.
+   *
+   * A merchant answers a customer it is advertising to; a customer answers the
+   * merchant it connected to. The caller does not say which, because at the
+   * level of the conversation there is no difference: there is a peer, and
+   * something to tell it.
+   */
+  @ReactMethod
+  fun sendMessage(peerId: String, kind: Double, payloadInput: String, promise: Promise) {
+    val body = payloadInput.toByteArray(StandardCharsets.UTF_8)
+    if (body.isEmpty()) {
+      promise.reject("BLE_PAYLOAD_EMPTY", "There was nothing to send")
+      return
+    }
+    if (body.size > MAX_PAYLOAD_BYTES) {
+      promise.reject("BLE_PAYLOAD_TOO_LARGE", "That message is too large to send over Bluetooth")
+      return
+    }
+    val code = kind.toInt()
+    val subscriber = subscribers[peerId]
+    if (subscriber != null) {
+      enqueue(subscriber, code, body)
+      promise.resolve(null)
+      return
+    }
+    if (reading[peerId] != null) {
+      write(peerId, code, body)
+      promise.resolve(null)
+      return
+    }
+    promise.reject("BLE_PEER_UNKNOWN", "That phone is no longer connected")
+  }
+
+  /** Keeps this merchant connected while its payment is on screen. */
+  @ReactMethod
+  fun holdPeer(peerId: String, promise: Promise) {
+    held.add(peerId)
+    promise.resolve(null)
+  }
+
+  /** Lets a peer go once its payment is over, one way or the other. */
+  @ReactMethod
+  fun releasePeer(peerId: String, promise: Promise) {
+    held.remove(peerId)
+    outbox.remove(peerId)
+    sending.remove(peerId)
+    reading[peerId]?.let { gatt ->
+      runCatching { gatt.disconnect() }
+      release(gatt)
+    }
+    promise.resolve(null)
+  }
+
+  /** Cuts a message into frames the merchant's MTU can carry, and starts it. */
+  private fun write(peerId: String, kind: Int, body: ByteArray) {
+    val mtu = subscriberMtu[peerId] ?: 23
+    val capacity = (mtu - 3 - FRAME_HEADER).coerceAtLeast(1)
+    val total = (body.size + capacity - 1) / capacity
+    if (total <= 0 || total > MAX_FRAMES) {
+      emit(ERROR_EVENT, "That message is too large to send over Bluetooth")
+      return
+    }
+    val queue = writing.getOrPut(peerId) { ArrayDeque() }
+    val idle = queue.isEmpty()
+    for (index in 0 until total) {
+      val start = index * capacity
+      val end = minOf(start + capacity, body.size)
+      val frame = ByteArray(FRAME_HEADER + (end - start))
+      frame[0] = kind.toByte()
+      frame[1] = index.toByte()
+      frame[2] = total.toByte()
+      body.copyInto(frame, FRAME_HEADER, start, end)
+      queue.addLast(frame)
+    }
+    if (idle) writeNext(peerId)
+  }
+
+  private fun writeNext(peerId: String) {
+    val gatt = reading[peerId] ?: return
+    val characteristic = replyTo[peerId] ?: run {
+      emit(ERROR_EVENT, "That phone cannot take an answer over Bluetooth")
+      return
+    }
+    val frame = writing[peerId]?.removeFirstOrNull() ?: return
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        gatt.writeCharacteristic(
+          characteristic,
+          frame,
+          BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT,
+        )
+      } else {
+        @Suppress("DEPRECATION")
+        characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+        @Suppress("DEPRECATION")
+        characteristic.value = frame
+        @Suppress("DEPRECATION")
+        gatt.writeCharacteristic(characteristic)
+      }
+    } catch (error: SecurityException) {
+      writing.remove(peerId)
+      emit(ERROR_EVENT, "Rosa Pay lost Bluetooth permission while answering that phone")
+    }
   }
 
   /** A reload must not leave this phone advertising a request nobody owns. */
@@ -766,14 +1045,23 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
       .emit(event, value)
   }
 
-  /** A request, and whether the phones were touching when it was read. */
-  private fun emitRequest(value: String, touching: Boolean) {
+  /**
+   * One message from one peer.
+   *
+   * The peer's address travels with it because an offline payment is a sequence
+   * rather than a single arrival: everything said back is addressed to the phone
+   * that started it, and a counter with two customers in front of it is holding
+   * two of these conversations at once.
+   */
+  private fun emitMessage(peerId: String, kind: Int, value: String, touching: Boolean) {
     val body = Arguments.createMap().apply {
+      putString("peerId", peerId)
+      putInt("kind", kind)
       putString("payload", value)
       putBoolean("touching", touching)
     }
     reactContext
       .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-      .emit(READ_EVENT, body)
+      .emit(MESSAGE_EVENT, body)
   }
 }

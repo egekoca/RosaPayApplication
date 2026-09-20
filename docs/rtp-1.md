@@ -101,6 +101,14 @@ the one thing the customer has to sign.
 **`PaymentAuthorization`** — what comes back: the same entry with the device's
 signature and that expiry set in its credentials.
 
+Either kind of account can produce it, because both hold their key on the phone.
+A contract wallet signs the authorization digest with the key in the secure
+enclave and writes that into the credentials itself. An account restored from a
+recovery phrase signs the hash of the authorization preimage with the key in the
+keychain — the same operation a browser wallet extension performs — and the
+signature is wrapped as the `{public_key, signature}` vector the host checks.
+Neither path reads anything: both are arithmetic over bytes already in hand.
+
 The customer cannot ask the network what it is signing, so it rebuilds the
 expected invocation locally from the merchant-signed intent and compares it field
 by field: contract, function, payer, amount, recipient, asset, expiry. A merchant
@@ -116,3 +124,71 @@ protocol allows a second tap for it.
 Proven on Testnet by `npm run testnet:offline`, which runs the customer's half
 with `fetch` removed from its global scope, so reaching for the network fails
 rather than passing unnoticed.
+
+## The conversation over Bluetooth
+
+The exchange above is carried by the same BLE service that carries the request,
+with a second, writable characteristic so the customer can answer. One frame is
+`[kind, index, total]` and then payload bytes, in both directions; the merchant
+notifies on `…9C02…`, the customer writes on `…9C03…`.
+
+| Kind | Direction | Meaning |
+| --- | --- | --- |
+| 1 `request` | merchant → customer | The signed RTP/1 URI, the same one a QR carries |
+| 2 `payer` | customer → merchant | Who is paying, so the invocation can be built |
+| 3 `authRequest` | merchant → customer | The unsigned entry, its expiry, and the merchant's ledger |
+| 4 `authorization` | customer → merchant | That entry, signed by the device |
+| 5 `result` | merchant → customer | The transaction hash and ledger, or why it failed |
+| 6 `decline` | either | This is not going to happen, and why |
+
+Every message is addressed to one peer, because a counter with two customers in
+front of it is holding two of these at once.
+
+What each side may believe about the other is deliberately small. The customer
+believes nothing: the entry in message 3 is rebuilt locally from the
+merchant-signed intent and compared field by field before a device prompt can
+start, and the ledger in it only sets the expiry the customer cannot read for
+itself — the chain enforces the real one. The merchant checks that message 4
+names this payment and this payer before it is submitted, and the contract
+checks the signature again.
+
+Message 5 is the one thing the customer takes on trust, and it is worth nothing:
+it is a transaction hash, and the moment that phone has signal it reads the same
+settlement the merchant already saw.
+
+## Why an offline customer cannot spend the same money twice
+
+The obvious worry about paying offline is a customer who holds fifty, pays forty
+at one counter, and — seeing a balance their phone has no way to refresh — walks
+to the next counter and pays forty again. Nothing about that second approval is
+prevented on the customer's phone, and it does not need to be. Three separate
+things stop it, in the order they are reached:
+
+1. **The merchant simulates before the customer is asked for anything.** The
+   invocation that produces `authRequest` is a real simulation against the
+   current ledger, so a wallet that cannot cover the payment fails there — with
+   no entry to sign, no device prompt, and a `result: failed` back over the
+   radio. The customer never gets as far as Face ID.
+2. **The chain decides at apply time, not at simulate time.** Two merchants who
+   both simulate against a balance of fifty can both get a signature. Only one
+   transaction can then succeed: the second traps in the token transfer and the
+   whole transaction reverts. A failed payment is a failed payment on both
+   phones, and no money moved twice.
+3. **The intent is consumed on chain.** `authorize_intent` writes
+   `ConsumedIntent(intent_id)` before any token moves, so the *same* signed
+   authorization submitted twice fails the second time with `IntentConsumed`.
+
+This is the reason the merchant is the online half. The alternative design — the
+one most offline-payment protocols use, where a customer signs a self-contained
+voucher against a pre-locked float — cannot make claim 1 or claim 2 at all: it
+can only bound the loss and punish the double-signer afterwards. Here the ledger
+is consulted before anyone signs and again before anything settles, so the
+customer being offline never becomes the merchant's risk.
+
+What *is* left is the customer's own view of their money, which is a display
+problem rather than a safety one: a phone with no network is showing a balance
+from before the payment. So the app subtracts what it knows — every payment it
+saw confirmed after its last successful balance read — and warns before the
+prompt when what is left cannot cover the amount. It warns rather than blocks,
+because the reading may be old and money can arrive from anyone while the phone
+is offline. The merchant's simulation is the gate; this is only honesty.

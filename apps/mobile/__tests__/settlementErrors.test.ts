@@ -1,5 +1,6 @@
 import {SecureSignerError} from '@rosapay/secure-signer';
 import {SettlementPipelineError, SettlementServiceError} from '@rosapay/stellar';
+import {OfflineCustomerError} from '../src/features/payments/offlineCustomer';
 import {describeSettlementError, settlementErrorDetail} from '../src/features/payments/settlementErrors';
 import {TestnetSettlementError} from '../src/features/payments/testnetSettlement';
 
@@ -48,5 +49,31 @@ describe('settlement error messages', () => {
 
     expect(settlementErrorDetail('not an error')).toBeUndefined();
     expect(settlementErrorDetail(new Error('x'.repeat(400)))!.length).toBeLessThan(220);
+  });
+it('names a wallet the chain refused for want of funds, in the words the chain used', () => {
+    // A Stellar Asset Contract says "balance is not sufficient to spend". It
+    // contains no word "insufficient", so this is the exact refusal a customer
+    // gets when paying a second time from a wallet already spent offline.
+    expect(
+      describeSettlementError(new Error('HostError: balance is not sufficient to spend'), 'XLM'),
+    ).toContain('does not have enough XLM');
+  });
+
+  it('passes a counter refusal on as the refusal it was, not as a mystery', () => {
+    // The merchant is the half that reached the chain, so its sentence is the
+    // only account of what happened. It goes through the same mapping it would
+    // have had this phone submitted the transaction itself.
+    expect(
+      describeSettlementError(
+        new OfflineCustomerError('FAILED', 'Error(Contract, #10): balance is not sufficient to spend'),
+        'USDC',
+      ),
+    ).toContain('does not have enough USDC');
+  });
+
+  it('says plainly when a counter cannot take an offline payment at all', () => {
+    expect(
+      describeSettlementError(new OfflineCustomerError('NOT_OFFERED', 'whatever the code said')),
+    ).toContain('cannot take a payment from a phone with no connection');
   });
 });

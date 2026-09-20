@@ -81,7 +81,11 @@ export function ScanScreen({navigation}: Props) {
     (value: string, transport: PaymentTransport = 'qr') => {
       if (handled.current) return;
       if (stellarHealth.data?.latestLedger === undefined) {
-        setError(t('Testnet unavailable, so an expiry cannot be set'));
+        // A camera cannot pay without a network: the code says when the request
+        // expires and only the chain says whether that has passed. Holding the
+        // phone against the merchant's can, because the merchant is then the
+        // half with a connection — so say that, rather than stopping here.
+        setError(t('No connection. Hold this phone against the merchant’s to pay without one.'));
         return;
       }
       const result = readPaymentQr(value, scanContext());

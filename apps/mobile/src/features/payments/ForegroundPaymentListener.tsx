@@ -3,7 +3,7 @@ import {Alert} from 'react-native';
 import type {NavigationContainerRef} from '@react-navigation/native';
 import {MAX_INTENT_ACCEPTANCE_LEDGERS} from '@rosapay/protocol';
 import type {RootStackParams} from '../../app/navigation';
-import type {ProximityRequest} from '../../native/nativeProximity';
+import {holdProximityPeer, type ProximityRequest} from '../../native/nativeProximity';
 import type {PaymentTransport} from '../../state/appStore';
 import {useTranslate} from '../../shared/i18n';
 import {readPaymentQr} from './readPaymentQr';
@@ -17,6 +17,12 @@ import {useProximityScanner} from './useProximity';
  * same counter does not mean waiting around.
  */
 export const REOFFER_DELAY_MS = 30_000;
+
+/**
+ * How long a customer with a merchant already on the line waits for a ledger
+ * before the screen opens without one.
+ */
+export const LEDGER_DEADLINE_MS = 2_500;
 
 /**
  * Keeps this phone ready to be paid at, on whatever screen it is already on.
@@ -72,7 +78,7 @@ export function ForegroundPaymentListener({
     });
   }, [t]);
 
-  const accept = useCallback(async (payload: string, transport: PaymentTransport) => {
+  const accept = useCallback(async (payload: string, transport: PaymentTransport, peerId?: string) => {
     if (!activeRef.current || handled.current) return;
     handled.current = true;
     const lifecycle = lifecycleRef.current;
@@ -83,7 +89,18 @@ export function ForegroundPaymentListener({
     // expiry is security-sensitive and must be checked against a live ledger.
     if (refreshLedger) {
       try {
-        ledger = await refreshLedger();
+        // A phone with no route to the network fails this in milliseconds. One
+        // on a captive Wi-Fi does not: it waits out the system's own timeout,
+        // which can be a minute, with the request screen unopened and the
+        // customer holding two phones together wondering what is wrong. The
+        // deadline is only for the customer who has a merchant on the other end
+        // of a radio link — they need no ledger, because that merchant has one.
+        ledger = peerId
+          ? await Promise.race([
+              refreshLedger(),
+              new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), LEDGER_DEADLINE_MS)),
+            ])
+          : await refreshLedger();
       } catch {
         ledger = undefined;
       }
@@ -98,14 +115,20 @@ export function ForegroundPaymentListener({
       return;
     }
 
-    if (ledger === undefined) {
+    // A customer with no network cannot read a ledger, and that is exactly the
+    // customer this transport exists for. When the merchant is still on the
+    // other end of the link it is the online half of the pair: it checks the
+    // expiry against a live ledger before it simulates anything, and the
+    // contract checks it again. So a missing ledger stops a payment only when
+    // there is no merchant left to check it.
+    if (ledger === undefined && !peerId) {
       showError(t('Payment request could not be verified'), t('Testnet unavailable, so an expiry cannot be set'));
       return;
     }
 
     const result = readPaymentQr(payload, {
       network: 'testnet',
-      latestLedger: ledger,
+      ...(ledger === undefined ? {} : {latestLedger: ledger}),
       maxLedgerLifetime: MAX_INTENT_ACCEPTANCE_LEDGERS,
     });
     if (!result.ok) {
@@ -134,7 +157,11 @@ export function ForegroundPaymentListener({
       if (now - at >= REOFFER_DELAY_MS) offered.current.delete(seen);
     }
     offered.current.set(intentId, now);
-    navigation.navigate('Confirm', {payload: result.payload, transport});
+    // Leaving this screen stops the scanner, and stopping the scanner used to
+    // drop every link it had made. Holding the merchant keeps the way back open
+    // for the payment that is about to be put in front of someone.
+    if (peerId) await holdProximityPeer(peerId);
+    navigation.navigate('Confirm', {payload: result.payload, transport, ...(peerId ? {peerId} : {})});
   }, [latestLedger, navigation, refreshLedger, showError, t]);
 
   /*
@@ -148,7 +175,7 @@ export function ForegroundPaymentListener({
    * them. Approve is a button, and pressing it is what starts the prompt.
    */
   const onProximityRequest = useCallback(
-    (request: ProximityRequest) => void accept(request.payload, 'ble'),
+    (request: ProximityRequest) => void accept(request.payload, 'ble', request.peerId),
     [accept],
   );
 

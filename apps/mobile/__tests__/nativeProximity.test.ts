@@ -1,8 +1,10 @@
 import {NativeModules, Platform} from 'react-native';
 import {
   getProximityStatus,
+  sendProximityMessage,
   startProximityBroadcast,
   startProximityScanner,
+  subscribeToProximityMessages,
 } from '../src/native/nativeProximity';
 
 const startScanning = jest.fn().mockResolvedValue(undefined);
@@ -10,6 +12,9 @@ const stopScanning = jest.fn().mockResolvedValue(undefined);
 const startBroadcast = jest.fn().mockResolvedValue(undefined);
 const stopBroadcast = jest.fn().mockResolvedValue(undefined);
 const requestPermissions = jest.fn().mockResolvedValue(undefined);
+const sendMessage = jest.fn().mockResolvedValue(undefined);
+const holdPeer = jest.fn().mockResolvedValue(undefined);
+const releasePeer = jest.fn().mockResolvedValue(undefined);
 const getStatus = jest
   .fn()
   .mockResolvedValue({supported: true, enabled: true, authorized: true, canBroadcast: true});
@@ -38,6 +43,9 @@ describe('the Bluetooth proximity transport', () => {
       stopBroadcast,
       startScanning,
       stopScanning,
+      sendMessage,
+      holdPeer,
+      releasePeer,
     };
   });
 
@@ -45,11 +53,17 @@ describe('the Bluetooth proximity transport', () => {
     const onRequest = jest.fn();
     const stop = startProximityScanner({onRequest, onError: jest.fn()});
 
-    mockListeners.RosaPayProximityRequestRead!({
+    mockListeners.RosaPayProximityMessage!({
+      peerId: 'merchant-1',
+      kind: 1,
       payload: 'rosapay://pay/abc',
       touching: true,
     } as never);
-    expect(onRequest).toHaveBeenCalledWith({payload: 'rosapay://pay/abc', touching: true});
+    expect(onRequest).toHaveBeenCalledWith({
+      payload: 'rosapay://pay/abc',
+      touching: true,
+      peerId: 'merchant-1',
+    });
 
     stop();
     expect(stopScanning).toHaveBeenCalled();
@@ -61,17 +75,72 @@ describe('the Bluetooth proximity transport', () => {
     const onRequest = jest.fn();
     startProximityScanner({onRequest, onError: jest.fn()});
 
-    mockListeners.RosaPayProximityRequestRead!({payload: 'rosapay://pay/abc'} as never);
-    expect(onRequest).toHaveBeenCalledWith({payload: 'rosapay://pay/abc', touching: false});
+    mockListeners.RosaPayProximityMessage!({
+      peerId: 'merchant-1',
+      kind: 1,
+      payload: 'rosapay://pay/abc',
+    } as never);
+    expect(onRequest).toHaveBeenCalledWith({
+      payload: 'rosapay://pay/abc',
+      touching: false,
+      peerId: 'merchant-1',
+    });
   });
 
   it('drops an event carrying no request at all', () => {
     const onRequest = jest.fn();
     startProximityScanner({onRequest, onError: jest.fn()});
 
-    mockListeners.RosaPayProximityRequestRead!({touching: true} as never);
-    mockListeners.RosaPayProximityRequestRead!(undefined as never);
+    mockListeners.RosaPayProximityMessage!({peerId: 'merchant-1', kind: 1, touching: true} as never);
+    mockListeners.RosaPayProximityMessage!({kind: 1, payload: 'rosapay://pay/abc'} as never);
+    mockListeners.RosaPayProximityMessage!(undefined as never);
     expect(onRequest).not.toHaveBeenCalled();
+  });
+
+  it('opens a screen only for the request, never for the rest of the conversation', () => {
+    // The messages that follow belong to a payment already in front of someone.
+    // Treated as arrivals they would take the screen back mid-approval.
+    const onRequest = jest.fn();
+    startProximityScanner({onRequest, onError: jest.fn()});
+
+    mockListeners.RosaPayProximityMessage!({
+      peerId: 'merchant-1',
+      kind: 3,
+      payload: '{"v":"RTP/1"}',
+    } as never);
+    expect(onRequest).not.toHaveBeenCalled();
+  });
+
+  it('carries the offline conversation to the peer it belongs to', async () => {
+    await sendProximityMessage('merchant-1', 'payer', '{"v":"RTP/1"}');
+    expect(sendMessage).toHaveBeenCalledWith('merchant-1', 2, '{"v":"RTP/1"}');
+  });
+
+  it('names each message by kind, and drops a dialect it does not know', () => {
+    const onMessage = jest.fn();
+    const stop = subscribeToProximityMessages(onMessage);
+
+    mockListeners.RosaPayProximityMessage!({
+      peerId: 'customer-1',
+      kind: 4,
+      payload: '{"v":"RTP/1"}',
+    } as never);
+    expect(onMessage).toHaveBeenCalledWith({
+      peerId: 'customer-1',
+      kind: 'authorization',
+      payload: '{"v":"RTP/1"}',
+      touching: false,
+    });
+
+    onMessage.mockClear();
+    mockListeners.RosaPayProximityMessage!({
+      peerId: 'customer-1',
+      kind: 99,
+      payload: '{}',
+    } as never);
+    expect(onMessage).not.toHaveBeenCalled();
+
+    stop();
   });
 
   it('reports a scanner that could not start, rather than looking armed', () => {
@@ -88,7 +157,7 @@ describe('the Bluetooth proximity transport', () => {
     stop();
 
     // The subscription is gone, so a late native event reaches nobody.
-    expect(mockListeners.RosaPayProximityRequestRead).toBeUndefined();
+    expect(mockListeners.RosaPayProximityMessage).toBeUndefined();
     expect(onRequest).not.toHaveBeenCalled();
   });
 

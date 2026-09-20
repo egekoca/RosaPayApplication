@@ -1,6 +1,7 @@
 import {SecureSignerError} from '@rosapay/secure-signer';
 import {SettlementPipelineError, SettlementServiceError} from '@rosapay/stellar';
 import {TestnetSettlementError} from './testnetSettlement';
+import {OfflineCustomerError} from './offlineCustomer';
 
 /**
  * Turns settlement failures into something a payer can act on. Every branch says
@@ -59,6 +60,25 @@ export function describeSettlementError(error: unknown, assetCode = 'XLM'): stri
     }
   }
 
+  if (error instanceof OfflineCustomerError) {
+    switch (error.code) {
+      case 'NO_WALLET':
+        return error.message;
+      case 'NOT_OFFERED':
+        return 'That counter cannot take a payment from a phone with no connection.';
+      case 'WRONG_REQUEST':
+        return 'The merchant answered about a different payment, so nothing was signed.';
+      case 'FAILED':
+        // The merchant is the half that reached the chain, so the sentence it
+        // sent back is the only account of what the chain actually said. It is
+        // run through this same function so a contract refusal arrives as the
+        // sentence it would have been had this phone submitted it itself.
+        return describeSettlementError(new Error(error.message), assetCode);
+      default:
+        return 'This payment could not be completed at the counter. No funds were moved.';
+    }
+  }
+
   if (error instanceof SecureSignerError) {
     return error.code === 'USER_CANCELLED'
       ? 'You cancelled the authorization, so nothing was paid.'
@@ -67,7 +87,15 @@ export function describeSettlementError(error: unknown, assetCode = 'XLM'): stri
 
   // Network-level failures the Stellar dApp checklist calls out explicitly.
   const message = error instanceof Error ? error.message.toLowerCase() : '';
-  if (message.includes('insufficient') || message.includes('underfunded')) {
+  // A Stellar Asset Contract says "balance is not sufficient to spend", which
+  // has no word "insufficient" in it — the exact refusal a customer paying a
+  // second time from an already-spent wallet gets, and the one that used to
+  // reach them as "the payment could not be completed".
+  if (
+    message.includes('insufficient') ||
+    message.includes('not sufficient') ||
+    message.includes('underfunded')
+  ) {
     // Named from the intent. This used to say XLM whatever was being paid,
     // which sent a customer short of USDC off to top up the wrong asset.
     return `This wallet does not have enough ${assetCode} for the payment. Top it up and try again.`;

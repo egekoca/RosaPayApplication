@@ -3,7 +3,8 @@ import {verifyMerchantSignature} from '@rosapay/stellar/merchant-signature';
 
 export type ScanContext = {
   network: 'testnet' | 'pubnet';
-  latestLedger: number;
+  /** Omitted only where there is no network to read one from. */
+  latestLedger?: number;
   maxLedgerLifetime: number;
 };
 
@@ -28,7 +29,7 @@ export function readPaymentQr(value: string, context: ScanContext): ScanResult {
   try {
     validatePaymentIntent(payload.intent, {
       network: context.network,
-      latestLedger: context.latestLedger,
+      ...(context.latestLedger === undefined ? {} : {latestLedger: context.latestLedger}),
       maxLedgerLifetime: context.maxLedgerLifetime,
     });
   } catch (error) {

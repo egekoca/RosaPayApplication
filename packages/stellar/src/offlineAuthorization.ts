@@ -1,4 +1,4 @@
-import {Address, hash, scValToNative, xdr} from '@stellar/stellar-sdk';
+import {Address, authorizeEntry, hash, scValToNative, xdr} from '@stellar/stellar-sdk';
 import {Buffer} from 'buffer';
 import {buildSettlementEnvelope, type SettlementEnvelopeContext} from './settlementEnvelope';
 import {signWalletAuthPayload, type HardwareDigestSigner} from './walletAuth';
@@ -146,12 +146,35 @@ function same(expected: unknown, actual: unknown): boolean {
   return expected === actual;
 }
 
+/**
+ * A classic Stellar account signing for itself.
+ *
+ * Exactly the shape a wallet extension exposes, and for the same reason: an
+ * account with its own Ed25519 key signs the hash of the authorization preimage
+ * and nothing else. Every part of that is local, which is what makes an account
+ * held as twelve words as able to pay offline as the contract wallet this app
+ * creates — the key is on the phone either way.
+ */
+export type OfflineAccountSigner = {
+  signAuthEntry(
+    preimageXdr: string,
+    options?: {address?: string; networkPassphrase?: string},
+  ): Promise<{signedAuthEntry: string}>;
+};
+
 export type OfflineAuthorizationInput = {
   request: UnsignedAuthRequest;
   /** The merchant-signed RTP/1 intent the customer is looking at. */
   intent: unknown;
   customerAddress: string;
-  signer: HardwareDigestSigner;
+  /**
+   * How this phone proves the payment, and there are two because there are two
+   * kinds of account. A contract wallet authorizes the whole entry with its
+   * device key; a classic account signs the preimage the way any Stellar key
+   * does. Exactly one is required, and neither reaches the network.
+   */
+  signer?: HardwareDigestSigner;
+  accountSigner?: OfflineAccountSigner;
   reason?: string;
   /** When known, refuses a request the ledger has already passed. */
   latestLedger?: number;
@@ -173,6 +196,42 @@ export async function authorizeOffline(input: OfflineAuthorizationInput): Promis
   });
 
   const entry = parseEntry(input.request);
+
+  /*
+   * A classic account signs the preimage, so the SDK's own helper does it:
+   * it sets the expiry, builds the preimage, asks for a signature over its
+   * hash, checks that signature against the address the entry names, and wraps
+   * it the way the host expects. All of that is arithmetic on bytes already in
+   * hand — nothing is fetched, which is the only property that matters here.
+   */
+  if (input.accountSigner) {
+    const signed = await authorizeEntry(
+      entry,
+      async (preimage: xdr.HashIdPreimage) => {
+        const {signedAuthEntry} = await input.accountSigner!.signAuthEntry(preimage.toXDR('base64'), {
+          address: input.customerAddress,
+          networkPassphrase: input.request.networkPassphrase,
+        });
+        return Buffer.from(signedAuthEntry, 'base64');
+      },
+      input.request.signatureExpirationLedger,
+      input.request.networkPassphrase,
+    );
+    return {
+      version: 'RTP/1',
+      authorizer: input.customerAddress,
+      signatureExpirationLedger: input.request.signatureExpirationLedger,
+      entryXdr: signed.toXDR('base64'),
+    };
+  }
+
+  if (!input.signer) {
+    throw new OfflineAuthorizationError(
+      'MALFORMED_REQUEST',
+      'This payment has no key on this phone to sign it with',
+    );
+  }
+
   const credentials = entry.credentials().address();
   const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
     new xdr.HashIdPreimageSorobanAuthorization({

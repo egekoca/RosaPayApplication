@@ -444,6 +444,38 @@ const TR: Record<string, string> = {
   per: 'başına',
   'Reading the Testnet ledger': 'Testnet defteri okunuyor',
   'Testnet unavailable, so an expiry cannot be set': 'Testnet kullanılamıyor; süre sonu ayarlanamaz',
+  // Paying with no network: the customer's side, then the merchant's.
+  'No connection. Hold this phone against the merchant’s to pay without one.':
+    'Bağlantı yok. Bağlantısız ödemek için telefonu satıcınınkine yaklaştırın.',
+  'This phone needs no connection. The merchant submits it and tells you what the ledger said.':
+    'Bu telefonun bağlantıya ihtiyacı yok. Ödemeyi satıcı gönderir ve defterin ne dediğini size söyler.',
+  'Reaching the merchant': 'Satıcıya ulaşılıyor',
+  'Hold this phone near the merchant until it answers.':
+    'Satıcı yanıt verene kadar telefonu ona yakın tutun.',
+  'Telling the merchant who is paying': 'Satıcıya kimin ödediği bildiriliyor',
+  'The payment names who pays, so the merchant needs this phone first.':
+    'Ödeme kimin ödediğini yazar; bu yüzden satıcının önce bu telefona ihtiyacı var.',
+  'Waiting for the exact payment': 'Tam ödeme bekleniyor',
+  'The merchant is preparing the exact call this device will sign.':
+    'Satıcı, bu cihazın imzalayacağı tam çağrıyı hazırlıyor.',
+  'Checked against the request on screen. Nothing here needs a network.':
+    'Ekrandaki isteğe karşı doğrulandı. Buradaki hiçbir şey ağa ihtiyaç duymuyor.',
+  'The merchant is sending it to Stellar': 'Satıcı bunu Stellar’a gönderiyor',
+  'Your signature has crossed over. The merchant pays the fee and submits it.':
+    'İmzanız karşıya geçti. Ücreti satıcı ödüyor ve işlemi gönderiyor.',
+  'The merchant saw it reach a Stellar ledger.':
+    'Satıcı, ödemenin bir Stellar defterine ulaştığını gördü.',
+  'A customer is paying without a network. Preparing what their phone must sign.':
+    'Bir müşteri ağsız ödüyor. Telefonunun imzalaması gereken şey hazırlanıyor.',
+  'Waiting for the customer to approve on their phone.':
+    'Müşterinin kendi telefonunda onaylaması bekleniyor.',
+  'Approved. Submitting it to Stellar and paying the fee.':
+    'Onaylandı. Stellar’a gönderiliyor ve ücret ödeniyor.',
+  'Paid without the customer ever connecting.':
+    'Müşteri hiç bağlanmadan ödeme tamamlandı.',
+  'This wallet last held': 'Bu cüzdanda en son şu kadar vardı:',
+  'The merchant will refuse this if it is still short.':
+    'Hâlâ yetersizse satıcı bu ödemeyi reddedecek.',
   'Expires about 5 minutes after ledger': 'Defterden yaklaşık 5 dakika sonra sona erer',
   'Preparing payment request': 'Ödeme isteği hazırlanıyor',
   'Register this business before creating a payment request': 'Ödeme isteği oluşturmadan önce işletmeyi kaydedin',

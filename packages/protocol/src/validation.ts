@@ -7,7 +7,17 @@ import {
 
 export type IntentValidationContext = {
   network: PaymentIntentV1['network'];
-  latestLedger: number;
+  /**
+   * Where the chain is now, when the caller can know it.
+   *
+   * A phone in airplane mode cannot read a ledger, and refusing to look at a
+   * request for want of one would make an offline payment impossible at the
+   * only moment it matters. Left out, the expiry checks below are skipped and
+   * nothing else is: the network and the schema are still enforced, the
+   * merchant that submits checks the expiry against a live ledger, and the
+   * contract checks it again before it moves anything.
+   */
+  latestLedger?: number;
   maxLedgerLifetime?: number;
 };
 
@@ -30,6 +40,8 @@ export function validatePaymentIntent(
   if (intent.network !== context.network) {
     throw new IntentPolicyError('WRONG_NETWORK', `Intent targets ${intent.network}`);
   }
+  if (context.latestLedger === undefined) return intent;
+
   if (intent.expiresAtLedger <= context.latestLedger) {
     throw new IntentPolicyError('EXPIRED', 'Payment request has expired');
   }

@@ -29,6 +29,7 @@ import {keypairFromSecret} from '../wallet/stellarKey';
 import {registerMerchantForTestnet} from './merchantRegistration';
 import {publishPaymentRequest, useRelayerIdentity, usePaymentRequestStatus} from './merchantRequestStatus';
 import {useMerchantCountersigning} from './merchantCountersigning';
+import {useOfflineCounter, type OfflineCounterState} from './useOfflineCounter';
 import {useTranslate} from '../../shared/i18n';
 import {clock, useLedgerCountdown} from '../../shared/ledgerCountdown';
 
@@ -148,6 +149,22 @@ export function MerchantRequestScreen({navigation, route}: Props) {
     relayerAddress: relayer.data?.address,
     settlementContractId: relayer.data?.settlementContractId,
     enabled: settlement.data?.status === 'awaiting_approval',
+  });
+  /**
+   * The other way a customer can pay this request: with no network at all.
+   *
+   * This phone is the online half of that pair, so everything needing a chain
+   * happens here — the simulation, the merchant's own contract signature, the
+   * submission — and the customer is asked for one signature over the exact
+   * invocation that came out of it. It runs beside the online path rather than
+   * instead of it: a customer with signal still pays the way they always did.
+   */
+  const offlineCounter = useOfflineCounter({
+    request: pendingRequest,
+    profile: merchantProfile,
+    relayer: relayer.data,
+    latestLedger: stellarHealth.data?.latestLedger,
+    enabled: published && (settlement.data === undefined || isOfferable(settlement.data.status)),
   });
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
@@ -369,6 +386,7 @@ export function MerchantRequestScreen({navigation, route}: Props) {
             onRetryPublish={() => setPublishAttempt(value => value + 1)}
             onPreview={() => navigation.navigate('Confirm', {payload: pendingRequest})}
             settlementStatus={published ? settlement.data?.status : undefined}
+            offlineCounter={offlineCounter}
             status={published ? <RequestStatus intentId={pendingRequest.intent.intentId} /> : undefined}
           />
         </AnimatedContent>
@@ -599,6 +617,7 @@ function RequestCard({
   onPreview,
   status,
   settlementStatus,
+  offlineCounter,
 }: {
   request: SignedPaymentIntentV1;
   latestLedger: number | undefined;
@@ -610,6 +629,7 @@ function RequestCard({
   onPreview: () => void;
   status?: ReactNode;
   settlementStatus?: string;
+  offlineCounter: OfflineCounterState;
 }) {
   const t = useTranslate();
   const remaining = latestLedger === undefined ? undefined : request.intent.expiresAtLedger - latestLedger;
@@ -638,8 +658,21 @@ function RequestCard({
     expiresAtLedger: request.intent.expiresAtLedger,
   });
   const encoded = encodePaymentQr(request);
+  /**
+   * An offline payment lives on the advertisement that started it.
+   *
+   * A customer with no network has no other way back to this phone, and the
+   * moment a settlement is recorded the request stops being offerable — which
+   * would take the link down while the customer is still waiting to be told
+   * what the chain said. So a conversation in progress keeps the radio up,
+   * and only a finished one lets it go.
+   */
+  const settlingOffline =
+    offlineCounter.status === 'preparing' ||
+    offlineCounter.status === 'awaiting-approval' ||
+    offlineCounter.status === 'submitting';
   // Do not offer a request until the API knows it, or after its one payment.
-  const offered = requestLive ? encoded : null;
+  const offered = requestLive || settlingOffline ? encoded : null;
   // Bluetooth is what lets an iPhone customer — or an iPhone running this very
   // screen — be part of this at all, since iOS grants no card emulation, and it
   // is now the only radio here.
@@ -715,6 +748,7 @@ function RequestCard({
         {requestLive ? (
           <ProximityOffer proximity={proximity} />
         ) : null}
+        <OfflineCounterLine state={offlineCounter} />
         <View style={styles.expiry}>
           <View style={[styles.dot, expired && styles.dotError, settlementStatus === 'confirmed' && styles.dotDone]} />
           <Text style={styles.expiryText}>
@@ -733,6 +767,39 @@ function RequestCard({
       {status}
       {requestLive ? <Button onPress={onPreview}>{t('Preview customer view')}</Button> : null}
     </>
+  );
+}
+
+/**
+ * What a customer with no network is doing, in one line.
+ *
+ * Their phone can say almost nothing while this is happening — it has no chain
+ * to read — so this screen is where both people find out whether the payment is
+ * working. Silent until there is a customer, because a counter with nobody at
+ * it should not be explaining a transport.
+ */
+function OfflineCounterLine({state}: {state: OfflineCounterState}) {
+  const t = useTranslate();
+  if (state.status === 'idle') return null;
+
+  const tone =
+    state.status === 'confirmed' ? colors.success : state.status === 'failed' ? colors.danger : colors.amber;
+  const message =
+    state.status === 'preparing'
+      ? t('A customer is paying without a network. Preparing what their phone must sign.')
+      : state.status === 'awaiting-approval'
+        ? t('Waiting for the customer to approve on their phone.')
+        : state.status === 'submitting'
+          ? t('Approved. Submitting it to Stellar and paying the fee.')
+          : state.status === 'confirmed'
+            ? t('Paid without the customer ever connecting.')
+            : state.message;
+
+  return (
+    <View style={styles.radioRow} testID="offline-counter">
+      <Bluetooth color={tone} size={15} />
+      <Text style={[styles.radioText, {color: tone}]}>{message}</Text>
+    </View>
   );
 }
 

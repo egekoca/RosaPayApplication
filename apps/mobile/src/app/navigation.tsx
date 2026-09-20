@@ -49,6 +49,12 @@ export type RootStackParams = {
   Confirm: {
     payload: SignedPaymentIntentV1;
     transport?: PaymentTransport;
+    /**
+     * The merchant's phone, still connected, when this request arrived over
+     * Bluetooth. It is what makes a payment possible with no network at all:
+     * the merchant is the online half, and this is the way back to it.
+     */
+    peerId?: string;
   };
   Receipt: {receipt: LocalReceipt};
   DeveloperSettings: undefined;
