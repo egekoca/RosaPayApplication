@@ -13,13 +13,61 @@ final class RosaPaySigner: NSObject {
 
   @objc static func requiresMainQueueSetup() -> Bool { false }
 
-  private func loadPrivateKey() -> SecKey? {
-    let query: [String: Any] = [
+  /**
+   How long one answered prompt covers further signatures.
+
+   A single payment signs more than once — the API session, then each
+   authorization entry the transaction carries — and every signature used to
+   raise its own Face ID sheet, so paying for a coffee asked three times. The
+   key is minted `.userPresence`, so the hardware will not sign unauthenticated
+   and that is not negotiable; what *is* negotiable is how long one answer
+   lasts.
+
+   Thirty seconds is the whole of one payment and nothing else. The next
+   payment asks again, because the question the prompt puts — *is the owner of
+   this phone here, right now, agreeing to this* — has to be asked per payment
+   to mean anything.
+   */
+  private static let authenticationReuseWindow: TimeInterval = 30
+
+  private var signingContext: LAContext?
+  private var signingContextAuthenticatedAt: Date?
+
+  /**
+   The context one payment's signatures share.
+
+   `evaluatePolicy` and `SecKeyCreateSignature` each authenticate, and until now
+   the context was handed to neither the key nor the next signature: one was
+   allocated per call, used for the explicit prompt, and dropped, so the
+   implicit prompt inside the signature ran on top of it. Passing it to the key
+   below through `kSecUseAuthenticationContext` is what makes the signature
+   consume the authentication that was already granted.
+   */
+  private func authenticationContext() -> LAContext {
+    if let existing = signingContext,
+       let authenticatedAt = signingContextAuthenticatedAt,
+       Date().timeIntervalSince(authenticatedAt) < Self.authenticationReuseWindow {
+      return existing
+    }
+    let context = LAContext()
+    context.touchIDAuthenticationAllowableReuseDuration = Self.authenticationReuseWindow
+    signingContext = context
+    signingContextAuthenticatedAt = nil
+    return context
+  }
+
+  private func loadPrivateKey(context: LAContext? = nil) -> SecKey? {
+    var query: [String: Any] = [
       kSecClass as String: kSecClassKey,
       kSecAttrApplicationTag as String: keyTag,
       kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
       kSecReturnRef as String: true,
     ]
+    // Without this the keychain raises a prompt of its own inside
+    // `SecKeyCreateSignature`, on top of the one already answered.
+    if let context {
+      query[kSecUseAuthenticationContext as String] = context
+    }
     var item: CFTypeRef?
     guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess else { return nil }
     // swiftlint:disable:next force_cast
@@ -133,13 +181,15 @@ final class RosaPaySigner: NSObject {
       reject("INVALID_REQUEST", "A 32-byte digest is required", nil)
       return
     }
-    guard let privateKey = loadPrivateKey() else {
+    let context = authenticationContext()
+    context.localizedReason = (request["reason"] as? String) ?? "Approve this payment"
+    // Loaded with the context so the signature below consumes the
+    // authentication this prompt grants rather than asking for its own.
+    guard let privateKey = loadPrivateKey(context: context) else {
       reject("UNAVAILABLE", "No payment key exists on this device", nil)
       return
     }
 
-    let context = LAContext()
-    context.localizedReason = (request["reason"] as? String) ?? "Approve this payment"
     context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: context.localizedReason) { success, error in
       guard success else {
         let code = (error as? LAError)?.code
@@ -151,6 +201,12 @@ final class RosaPaySigner: NSObject {
         }
         reject(mapped, error?.localizedDescription ?? "The payment was not authorized", error)
         return
+      }
+
+      // Only a real answer starts the window; a reused one leaves it where the
+      // answer put it, so the window measures the prompt and not the signing.
+      if self.signingContextAuthenticatedAt == nil {
+        self.signingContextAuthenticatedAt = Date()
       }
 
       var signError: Unmanaged<CFError>?

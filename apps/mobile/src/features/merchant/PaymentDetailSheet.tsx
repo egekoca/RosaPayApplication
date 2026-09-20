@@ -4,6 +4,7 @@ import {colors, radius, spacing, StatusPill, typography} from '@rosapay/ui';
 import {displayAmount, exactAmount} from '../../shared/displayAmount';
 import {useTranslate} from '../../shared/i18n';
 import {paymentOutcome} from './paymentOutcome';
+import {AssetMark} from '../home/AssetMark';
 
 /**
  * One request, in the detail a merchant asks for when they tap a row.
@@ -55,9 +56,12 @@ export function PaymentDetailSheet({
               <StatusPill tone={tone}>{t(outcomeLabel(payment.status))}</StatusPill>
             </View>
 
-            <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={styles.amount}>
-              {exactAmount(payment.amount)} <Text style={styles.asset}>{payment.assetCode}</Text>
-            </Text>
+            <View style={styles.amountLine}>
+              <AssetMark code={payment.assetCode} size={30} />
+              <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={styles.amount}>
+                {exactAmount(payment.amount)} <Text style={styles.asset}>{payment.assetCode}</Text>
+              </Text>
+            </View>
 
             <Text style={styles.explainer}>{t(outcomeExplainer(payment.status))}</Text>
 
@@ -173,7 +177,8 @@ const styles = StyleSheet.create({
   },
   header: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, justifyContent: 'space-between'},
   reference: {...typography.label, color: colors.ink, flex: 1, fontSize: 15},
-  amount: {...typography.title, color: colors.ink, fontSize: 34, marginTop: spacing.md},
+  amountLine: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md},
+  amount: {...typography.title, color: colors.ink, flexShrink: 1, fontSize: 34},
   asset: {...typography.mono, color: colors.goldBright, fontSize: 15},
   explainer: {color: colors.inkMuted, fontSize: 13, lineHeight: 19, marginTop: spacing.sm},
   facts: {gap: spacing.md, marginTop: spacing.lg},

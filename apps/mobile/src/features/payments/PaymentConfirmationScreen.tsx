@@ -15,6 +15,7 @@ import {logger} from '../../shared/logger';
 import type {SettlementPipelineProgress} from '@rosapay/stellar';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {settlePaymentIntent} from './settlementAdapter';
+import {AssetMark} from '../home/AssetMark';
 import {describeSettlementError, settlementErrorDetail} from './settlementErrors';
 import {resolveFundingChoice, type FundingOption} from './fundingChoice';
 import {useCurrentAccount} from '../wallet/currentAccount';
@@ -150,7 +151,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
     <Screen>
       <AnimatedContent><View style={styles.header}><View><Text style={styles.eyebrow}>{t('SECURE CHECKOUT')}</Text><SplitText delay={90} splitBy="word" style={styles.title} text={t('Review payment')} /></View><View style={styles.pills}><StatusPill tone="success">{t('TESTNET')}</StatusPill><StatusPill tone={verified ? 'success' : 'danger'}>{verified ? t('VERIFIED') : t('UNVERIFIED')}</StatusPill></View></View></AnimatedContent>
       <AnimatedContent delay={90} scaleFrom={0.98}><SurfaceCard accent="amber" style={styles.merchantCard}><View style={styles.merchant}><View style={styles.initial}><Text style={styles.initialText}>{initialsOf(intent.merchantName)}</Text></View><View style={styles.merchantCopy}><Text style={styles.merchantName}>{intent.merchantName}</Text><View style={styles.verified}>{verified ? <BadgeCheck color={colors.success} size={16} /> : <ShieldAlert color={colors.danger} size={16} />}<Text style={[styles.verifiedText, !verified && styles.unverifiedText]}>{verified ? t('Signature matches this merchant key') : t('Signature does not match this merchant key')}</Text></View></View></View></SurfaceCard></AnimatedContent>
-      <AnimatedContent delay={150}><SurfaceCard style={styles.amountBlock}><Text style={styles.label}>{t('YOU ARE PAYING')}</Text><Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.amount}>{exactAmount(intent.amount)} <Text style={styles.asset}>{intent.asset.code}</Text></Text><Text style={styles.reference}>{intent.reference}</Text></SurfaceCard></AnimatedContent>
+      <AnimatedContent delay={150}><SurfaceCard style={styles.amountBlock}><Text style={styles.label}>{t('YOU ARE PAYING')}</Text><View style={styles.amountLine}><AssetMark code={intent.asset.code} size={32} /><Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.amount}>{exactAmount(intent.amount)} <Text style={styles.asset}>{intent.asset.code}</Text></Text></View><Text style={styles.reference}>{intent.reference}</Text></SurfaceCard></AnimatedContent>
       <AnimatedContent delay={180}>
         <FundingPanel
           intentAsset={intent.asset.code}
@@ -412,6 +413,7 @@ const styles = StyleSheet.create({
   merchantName: {...typography.title, color: colors.ink, fontSize: 17},
   verified: {alignItems: 'center', flexDirection: 'row', gap: spacing.xs},
   verifiedText: {...typography.label, color: colors.success, fontSize: 12},
+  amountLine: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
   amountBlock: {alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.xl},
   label: {...typography.label, color: colors.amber, fontSize: 10, letterSpacing: 1.1},
   amount: {color: colors.ink, fontSize: 40, fontWeight: '700', lineHeight: 48, marginTop: spacing.sm, textAlign: 'center', width: '100%'},

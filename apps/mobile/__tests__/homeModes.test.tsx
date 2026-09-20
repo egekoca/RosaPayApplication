@@ -85,8 +85,12 @@ it.each(['customer', 'merchant'] as const)('renders the shared balance card in %
 
   const rendered = JSON.stringify(renderer!.toJSON());
   expect(renderer!.root.findAllByType(PaymentCard)).toHaveLength(1);
-  expect(rendered).toContain(mode === 'customer' ? 'Scan to pay' : 'Create payment request');
-  if (mode === 'customer') expect(rendered).toContain('Get paid with this account');
+  // Creating is what the merchant button is for, every time: it used to become
+  // "Open active request" once one existed, leaving no way to start another.
+  expect(rendered).toContain(mode === 'customer' ? 'Scan to pay' : 'New payment');
+  // With a profile there is a switcher at the top of the screen, so the row
+  // that leads to onboarding would be saying the same thing a second time.
+  expect(rendered).not.toContain('Get paid with this account');
 });
 
 it('keeps USDC in Assets when the selected fiat rate is unavailable', async () => {
@@ -254,4 +258,19 @@ describe('the merchant looking back at what was asked for', () => {
 
     expect(JSON.stringify(home.toJSON())).toContain('Make a new request');
   });
+});
+
+it('offers a way to start getting paid only while there is no counter yet', async () => {
+  await ReactTestRenderer.act(() => {
+    useAppStore.setState({account: {name: 'Ege', createdAt: '2026-01-01T00:00:00.000Z'}, mode: 'customer'});
+  });
+  await ReactTestRenderer.act(() => {
+    renderer = ReactTestRenderer.create(
+      <HomeScreen navigation={{navigate: jest.fn()} as never} route={{} as never} />,
+    );
+  });
+
+  // An account that has never sold anything has no switcher, so this row is
+  // the only way in and reads the same size as the way to pay.
+  expect(JSON.stringify(renderer!.toJSON())).toContain('Get paid with this account');
 });

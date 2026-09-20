@@ -1,6 +1,6 @@
 import {useEffect, useState, type ReactNode} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Bluetooth, Nfc, RefreshCw, Store} from 'lucide-react-native';
+import {Bluetooth, Nfc, Plus, RefreshCw, Store} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, LoadingDots, radius, spacing, StatusPill, Stepper, SurfaceCard, TextField, typography} from '@rosapay/ui';
@@ -21,7 +21,11 @@ import {businessEmailSchema, createSignedPaymentRequest, MerchantProfileError} f
 import {isOfferable} from './paymentOutcome';
 import {priceRequest, referenceForRequest} from './pricedRequest';
 import {defaultPayableAsset, payableAssets, type PayableAsset} from '../payments/assets';
+import {AssetMark} from '../home/AssetMark';
 import {useRecipientCanReceive} from './useRecipientCanReceive';
+import {ensureTrustline} from '../wallet/accountSetup';
+import {loadSigningKey} from '../wallet/keyVault';
+import {keypairFromSecret} from '../wallet/stellarKey';
 import {registerMerchantForTestnet} from './merchantRegistration';
 import {publishPaymentRequest, useRelayerIdentity, usePaymentRequestStatus} from './merchantRequestStatus';
 import {useMerchantCountersigning} from './merchantCountersigning';
@@ -131,6 +135,29 @@ export function MerchantRequestScreen({navigation, route}: Props) {
   // a merchant cannot be paid is the last thing they would ever scroll to.
   const [registerError, setRegisterError] = useState<string | undefined>(route.params?.registrationError);
   const [registering, setRegistering] = useState(false);
+  const [openingTrustline, setOpeningTrustline] = useState(false);
+  // Only an account this phone can sign for can be given a line from here.
+  const recipientIsThisWallet = Boolean(
+    merchantProfile?.recipient && merchantProfile.recipient === useAppStore.getState().wallet?.address,
+  );
+
+  const openTrustline = async () => {
+    if (payable.asset.type === 'native' || !payable.asset.issuer) return;
+    setOpeningTrustline(true);
+    setError(undefined);
+    try {
+      const secret = await loadSigningKey(`Accept ${payable.code} into this wallet`);
+      await ensureTrustline(keypairFromSecret(secret), {
+        code: payable.asset.code,
+        issuer: payable.asset.issuer,
+      });
+      await canReceive.refetch();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : `This wallet could not accept ${payable.code}`);
+    } finally {
+      setOpeningTrustline(false);
+    }
+  };
 
   if (!merchantProfile || !businessEmailSchema.safeParse(merchantProfile.email).success) {
     return (
@@ -279,6 +306,21 @@ export function MerchantRequestScreen({navigation, route}: Props) {
         </AnimatedContent>
       ) : null}
 
+      {/*
+        Taking the next payment is the thing a merchant came here to do, and
+        it sat under the whole of the last one — a card that keeps its full
+        detail after it has been paid, so every customer began by scrolling
+        past the previous customer to find a ghost button labelled "New
+        request". It leads the screen now, above the card rather than below it.
+      */}
+      {pendingRequest ? (
+        <AnimatedContent delay={100}>
+          <Button icon={<Plus color={colors.black} size={20} />} onPress={() => setPendingRequest(null)} testID="new-request">
+            {t('New payment')}
+          </Button>
+        </AnimatedContent>
+      ) : null}
+
       {pendingRequest ? (
         <AnimatedContent delay={110} scaleFrom={0.985}>
           <RequestCard
@@ -289,7 +331,6 @@ export function MerchantRequestScreen({navigation, route}: Props) {
             publishing={publishing}
             publishError={requestPublication?.status === 'failed' ? requestPublication.error : undefined}
             onRetryPublish={() => setPublishAttempt(value => value + 1)}
-            onReset={() => setPendingRequest(null)}
             onPreview={() => navigation.navigate('Confirm', {payload: pendingRequest})}
             settlementStatus={published ? settlement.data?.status : undefined}
             status={published ? <RequestStatus intentId={pendingRequest.intent.intentId} /> : undefined}
@@ -320,6 +361,7 @@ export function MerchantRequestScreen({navigation, route}: Props) {
                       <CurrencyPill
                         key={option.code}
                         label={option.code}
+                        mark
                         selected={payable.code === option.code}
                         onPress={() => {
                           setPayable(option);
@@ -337,6 +379,24 @@ export function MerchantRequestScreen({navigation, route}: Props) {
                   ? `${merchantProfile.recipient.slice(0, 4)}…${merchantProfile.recipient.slice(-4)} ${t('has no')} ${payable.code} ${t('trustline, so a payment in it would not arrive. Add one, or receive into this phone instead.')}`
                   : payable.note}
               </Text>
+              {/*
+                A blocked button that explains itself is still a blocked button.
+                Asking to be paid in USDC did nothing and said why in a line of
+                grey text, when the thing standing in the way is one operation
+                on an account this phone holds the key to. Offered only for
+                that case — a recipient somewhere else is not ours to change.
+              */}
+              {canReceive.data === false && recipientIsThisWallet ? (
+                <Button
+                  loading={openingTrustline}
+                  tone="ghost"
+                  onPress={() => void openTrustline()}
+                  testID="open-trustline">
+                  {openingTrustline
+                    ? t('Opening')
+                    : `${t('Accept')} ${payable.code} ${t('into this wallet')}`}
+                </Button>
+              ) : null}
               <TextField
                 keyboardType="decimal-pad"
                 label={`AMOUNT (${currency?.currency ?? payable.code})`}
@@ -410,7 +470,26 @@ export function MerchantRequestScreen({navigation, route}: Props) {
  * a three-letter code. Assets get no flag: USDC and lumens belong to no
  * country, and inventing one for them would say something untrue.
  */
-function CurrencyPill({label, selected, onPress}: {label: string; selected: boolean; onPress(): void}) {
+/**
+ * A currency or an asset, offered the way its holder already recognises it.
+ *
+ * Currencies carry their flag. Assets carried nothing at all — a row reading
+ * "XLM  USDC" in plain text, on the screen where a merchant decides what they
+ * will be handed, which is the one place the difference is worth being sure
+ * about. `AssetMark` draws the real Stellar and Circle marks, so the same badge
+ * appears here as beside the balance it will arrive in.
+ */
+function CurrencyPill({
+  label,
+  selected,
+  onPress,
+  mark,
+}: {
+  label: string;
+  selected: boolean;
+  onPress(): void;
+  mark?: boolean;
+}) {
   const flag = FLAGS[label];
   return (
     <Pressable
@@ -419,6 +498,7 @@ function CurrencyPill({label, selected, onPress}: {label: string; selected: bool
       onPress={onPress}
       style={[styles.pill, selected && styles.pillSelected]}
       testID={`currency-${label}`}>
+      {mark ? <AssetMark code={label} size={20} /> : null}
       <Text style={[styles.pillText, selected && styles.pillTextSelected]}>
         {flag ? `${flag}  ${label}` : label}
       </Text>
@@ -478,7 +558,6 @@ function RequestCard({
   publishing,
   publishError,
   onRetryPublish,
-  onReset,
   onPreview,
   status,
   settlementStatus,
@@ -490,7 +569,6 @@ function RequestCard({
   publishing: boolean;
   publishError: string | undefined;
   onRetryPublish: () => void;
-  onReset: () => void;
   onPreview: () => void;
   status?: ReactNode;
   settlementStatus?: string;
@@ -586,7 +664,6 @@ function RequestCard({
       </SurfaceCard>
       {status}
       {requestLive ? <Button onPress={onPreview}>{t('Preview customer view')}</Button> : null}
-      <Button tone="ghost" onPress={onReset} testID="new-request">{t('New request')}</Button>
     </>
   );
 }
@@ -731,7 +808,7 @@ const styles = StyleSheet.create({
   currencyRow: {flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.xs},
   fieldLabel: {...typography.label, color: colors.inkMuted, marginBottom: spacing.xs},
   assetNote: {color: colors.inkMuted, fontSize: 12, lineHeight: 16, marginBottom: spacing.md},
-  pill: {borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.xs},
+  pill: {alignItems: 'center', borderColor: colors.line, borderRadius: radius.round, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.xs},
   pillSelected: {backgroundColor: colors.gold, borderColor: colors.gold},
   pillText: {color: colors.inkMuted, fontSize: 13, fontWeight: '600'},
   pillTextSelected: {color: colors.ink},

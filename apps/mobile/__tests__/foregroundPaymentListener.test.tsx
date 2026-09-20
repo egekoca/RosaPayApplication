@@ -378,4 +378,41 @@ describe('foreground payment receiving', () => {
     expect(REOFFER_DELAY_MS).toBeGreaterThan(0);
     ReactTestRenderer.act(() => renderer.unmount());
   });
+
+  it('still hears Bluetooth after a tap that found nothing', async () => {
+    /*
+     * The whole iPhone-to-iPhone story. iOS grants no card emulation, so an
+     * iPhone merchant publishes nothing to tap and the reader always fails —
+     * at exactly the moment the phones are being held together. Both errors
+     * used to raise the same flag `accept` reads, so that failure made the
+     * Bluetooth scanner deaf until its alert was dismissed: the customer was
+     * told tapping failed and never learned the request had been on the air.
+     */
+    const navigate = jest.fn();
+    const navigation = {navigate} as never;
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = ReactTestRenderer.create(
+        <ForegroundPaymentListener
+          active
+          proximityActive
+          latestLedger={1_500_000}
+          navigation={navigation}
+        />,
+      );
+    });
+
+    ReactTestRenderer.act(() => {
+      mockNfc.handlers!.onError('No tag found');
+    });
+
+    await ReactTestRenderer.act(async () => {
+      mockProximity.handlers!.onRequest({payload: encodePaymentQr(mockSignedIntent), touching: true});
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(navigate).toHaveBeenCalledWith('Confirm', expect.objectContaining({transport: 'ble'}));
+    ReactTestRenderer.act(() => renderer.unmount());
+  });
 });

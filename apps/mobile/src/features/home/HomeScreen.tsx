@@ -1,5 +1,5 @@
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Bluetooth, ChevronRight, Nfc, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
+import {Bluetooth, ChevronRight, Nfc, Plus, QrCode, ReceiptText, RefreshCw, ScanLine, ShieldCheck, Store} from 'lucide-react-native';
 import {useState} from 'react';
 import {Linking, Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, PressScale, radius, spacing, StatusPill, SurfaceCard, typography} from '@rosapay/ui';
@@ -101,7 +101,6 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
   const account = useCurrentAccount();
   const identity = useAppStore(state => state.account);
   const receipts = useAppStore(state => state.receipts);
-  const setMode = useAppStore(state => state.setMode);
   // Set only where a reader has to be opened by hand, which today means iOS.
   const startTap = useNfcTapControl(state => state.startTap);
   const proximity = useProximityStatus();
@@ -199,67 +198,82 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
       ) : null}
 
       {/*
-        On iOS a Core NFC reader cannot sit armed, so the customer has to open
-        it. That opener used to live behind the camera screen, which made
-        tapping feel like a fallback inside scanning rather than its own way to
-        pay. It stays available for an Android merchant publishing over NFC;
-        Bluetooth covers the rest without a press. On Android this is never
-        rendered, because the phone is already listening.
-      */}
-      {startTap ? (
-        <AnimatedContent delay={85}>
-          <PressScale>
-            <Pressable
-              accessibilityRole="button"
-              onPress={startTap}
-              style={styles.tapAction}
-              testID="home-tap-to-pay">
-              <View style={styles.tapIcon}>
-                <Nfc color={colors.black} size={24} />
-              </View>
-              <View style={styles.scanCopy}>
-                <Text style={styles.scanTitle}>{t('Tap to pay')}</Text>
-                <Text style={styles.scanHint}>{t("Hold this phone against the merchant's")}</Text>
-              </View>
-              <ChevronRight color={colors.inkMuted} size={19} />
-            </Pressable>
-          </PressScale>
-        </AnimatedContent>
-      ) : null}
+        The two ways to pay, side by side and the same size, because they are
+        the same decision: a customer who has walked up to a counter picks the
+        one the merchant's phone is offering. Stacked full-width rows made the
+        second look like a lesser version of the first.
 
+        On iOS a Core NFC reader cannot sit armed, so tapping needs a press to
+        open it; on Android the phone is already listening and no opener
+        exists, which leaves scanning alone and full width.
+      */}
       <AnimatedContent delay={90}>
+        <View style={[styles.actionRow, proximityBlocked || startTap ? styles.actionRowUnderTap : null]}>
+          <View style={styles.actionHalf}>
+            <PressScale>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('Scan')}
+                style={styles.actionTile}
+                testID="scan-to-pay">
+                <View style={styles.scanIcon}>
+                  <ScanLine color={colors.black} size={24} />
+                </View>
+                <Text style={styles.tileTitle}>{t('Scan to pay')}</Text>
+                <Text style={styles.tileHint}>{t('Scan a code or hold phones together')}</Text>
+              </Pressable>
+            </PressScale>
+          </View>
+          {startTap ? (
+            <View style={styles.actionHalf}>
+              <PressScale>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={startTap}
+                  style={styles.actionTile}
+                  testID="home-tap-to-pay">
+                  <View style={styles.tapIcon}>
+                    <Nfc color={colors.black} size={24} />
+                  </View>
+                  <Text style={styles.tileTitle}>{t('Tap to pay')}</Text>
+                  <Text style={styles.tileHint}>{t("Hold this phone against the merchant's")}</Text>
+                </Pressable>
+              </PressScale>
+            </View>
+          ) : null}
+        </View>
+      </AnimatedContent>
+
+      {/*
+        Only until there is a counter to open.
+        
+        Being paid is one of the two things this app is for, and for an account
+        that had never sold anything it was a line of small print with no
+        visible way to start — so it reads like the way to pay, because it is
+        the same size decision. Once a profile exists the switcher at the top
+        of the screen is already the way across, and this said the same thing a
+        second time, further down and less well.
+      */}
+      {merchantEnabled ? null : (
+      <AnimatedContent delay={110}>
         <PressScale>
           <Pressable
             accessibilityRole="button"
-            onPress={() => navigation.navigate('Scan')}
-            // The rows read as one group when a proximity action sits above.
-            style={[styles.scanAction, startTap || proximityBlocked ? styles.scanActionUnderTap : null]}
-            testID="scan-to-pay">
-            <View style={styles.scanIcon}>
-              <ScanLine color={colors.black} size={24} />
+            onPress={() => navigation.navigate('MerchantOnboarding')}
+            style={styles.merchantAction}
+            testID="activate-merchant">
+            <View style={styles.merchantIcon}>
+              <Store color={colors.black} size={24} />
             </View>
             <View style={styles.scanCopy}>
-              <Text style={styles.scanTitle}>{t('Scan to pay')}</Text>
-              <Text style={styles.scanHint}>{t('Scan a code or hold phones together')}</Text>
+              <Text style={styles.scanTitle}>{t('Get paid with this account')}</Text>
+              <Text style={styles.scanHint}>{t('Set up your counter and take your first payment')}</Text>
             </View>
             <ChevronRight color={colors.inkMuted} size={19} />
           </Pressable>
         </PressScale>
       </AnimatedContent>
-
-      <AnimatedContent delay={110}>
-        <PressScale>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => (merchantEnabled ? setMode('merchant') : navigation.navigate('MerchantOnboarding'))}
-            style={styles.merchantRow}
-            testID="activate-merchant">
-            <Store color={colors.amber} size={18} />
-            <Text style={styles.merchantText}>{t('Get paid with this account')}</Text>
-            <ChevronRight color={colors.inkMuted} size={17} />
-          </Pressable>
-        </PressScale>
-      </AnimatedContent>
+      )}
 
       {/*
         A recovery-phrase account can use the lira rail. Keep that funding
@@ -366,6 +380,7 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
   const merchantProfile = useAppStore(state => state.merchantProfile);
   const merchantRegisteredOnChain = useAppStore(state => state.merchantRegisteredOnChain);
   const pendingRequest = useAppStore(state => state.pendingRequest);
+  const setPendingRequest = useAppStore(state => state.setPendingRequest);
   const payments = useMerchantPayments(merchantProfile?.merchantProfileId);
 
   // On Testnet the API knows every request this merchant made, from any device;
@@ -392,10 +407,39 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
         </View>
       </AnimatedContent>
 
+      {/*
+        One button that quietly became a different button. Once a request
+        existed it read "Open active request" and there was no way left to
+        start another — the merchant's next customer had to go through the last
+        one. Creating is what this button is for, every time; the request
+        already on the counter is offered beside it, and only while there is
+        one.
+      */}
       <AnimatedContent delay={140}>
-        <Button icon={<QrCode color={colors.black} size={20} />} onPress={() => navigation.navigate('MerchantRequest')}>
-          {pendingRequest ? t('Open active request') : t('Create payment request')}
-        </Button>
+        <View style={styles.merchantActions}>
+          <View style={styles.merchantActionMain}>
+            <Button
+              icon={<Plus color={colors.black} size={20} />}
+              onPress={() => {
+                // Cleared so the screen opens on the form rather than on the
+                // card for the last one. Its history lives on the API.
+                setPendingRequest(null);
+                navigation.navigate('MerchantRequest');
+              }}
+              testID="create-new-payment">
+              {t('New payment')}
+            </Button>
+          </View>
+          {pendingRequest ? (
+            <Button
+              icon={<QrCode color={colors.ink} size={20} />}
+              tone="ghost"
+              onPress={() => navigation.navigate('MerchantRequest')}
+              testID="open-active-request">
+              {t('Active')}
+            </Button>
+          ) : null}
+        </View>
       </AnimatedContent>
 
       <AnimatedContent delay={190}>
@@ -553,17 +597,6 @@ const styles = StyleSheet.create({
   liraSymbol: {color: colors.goldBright, fontSize: 23, fontWeight: '700', lineHeight: 27},
   liraFlag: {bottom: -3, fontSize: 15, position: 'absolute', right: -4},
   liraTitle: {...typography.body, color: colors.ink, fontSize: 17, fontWeight: '600'},
-  scanAction: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: spacing.lg,
-    marginTop: spacing.xl,
-    padding: spacing.lg,
-  },
   scanIcon: {
     alignItems: 'center',
     backgroundColor: colors.gold,
@@ -591,7 +624,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 52,
   },
-  scanActionUnderTap: {marginTop: spacing.md},
+  /* The two ways to pay share a row and split it evenly. */
+  actionRow: {flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl},
+  // The Bluetooth row already carries the gap above it.
+  actionRowUnderTap: {marginTop: spacing.md},
+  actionHalf: {flex: 1},
+  merchantActions: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
+  merchantActionMain: {flex: 1},
+  actionTile: {
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    gap: spacing.sm,
+    // A tile is as tall as the taller of the two, so the pair reads as a pair
+    // however long either hint runs.
+    minHeight: 150,
+    padding: spacing.lg,
+  },
+  tileTitle: {...typography.title, color: colors.ink, fontSize: 17},
+  tileHint: {color: colors.inkMuted, fontSize: 12, lineHeight: 16},
+  merchantAction: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+    padding: spacing.lg,
+  },
+  merchantIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.amber,
+    borderRadius: radius.md,
+    height: 52,
+    justifyContent: 'center',
+    width: 52,
+  },
   scanCopy: {flex: 1, gap: 3},
   scanTitle: {...typography.title, color: colors.ink, fontSize: 18},
   scanHint: {color: colors.inkMuted, fontSize: 13, lineHeight: 18},
@@ -655,16 +726,6 @@ const styles = StyleSheet.create({
   emptyTitle: {...typography.label, color: colors.ink, fontSize: 15},
   emptyHint: {color: colors.inkMuted, fontSize: 13, lineHeight: 19},
 
-  merchantRow: {
-    alignItems: 'center',
-    borderTopColor: colors.lineSoft,
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xxl,
-    paddingTop: spacing.xl,
-  },
-  merchantText: {...typography.label, color: colors.ink, flex: 1, fontSize: 14},
 
   walletSetup: {
     borderBottomColor: colors.lineSoft,

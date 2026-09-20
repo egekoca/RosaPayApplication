@@ -152,11 +152,39 @@ export function ForegroundPaymentListener({
     [accept],
   );
 
-  const onError = useCallback((message: string) => {
-    if (handled.current) return;
-    handled.current = true;
-    showError(t('NFC reading failed'), t(message));
-  }, [showError, t]);
+  /**
+   * One radio failing must not make the other deaf.
+   *
+   * Both errors used to raise `handled` — the same flag `accept` reads — so a
+   * tap that found nothing silenced Bluetooth until its alert was dismissed.
+   * On two iPhones that is the whole story: iOS grants no card emulation, so
+   * an iPhone merchant publishes nothing to tap, the reader always fails, and
+   * it failed at exactly the moment the phones were being held together, with
+   * the alert covering the screen the request would have appeared on. The
+   * customer pressed "tap to pay", was told tapping failed, and never learned
+   * that the request had been on the air the whole time.
+   *
+   * `handled` now means one request has been taken; `alerting` means a message
+   * is already on screen, which is all the errors ever needed to know about
+   * each other.
+   */
+  const alerting = useRef(false);
+  const reportFailure = useCallback((title: string, message: string) => {
+    if (alerting.current) return;
+    alerting.current = true;
+    const release = () => {
+      alerting.current = false;
+    };
+    Alert.alert(title, t(message), [{text: t('OK'), onPress: release}], {
+      cancelable: true,
+      onDismiss: release,
+    });
+  }, [t]);
+
+  const onError = useCallback(
+    (message: string) => reportFailure(t('NFC reading failed'), message),
+    [reportFailure, t],
+  );
 
   /**
    * A radio finding nothing is the normal state, not an error worth an alert.
@@ -164,11 +192,10 @@ export function ForegroundPaymentListener({
    * is; anything quieter than that would leave someone holding two phones
    * together wondering why nothing happened.
    */
-  const onProximityError = useCallback((message: string) => {
-    if (handled.current) return;
-    handled.current = true;
-    showError(t('Payment request could not be verified'), t(message));
-  }, [showError, t]);
+  const onProximityError = useCallback(
+    (message: string) => reportFailure(t('Payment request could not be verified'), message),
+    [reportFailure, t],
+  );
 
   const reader = useNfcReader(active, {onRequest: onNfcRequest, onError});
   useProximityScanner(proximityActive, {onRequest: onProximityRequest, onError: onProximityError});
