@@ -25,6 +25,24 @@ export function localCountersigner(profile: MerchantProfile): Countersigner {
 }
 
 /**
+ * How long the claim may take before it is called failed.
+ *
+ * Claiming is the first call a payment makes, so it is the one that pays for a
+ * sleeping host. The client's ten-second default spends about thirty-one
+ * seconds across its three attempts, and a cold start on the free host measured
+ * between twelve and forty-two — so the slow half of that range failed a
+ * payment that would have gone through, at its very first step, after the
+ * customer had already pressed Approve. The app warms the API at launch
+ * precisely so this is rare, but the launch ping cannot cover someone who opens
+ * the app and pays inside the same twenty seconds.
+ *
+ * Waiting is the right failure here: nothing has been signed or spent yet, and
+ * a customer standing at a counter would rather the payment take a moment than
+ * be told to start again.
+ */
+export const claimTimeoutMs = 30_000;
+
+/**
  * Picks who produces the merchant's signature for this request.
  *
  * This device signs only when it is the merchant that made the request — a
@@ -41,7 +59,9 @@ export function selectCountersigner(input: {
   if (input.merchantProfile && input.merchantProfile.signingKey === input.merchantSigningKey) {
     return localCountersigner(input.merchantProfile);
   }
-  return remoteCountersigner(input.client ?? new RosaPayApiClient({baseUrl: input.baseUrl}));
+  return remoteCountersigner(
+    input.client ?? new RosaPayApiClient({baseUrl: input.baseUrl, timeoutMs: claimTimeoutMs}),
+  );
 }
 
 export type RemoteCountersignerOptions = {

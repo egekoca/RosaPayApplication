@@ -72,10 +72,20 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
 
     /**
      * How close "near enough to be offered" is, in dBm. NFC answers this with
-     * physics; a radio has to be told. Phones touching read around -40, a
-     * hand's width -55, a metre away -70 or worse.
+     * physics; a radio has to be told.
+     *
+     * The free-air figures — touching around -40, a hand's width -55, a metre
+     * -70 — are what -55 was set from, and they do not survive the gesture
+     * people actually make: a phone laid flat against the other puts two metal
+     * chassis between two edge-mounted antennas and reads well below what the
+     * same distance gives in open air. At -55 that shielding meant no request
+     * was offered at all — nothing on screen, no error, nothing to act on.
+     *
+     * Offering too readily costs far less, because it only decides which
+     * request appears: anything short of [TOUCHING_RSSI] still opens the screen
+     * and waits for Approve, and a distant request is one the customer declines.
      */
-    const val NEARBY_RSSI = -55
+    const val NEARBY_RSSI = -75
 
     /**
      * How close "being held against it" is — the reading that stands in for a
@@ -83,8 +93,13 @@ class RosaPayProximityModule(private val reactContext: ReactApplicationContext) 
      * still decides which request is offered and how quickly, never whether it
      * may be paid: the signing key is minted so the hardware refuses to sign
      * without the owner answering a biometric or passcode prompt.
+     *
+     * Same correction as [NEARBY_RSSI]: pressed-together phones shield each
+     * other, so the free-air -45 was rarely reached by the one gesture this
+     * exists for. Missing a real tap costs a press on Approve; reaching it
+     * early costs a prompt the customer can dismiss.
      */
-    const val TOUCHING_RSSI = -45
+    const val TOUCHING_RSSI = -55
 
     /**
      * How many readings in a row have to agree before acting on them. A single

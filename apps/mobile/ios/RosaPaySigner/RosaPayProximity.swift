@@ -27,6 +27,9 @@ class RosaPayProximity: RCTEventEmitter {
 
   private static let readEvent = "RosaPayProximityRequestRead"
   private static let errorEvent = "RosaPayProximityError"
+  /// Narration of what the radio is doing, for the diagnostics screen only.
+  /// Nothing in the payment path reads it.
+  private static let diagnosticEvent = "RosaPayProximityDiagnostic"
 
   /// RTP/1 bounds its QR URI at 4,096 characters, so nothing larger is a
   /// payment request and a peer claiming otherwise is dropped rather than read.
@@ -38,11 +41,20 @@ class RosaPayProximity: RCTEventEmitter {
    How close "near enough to be offered" is, in dBm.
 
    NFC answers this with physics: a tap is a few centimetres or nothing. A radio
-   has to be told. Phones touching read around -40, a hand's width around -55,
-   and a metre away -70 or worse. -55 keeps a customer from being offered the
-   request of a till on the other side of a cafe.
+   has to be told. The free-air figures — touching around -40, a hand's width
+   -55, a metre -70 — are what -55 was set from, and they do not survive the
+   gesture people actually make: a phone laid flat against the merchant's
+   screen puts two metal chassis between two edge-mounted antennas, and the
+   reading lands well below what the same distance gives in open air.
+
+   At -55 that shielding meant no request was offered at all, which is the
+   worst failure available here — nothing on screen, no error, nothing to act
+   on. Offering too readily costs far less, because it only decides which
+   request appears: anything short of `touchingRssi` still opens the screen and
+   waits for the customer to press Approve, and a request from the far side of
+   a room is one they can simply decline.
    */
-  private static let nearbyRssi = -55
+  private static let nearbyRssi = -75
 
   /**
    How close "being held against it" is — the reading that stands in for a tap.
@@ -53,8 +65,14 @@ class RosaPayProximity: RCTEventEmitter {
    request is offered and how quickly: Face ID or the device passcode is what
    authorizes a payment, and the signing key is minted so the hardware will not
    sign without it.
+
+   Same correction as `nearbyRssi`: pressed-together phones shield each other,
+   so the free-air -45 was rarely reached by the one gesture this exists for,
+   and holding the phones together did nothing while a working request sat
+   waiting. Missing a real tap costs a press on Approve; reaching it early
+   costs a prompt the customer can dismiss.
    */
-  private static let touchingRssi = -45
+  private static let touchingRssi = -55
 
   /**
    How many readings in a row have to agree before acting on them.
@@ -89,7 +107,7 @@ class RosaPayProximity: RCTEventEmitter {
   }
 
   override func supportedEvents() -> [String] {
-    [Self.readEvent, Self.errorEvent]
+    [Self.readEvent, Self.errorEvent, Self.diagnosticEvent]
   }
 
   override func invalidate() {
@@ -241,6 +259,7 @@ class RosaPayProximity: RCTEventEmitter {
       CBAdvertisementDataServiceUUIDsKey: [Self.serviceUUID],
       CBAdvertisementDataLocalNameKey: "Rosa Pay",
     ])
+    diagnose("Advertising this request to nearby phones")
   }
 
   private func teardownPeripheral() {
@@ -327,6 +346,7 @@ class RosaPayProximity: RCTEventEmitter {
       withServices: [Self.serviceUUID],
       options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
     )
+    diagnose("Listening for a merchant nearby")
   }
 
   private func teardownCentral() {
@@ -353,6 +373,21 @@ class RosaPayProximity: RCTEventEmitter {
   private func emit(_ event: String, _ value: String) {
     if bridge != nil {
       sendEvent(withName: event, body: value)
+    }
+  }
+
+  /**
+   Narrates one step of the radio to the diagnostics screen.
+
+   Two phones that do nothing when held together give a person nothing to act
+   on: advertising may not have started, the other side may never be seen, or
+   it may be seen steadily and simply read weaker than the thresholds ask for.
+   Those have different fixes and look identical from the outside, so each one
+   says which it is, and a discovery carries the reading it was judged on.
+   */
+  private func diagnose(_ message: String) {
+    if bridge != nil {
+      sendEvent(withName: Self.diagnosticEvent, body: message)
     }
   }
 
@@ -411,13 +446,17 @@ extension RosaPayProximity: CBCentralManagerDelegate {
   ) {
     // 127 means the radio could not measure, which is not a reading at all.
     let strength = RSSI.intValue
-    guard strength != 127 else { return }
+    guard strength != 127 else {
+      diagnose("Saw a Rosa Pay phone but could not measure its signal")
+      return
+    }
     let id = peripheral.identifier
     guard connected[id] == nil else { return }
 
     // Out of range resets the run: a merchant has to be approached, not merely
     // glimpsed once through a crowd.
     guard strength >= Self.nearbyRssi else {
+      diagnose("Merchant seen at \(strength) dBm — too far, needs \(Self.nearbyRssi)")
       samples[id] = []
       return
     }
@@ -428,12 +467,21 @@ extension RosaPayProximity: CBCentralManagerDelegate {
       window.removeFirst(window.count - Self.requiredSamples)
     }
     samples[id] = window
-    guard window.count == Self.requiredSamples else { return }
+    guard window.count == Self.requiredSamples else {
+      diagnose("Merchant at \(strength) dBm — reading \(window.count) of \(Self.requiredSamples)")
+      return
+    }
 
     // Every reading in the window agreeing is what makes this a deliberate act
     // rather than a spike, and all of them at touching strength is what lets it
     // stand in for a tap.
-    touching[id] = window.allSatisfy { $0 >= Self.touchingRssi }
+    let isTouching = window.allSatisfy { $0 >= Self.touchingRssi }
+    diagnose(
+      isTouching
+        ? "Touching at \(strength) dBm — connecting"
+        : "Near at \(strength) dBm but not touching, needs \(Self.touchingRssi) — connecting"
+    )
+    touching[id] = isTouching
     connected[id] = peripheral
     assembling[id] = [:]
     peripheral.delegate = self
@@ -510,9 +558,11 @@ extension RosaPayProximity: CBPeripheralDelegate {
     finish(peripheral)
 
     guard payload.count <= Self.maxPayloadBytes, let value = String(data: payload, encoding: .utf8) else {
+      diagnose("A phone answered but its request could not be read")
       emit(Self.errorEvent, "That phone did not share a readable payment request")
       return
     }
+    diagnose(wasTouching ? "Request read — opening it as a tap" : "Request read — asking for approval")
     emitRequest(value, touching: wasTouching)
   }
 }

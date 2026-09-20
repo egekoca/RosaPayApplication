@@ -59,7 +59,7 @@ describe('foreground payment receiving', () => {
     const navigation = {navigate} as never;
     ReactTestRenderer.act(() => {
       ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={1_500_000} navigation={navigation} />,
       );
     });
 
@@ -79,7 +79,7 @@ describe('foreground payment receiving', () => {
     const navigation = {navigate} as never;
     ReactTestRenderer.act(() => {
       ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={undefined} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={undefined} navigation={navigation} />,
       );
     });
 
@@ -97,6 +97,7 @@ describe('foreground payment receiving', () => {
       ReactTestRenderer.create(
         <ForegroundPaymentListener
           active
+          proximityActive
           latestLedger={1_500_000}
           refreshLedger={refreshLedger}
           navigation={navigation}
@@ -126,6 +127,7 @@ describe('foreground payment receiving', () => {
       ReactTestRenderer.create(
         <ForegroundPaymentListener
           active
+          proximityActive
           latestLedger={1_500_000}
           refreshLedger={refreshLedger}
           navigation={navigation}
@@ -151,7 +153,7 @@ describe('foreground payment receiving', () => {
     const behind = mockSignedIntent.intent.expiresAtLedger - DEFAULT_INTENT_LIFETIME_LEDGERS - 5;
     ReactTestRenderer.act(() => {
       ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={behind} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={behind} navigation={navigation} />,
       );
     });
 
@@ -176,6 +178,7 @@ describe('foreground payment receiving', () => {
       renderer = ReactTestRenderer.create(
         <ForegroundPaymentListener
           active
+          proximityActive
           latestLedger={1_500_000}
           refreshLedger={refreshLedger}
           navigation={navigation}
@@ -188,6 +191,7 @@ describe('foreground payment receiving', () => {
       renderer.update(
         <ForegroundPaymentListener
           active={false}
+          proximityActive={false}
           latestLedger={1_500_000}
           refreshLedger={refreshLedger}
           navigation={navigation}
@@ -214,7 +218,7 @@ describe('foreground payment receiving', () => {
     let renderer!: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={1_500_000} navigation={navigation} />,
       );
     });
 
@@ -222,7 +226,7 @@ describe('foreground payment receiving', () => {
 
     ReactTestRenderer.act(() => {
       renderer.update(
-        <ForegroundPaymentListener active={false} latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active={false} proximityActive={false} latestLedger={1_500_000} navigation={navigation} />,
       );
     });
     expect(useNfcTapControl.getState().startTap).toBeUndefined();
@@ -234,7 +238,7 @@ describe('foreground payment receiving', () => {
     const navigation = {navigate: jest.fn()} as never;
     ReactTestRenderer.act(() => {
       ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={1_500_000} navigation={navigation} />,
       );
     });
 
@@ -249,7 +253,7 @@ describe('foreground payment receiving', () => {
     const navigation = {navigate} as never;
     ReactTestRenderer.act(() => {
       ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={1_500_000} navigation={navigation} />,
       );
     });
 
@@ -272,7 +276,7 @@ describe('foreground payment receiving', () => {
     const navigation = {navigate} as never;
     ReactTestRenderer.act(() => {
       ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={1_500_000} navigation={navigation} />,
       );
     });
 
@@ -294,7 +298,7 @@ describe('foreground payment receiving', () => {
     const navigation = {navigate: jest.fn()} as never;
     ReactTestRenderer.act(() => {
       ReactTestRenderer.create(
-        <ForegroundPaymentListener active={false} latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active={false} proximityActive={false} latestLedger={1_500_000} navigation={navigation} />,
       );
     });
 
@@ -310,7 +314,7 @@ describe('foreground payment receiving', () => {
     let renderer!: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={1_500_000} navigation={navigation} />,
       );
     });
 
@@ -327,12 +331,12 @@ describe('foreground payment receiving', () => {
     // this reachable at all.
     ReactTestRenderer.act(() => {
       renderer.update(
-        <ForegroundPaymentListener active={false} latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active={false} proximityActive={false} latestLedger={1_500_000} navigation={navigation} />,
       );
     });
     ReactTestRenderer.act(() => {
       renderer.update(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={1_500_000} navigation={navigation} />,
       );
     });
 
@@ -347,7 +351,7 @@ describe('foreground payment receiving', () => {
     let renderer!: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={1_500_000} navigation={navigation} />,
       );
     });
 
@@ -358,12 +362,12 @@ describe('foreground payment receiving', () => {
     // the guard is released by the effect that runs between them.
     ReactTestRenderer.act(() => {
       renderer.update(
-        <ForegroundPaymentListener active={false} latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active={false} proximityActive={false} latestLedger={1_500_000} navigation={navigation} />,
       );
     });
     ReactTestRenderer.act(() => {
       renderer.update(
-        <ForegroundPaymentListener active latestLedger={1_500_000} navigation={navigation} />,
+        <ForegroundPaymentListener active proximityActive latestLedger={1_500_000} navigation={navigation} />,
       );
     });
     await ReactTestRenderer.act(async () => {

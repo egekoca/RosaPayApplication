@@ -171,6 +171,23 @@ export function shouldListenInForeground(routeName: string | undefined, locked: 
   return !locked && routeName !== undefined && foregroundNfcRoutes.has(routeName);
 }
 
+/**
+ * Where the Bluetooth scanner listens, which is everywhere the NFC reader does
+ * and the camera screen as well.
+ *
+ * The two radios were armed by one flag, so Scan's exclusion — it owns an NFC
+ * reader session, and a second one would have the phone talking to itself —
+ * silently took Bluetooth down with it. Nothing on Scan owns a Bluetooth
+ * scanner, and Scan is where a customer who has just pressed Pay is standing:
+ * they hold their phone up to the merchant's, on the one screen that had
+ * switched the transport off. Merchant request and Confirm stay out for the
+ * reasons they always did — one is advertising, the other is already paying.
+ */
+export function shouldListenForProximity(routeName: string | undefined, locked: boolean): boolean {
+  if (locked || routeName === undefined) return false;
+  return foregroundNfcRoutes.has(routeName) || routeName === 'Scan';
+}
+
 export function RootPaymentListener() {
   // This component is deliberately mounted beside the root navigator so it can
   // keep listening across every customer screen. `useNavigationState` cannot be
@@ -197,6 +214,7 @@ export function RootPaymentListener() {
 
   const locked = useAppStore(state => state.locked);
   const active = shouldListenInForeground(routeName, locked);
+  const proximityActive = shouldListenForProximity(routeName, locked);
 
   // Read on arrival rather than on a timer. This listener is armed for as long
   // as someone has the app open, so polling here would be a network request
@@ -205,6 +223,7 @@ export function RootPaymentListener() {
   return (
     <ForegroundPaymentListener
       active={active}
+      proximityActive={proximityActive}
       latestLedger={undefined}
       refreshLedger={readLatestLedger}
       navigation={navigation}

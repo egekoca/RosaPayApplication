@@ -1,7 +1,11 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import {AppState} from 'react-native';
-import {useProximityBroadcast, type ProximityBroadcastStatus} from '../src/features/payments/useProximity';
+import {
+  useProximityBroadcast,
+  useProximityStatusStore,
+  type ProximityBroadcastStatus,
+} from '../src/features/payments/useProximity';
 
 const mockNative = {
   getProximityStatus: jest.fn(),
@@ -42,6 +46,12 @@ describe('offering a request over Bluetooth at the counter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Object.defineProperty(AppState, 'currentState', {configurable: true, value: 'active'});
+    // The status is one shared fact about the device, so it outlives a test.
+    ReactTestRenderer.act(() => {
+      useProximityStatusStore.setState({
+        status: {supported: false, enabled: false, authorized: false, canBroadcast: false},
+      });
+    });
     observed = undefined;
     mockNative.startProximityBroadcast.mockResolvedValue(undefined);
     mockNative.stopProximityBroadcast.mockResolvedValue(undefined);

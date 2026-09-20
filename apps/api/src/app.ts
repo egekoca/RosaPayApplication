@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import type {FastifyRequest} from 'fastify';
+import type {FastifyRequest, FastifyServerOptions} from 'fastify';
 import {ZodError, z} from 'zod';
 import {createStellarConfig, StellarRpcClient} from '@rosapay/stellar';
 import {
@@ -148,7 +148,30 @@ export function buildApp({
   probeDatabase,
   intentPolicy,
 }: BuildAppOptions = {}) {
-  const app = Fastify({logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']}});
+  /*
+   * How many proxies sit in front of this service.
+   *
+   * Every per-caller rate limit here is counted against `request.ip`, and
+   * behind a proxy that is the proxy — one address for everybody. A room of
+   * phones then shares one allowance and starts being refused prices, which
+   * reaches a customer as a card that shows no lira rather than as an error.
+   *
+   * Trusting a fixed number of hops rather than the whole chain is what keeps
+   * it honest: `X-Forwarded-For` is caller-supplied, so trusting all of it
+   * lets anyone claim any address and spend someone else's allowance. Render
+   * puts exactly one proxy in front, hence `API_TRUST_PROXY=1` there; it stays
+   * off by default so a direct local run keeps reporting the real peer.
+   */
+  const hops = Number.parseInt(process.env.API_TRUST_PROXY ?? '', 10);
+  const serverOptions: FastifyServerOptions = {
+    logger: {redact: ['req.headers.authorization', 'req.body.signature', 'req.body.authorization']},
+    // A hop count rather than `true`: trusting the whole chain would take the
+    // leftmost X-Forwarded-For entry, which the caller writes, so anyone could
+    // claim any address and spend someone else's allowance.
+    trustProxy:
+      Number.isInteger(hops) && hops > 0 ? (_address: string, hop: number) => hop < hops : false,
+  };
+  const app = Fastify(serverOptions);
   const intents = new IntentService(repository);
   const merchants = new MerchantProfileService(merchantProfiles);
   const audit = new AuditLog(auditLog ?? new InMemoryAuditLog());

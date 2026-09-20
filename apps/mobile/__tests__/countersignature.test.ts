@@ -1,6 +1,7 @@
 import {Buffer} from 'buffer';
-import {ApiClientError, RosaPayApiClient} from '../src/api/client';
+import {ApiClientError, RosaPayApiClient, defaultClientTimeoutMs} from '../src/api/client';
 import {
+  claimTimeoutMs,
   localCountersigner,
   remoteCountersigner,
   selectCountersigner,
@@ -211,5 +212,51 @@ describe('choosing who signs for the merchant', () => {
     await expect(
       countersign({intentId: 'intent-1', customerAddress: 'GABC', digest: new Uint8Array(32)}),
     ).rejects.toThrow('could not sign in');
+  });
+
+  it('gives the claim long enough to outlast a sleeping host', async () => {
+    /*
+     * Claiming is the first call a payment makes, so it is the one that pays
+     * for a cold start. The client's ten-second default spends about
+     * thirty-one seconds over its three attempts, and a cold start on the free
+     * host measured twelve to forty-two — so the slow half of that range failed
+     * a payment that would otherwise have gone through, after the customer had
+     * already pressed Approve. Nothing is signed or spent at this point, so
+     * waiting is the right failure.
+     *
+     * Asserting the constant alone would not catch the claim being built with
+     * the default anyway, so this watches the abort signal the request actually
+     * carries: a host that never answers must still be waited on past the point
+     * the default would have given up.
+     */
+    const aborts: number[] = [];
+    jest.useFakeTimers();
+    jest.spyOn(global, 'fetch').mockImplementation(((_url: string, init: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => {
+          aborts.push(Date.now());
+          reject(new Error('aborted'));
+        });
+      })) as never);
+
+    const countersign = selectCountersigner({
+      merchantProfile: null,
+      merchantSigningKey,
+      baseUrl: 'http://127.0.0.1:4100',
+    });
+    const pending = countersign({intentId: 'i', customerAddress, digest}).catch(() => 'failed');
+
+    // Where the default would have abandoned the claim, this one is still open.
+    await jest.advanceTimersByTimeAsync(defaultClientTimeoutMs + 1_000);
+    expect(aborts).toHaveLength(0);
+
+    // And it does eventually give up, rather than hanging forever. The client
+    // retries a timeout, so this has to outlast every attempt it is allowed.
+    await jest.advanceTimersByTimeAsync(claimTimeoutMs * 4);
+    expect(aborts.length).toBeGreaterThan(0);
+
+    await expect(pending).resolves.toBe('failed');
+    jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 });

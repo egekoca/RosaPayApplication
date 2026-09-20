@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {AppState} from 'react-native';
+import {create} from 'zustand';
 import {useAppPresence} from '../../shared/appPresence';
 import {
   getProximityStatus,
@@ -12,31 +13,54 @@ import {
   type ProximityStatus,
 } from '../../native/nativeProximity';
 
+/**
+ * One answer about the radio, shared by everything that asks.
+ *
+ * Each caller used to hold its own copy, refreshed only on mount and on the app
+ * returning to the foreground. So a grant given on the home screen — the one
+ * place that offers the question as a button — reached that screen's copy and
+ * no other: the row congratulated itself and disappeared while the scanner,
+ * holding a copy that still said "not allowed", stayed switched off. The
+ * customer had answered the only prompt they were ever shown and nothing
+ * happened, with the control that would have explained it now gone.
+ *
+ * A grant, a refusal and Bluetooth being switched off are all facts about the
+ * device rather than about a screen, so they belong in one place that every
+ * caller reads.
+ */
+type ProximityStatusStore = {
+  status: ProximityStatus;
+  refresh(): Promise<void>;
+  request(): Promise<void>;
+};
+
+export const useProximityStatusStore = create<ProximityStatusStore>(set => ({
+  status: proximityUnavailable,
+  refresh: async () => {
+    set({status: await getProximityStatus()});
+  },
+  request: async () => {
+    set({status: await requestProximityPermissions()});
+  },
+}));
+
 export function useProximityStatus(): ProximityStatus & {request(): void} {
-  const [status, setStatus] = useState<ProximityStatus>(proximityUnavailable);
+  const status = useProximityStatusStore(state => state.status);
+  const refresh = useProximityStatusStore(state => state.refresh);
+  const requestPermission = useProximityStatusStore(state => state.request);
 
   useEffect(() => {
-    let cancelled = false;
-    void getProximityStatus().then(next => {
-      if (!cancelled) setStatus(next);
-    });
+    void refresh();
     const subscription = AppState.addEventListener('change', state => {
       // Bluetooth can be switched off, or permission revoked, while away.
-      if (state === 'active') {
-        void getProximityStatus().then(next => {
-          if (!cancelled) setStatus(next);
-        });
-      }
+      if (state === 'active') void refresh();
     });
-    return () => {
-      cancelled = true;
-      subscription.remove();
-    };
-  }, []);
+    return () => subscription.remove();
+  }, [refresh]);
 
   const request = useCallback(() => {
-    void requestProximityPermissions().then(setStatus);
-  }, []);
+    void requestPermission();
+  }, [requestPermission]);
 
   return {...status, request};
 }
@@ -159,6 +183,31 @@ export function useProximityScanner(
   const handlersRef = useRef({onRequest, onError});
   handlersRef.current = {onRequest, onError};
   const appActive = useAppPresence();
+  const asked = useRef(false);
+
+  /**
+   * Ask for Bluetooth on the paying side too.
+   *
+   * `authorized` is a real grant, never "not asked yet", and raising the prompt
+   * is what allocates the managers that make the radio usable. Only the
+   * merchant half ever asked — so a phone that had never put a request up had
+   * never been handed the question, `listening` below could not become true,
+   * and the scanner was never started. Holding that phone against a merchant's
+   * did nothing, silently and for ever: the customer is the one side that never
+   * gets a second chance to ask.
+   *
+   * Once per mount, like the merchant side, so a refusal leaves the manual
+   * control as the way back rather than a prompt that reappears. Scanning is
+   * the whole context the question needs — someone has the pay screen open and
+   * is holding their phone to a counter.
+   */
+  const {request} = status;
+  useEffect(() => {
+    if (!active || asked.current || !status.supported || status.authorized) return;
+    asked.current = true;
+    request();
+  }, [active, request, status.authorized, status.supported]);
+
   const listening = active && appActive && status.supported && status.enabled && status.authorized;
 
   useEffect(() => {

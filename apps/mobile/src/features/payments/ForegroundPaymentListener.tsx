@@ -31,11 +31,14 @@ export const REOFFER_DELAY_MS = 30_000;
  */
 export function ForegroundPaymentListener({
   active,
+  proximityActive,
   latestLedger,
   refreshLedger,
   navigation,
 }: {
   active: boolean;
+  /** Bluetooth listens on the camera screen too; only NFC conflicts there. */
+  proximityActive: boolean;
   latestLedger: number | undefined;
   refreshLedger?: () => Promise<number | undefined>;
   navigation: Pick<NavigationContainerRef<RootStackParams>, 'navigate'>;
@@ -168,7 +171,7 @@ export function ForegroundPaymentListener({
   }, [showError, t]);
 
   const reader = useNfcReader(active, {onRequest: onNfcRequest, onError});
-  useProximityScanner(active, {onRequest: onProximityRequest, onError: onProximityError});
+  useProximityScanner(proximityActive, {onRequest: onProximityRequest, onError: onProximityError});
 
   // iOS hands back an opener because a Core NFC session is a system sheet that
   // cannot be armed silently. Publish it so the home screen can offer tapping

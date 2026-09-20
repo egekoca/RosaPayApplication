@@ -16,6 +16,12 @@ services:
         value: 10000
       - key: API_AUTH_REQUIRED
         value: "true"
+      # Render terminates TLS at one proxy in front of this service, so without
+      # this every caller is reported as that proxy and the per-IP rate limits
+      # become one shared allowance for the whole room. One hop, not the whole
+      # X-Forwarded-For chain, because the chain is caller-supplied.
+      - key: API_TRUST_PROXY
+        value: "1"
       - key: API_REQUIRE_DATABASE
         value: "true"
       # Runs the reconciliation loop inside this service. A settlement only ever

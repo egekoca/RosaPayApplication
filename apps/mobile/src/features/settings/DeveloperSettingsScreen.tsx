@@ -22,6 +22,8 @@ import {
   type SessionStorageStatus,
 } from '../../state/persistence';
 import {fetchRelayerIdentity} from '../payments/testnetSettlement';
+import {useProximityStatus} from '../payments/useProximity';
+import {useProximityDiagnostics} from '../payments/useProximityDiagnostics';
 import {useApiHealth} from '../merchant/merchantRequestStatus';
 import {useTranslate} from '../../shared/i18n';
 
@@ -63,6 +65,8 @@ export function DeveloperSettingsScreen(_props: Props) {
   };
 
   const health = useApiHealth();
+  const proximity = useProximityStatus();
+  const proximityLog = useProximityDiagnostics();
 
   const relayer = useQuery({
     queryKey: ['relayer', apiBaseUrl],
@@ -133,6 +137,43 @@ export function DeveloperSettingsScreen(_props: Props) {
           last
         />
       </SurfaceCard>
+
+      {/*
+        What the radio is doing, for two phones that were held together and did
+        nothing. Nothing is advertising, nothing is seen, and seen-but-too-weak
+        look identical from the outside and have different fixes, so each says
+        which it is. `Bluetooth` is the gate the scanner waits on: it reads
+        `Not allowed yet` on a phone that has never been asked.
+      */}
+      <SurfaceCard padded={false} style={styles.statusCard}>
+        <StatusRow
+          label="Bluetooth"
+          value={
+            !proximity.supported
+              ? t('Not on this device')
+              : !proximity.authorized
+                ? t('Not allowed yet')
+                : proximity.enabled
+                  ? t('Ready')
+                  : t('Switched off')
+          }
+          ok={proximity.supported && proximity.authorized && proximity.enabled}
+          last={proximityLog.length === 0}
+        />
+        {proximityLog.length === 0 ? null : (
+          <View style={styles.logBox}>
+            {proximityLog.map((entry, index) => (
+              <Text key={`${entry.at}-${index}`} selectable style={styles.logLine}>
+                {entry.at}  {entry.message}
+              </Text>
+            ))}
+          </View>
+        )}
+      </SurfaceCard>
+
+      {proximity.supported && !proximity.authorized ? (
+        <Button onPress={proximity.request} testID="allow-bluetooth">{t('Allow Bluetooth')}</Button>
+      ) : null}
 
       <SurfaceCard style={styles.card}>
         <View style={styles.toggleRow}>
@@ -217,6 +258,14 @@ function shorten(value?: string): string {
 }
 
 const styles = StyleSheet.create({
+  logBox: {
+    borderTopColor: colors.line,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  logLine: {color: colors.inkMuted, fontSize: 11, lineHeight: 15},
   toggleRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.md, justifyContent: 'space-between'},
   toggleCopy: {flex: 1, gap: 4},
   toggleTitle: {...typography.body, color: colors.ink, fontWeight: '600'},

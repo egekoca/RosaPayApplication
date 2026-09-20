@@ -40,6 +40,7 @@ export type ProximityModule = {
 
 const READ_EVENT = 'RosaPayProximityRequestRead';
 const ERROR_EVENT = 'RosaPayProximityError';
+const DIAGNOSTIC_EVENT = 'RosaPayProximityDiagnostic';
 
 export const proximityUnavailable: ProximityStatus = {
   supported: false,
@@ -135,4 +136,24 @@ export function startProximityScanner(handlers: ProximityScannerHandlers): () =>
     subscriptions.forEach(subscription => subscription.remove());
     void native.stopScanning().catch(() => undefined);
   };
+}
+
+/**
+ * Narration of what the radio is doing, for the diagnostics screen.
+ *
+ * Two phones held together that do nothing look the same from the outside
+ * whether nothing is advertising, nothing is seen, or the other phone is seen
+ * steadily and simply reads weaker than the thresholds ask for. Those have
+ * different fixes, so native says which it is and carries the reading it
+ * judged. Subscribing here starts nothing and stops nothing: the scanner and
+ * the advertisement are driven by the payment screens, and this only listens.
+ */
+export function subscribeToProximityDiagnostics(onMessage: (message: string) => void): () => void {
+  const native = module();
+  if (!native) return () => undefined;
+  const emitter = new NativeEventEmitter(NativeModules.RosaPayProximity);
+  const subscription = emitter.addListener(DIAGNOSTIC_EVENT, (message: unknown) => {
+    if (typeof message === 'string' && message) onMessage(message);
+  });
+  return () => subscription.remove();
 }

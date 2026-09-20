@@ -28,6 +28,27 @@ const PING_EVERY_MS = 10 * 60_000;
 /** Long enough away that the instance may have stopped while we were gone. */
 const STALE_AFTER_MS = 60_000;
 
+/**
+ * How long to let one wake-up ping run before calling it failed.
+ *
+ * The client's default is ten seconds across three attempts, about thirty-one
+ * seconds in total — and a cold start on this host measured between twelve and
+ * forty-two. So the default gives up while the instance is still coming up, and
+ * reports `unreachable` for something that was merely slow. The host answers
+ * slowly rather than never, which is exactly the case a timeout should wait out.
+ */
+const WAKE_TIMEOUT_MS = 60_000;
+
+/**
+ * How soon to try again after a ping that did not land.
+ *
+ * The ten-minute pace keeps a *running* instance up. Retrying a failed wake-up
+ * at that pace leaves the app believing the API is down for ten minutes, which
+ * is precisely the window a customer walks up and pays in. A wake-up that fails
+ * is retried quickly; a wake-up that succeeds goes back to the slow pace.
+ */
+const RETRY_AFTER_FAILURE_MS = 15_000;
+
 export type ApiWarmth =
   /** No hosted API in this build, so there is nothing to wake. */
   | 'local'
@@ -74,23 +95,26 @@ export function useApiWarmup(): ApiWarmth {
       const startedAt = Date.now();
       pingedAt.current = startedAt;
       setWarmth(current => (current === 'ready' ? current : 'waking'));
-      const client = new RosaPayApiClient({baseUrl});
+      const client = new RosaPayApiClient({baseUrl, timeoutMs: WAKE_TIMEOUT_MS});
       void client
         .health()
         .then(() => {
           if (!cancelled) setWarmth('ready');
+          startPolling(PING_EVERY_MS);
         })
         .catch(() => {
           // A failed wake-up is not worth surfacing as an error: the payment
           // path has its own retries, and the host answers slowly rather than
-          // never. It only means the next call may still pay the start-up.
+          // never. It only means the next call may still pay the start-up — so
+          // come back soon rather than in ten minutes.
           if (!cancelled) setWarmth('unreachable');
+          startPolling(RETRY_AFTER_FAILURE_MS);
         });
     };
 
-    const startPolling = () => {
+    const startPolling = (every: number = PING_EVERY_MS) => {
       clearInterval(timer);
-      timer = setInterval(ping, PING_EVERY_MS);
+      timer = setInterval(ping, every);
     };
 
     ping();
@@ -122,4 +146,10 @@ export function useApiWarmup(): ApiWarmth {
   return warmth;
 }
 
-export const apiWarmupTimings = {PING_EVERY_MS, SLEEP_AFTER_MS, STALE_AFTER_MS};
+export const apiWarmupTimings = {
+  PING_EVERY_MS,
+  SLEEP_AFTER_MS,
+  STALE_AFTER_MS,
+  WAKE_TIMEOUT_MS,
+  RETRY_AFTER_FAILURE_MS,
+};

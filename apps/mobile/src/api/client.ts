@@ -55,6 +55,12 @@ function normalizeBaseUrl(input: string): string {
   return url.replace(/\/$/, '');
 }
 
+/**
+ * What one attempt is given before it is abandoned. Suits a service that is
+ * already running; a caller that may be waking a sleeping host passes its own.
+ */
+export const defaultClientTimeoutMs = 10_000;
+
 export class RosaPayApiClient {
   private readonly baseUrl: string;
   private readonly fetcher: Fetcher;
@@ -65,7 +71,7 @@ export class RosaPayApiClient {
   constructor({
     baseUrl,
     fetcher = fetch,
-    timeoutMs = 10_000,
+    timeoutMs = defaultClientTimeoutMs,
     retryPolicy = defaultRetryPolicy,
     sleep = ms => new Promise<void>(resolve => setTimeout(resolve, ms)),
   }: ApiClientOptions) {

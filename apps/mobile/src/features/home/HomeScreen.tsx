@@ -110,8 +110,17 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
   // change the answer rather than silently doing nothing.
   const [askedForBluetooth, setAskedForBluetooth] = useState(false);
   const refused = askedForBluetooth && !proximity.authorized;
+  /*
+    Granted but switched off is just as silent as never asked, and it is the
+    one state no prompt can fix: Core Bluetooth has nothing to turn on, so the
+    only honest thing to offer is Settings. Without this the row vanished the
+    moment permission was granted and a phone with the radio off went back to
+    doing nothing for no stated reason.
+  */
+  const switchedOff = proximity.authorized && !proximity.enabled;
+  const proximityBlocked = proximity.supported && (!proximity.authorized || switchedOff);
   const enableProximity = () => {
-    if (refused) {
+    if (refused || switchedOff) {
       void Linking.openSettings();
       return;
     }
@@ -162,7 +171,7 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
         permission sheet on a wallet asking about Bluetooth explains nothing.
         The row is gone for good once granted.
       */}
-      {proximity.supported && !proximity.authorized ? (
+      {proximityBlocked ? (
         <AnimatedContent delay={80}>
           <PressScale>
             <Pressable
@@ -175,7 +184,11 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
               </View>
               <View style={styles.scanCopy}>
                 <Text style={styles.scanTitle}>
-                  {refused ? t('Allow Bluetooth in Settings') : t('Turn on paying by holding phones together')}
+                  {switchedOff
+                    ? t('Switch Bluetooth on to pay by holding phones together')
+                    : refused
+                      ? t('Allow Bluetooth in Settings')
+                      : t('Turn on paying by holding phones together')}
                 </Text>
                 <Text style={styles.scanHint}>{t('Rosa Pay finds the merchant you are standing at, and nothing else.')}</Text>
               </View>
@@ -220,7 +233,7 @@ function CustomerHome({navigation, merchantEnabled}: {navigation: Props['navigat
             accessibilityRole="button"
             onPress={() => navigation.navigate('Scan')}
             // The rows read as one group when a proximity action sits above.
-            style={[styles.scanAction, startTap || (proximity.supported && !proximity.authorized) ? styles.scanActionUnderTap : null]}
+            style={[styles.scanAction, startTap || proximityBlocked ? styles.scanActionUnderTap : null]}
             testID="scan-to-pay">
             <View style={styles.scanIcon}>
               <ScanLine color={colors.black} size={24} />

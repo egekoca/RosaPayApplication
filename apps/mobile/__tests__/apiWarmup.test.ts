@@ -31,6 +31,25 @@ describe('the API warm-up pacing', () => {
     expect(apiWarmupTimings.STALE_AFTER_MS).toBeLessThan(apiWarmupTimings.PING_EVERY_MS);
   });
 
+  it('waits out a cold start rather than calling it unreachable', () => {
+    /*
+     * The client's default is ten seconds over three attempts — about
+     * thirty-one in total — and a cold start on this host measured twelve to
+     * forty-two seconds. At the default the ping gives up on an instance that
+     * is still coming up and reports it down, so the wake-up has to outlast the
+     * slowest start that was actually observed.
+     */
+    expect(apiWarmupTimings.WAKE_TIMEOUT_MS).toBeGreaterThan(42_000);
+  });
+
+  it('comes back quickly after a wake-up that did not land', () => {
+    // The ten-minute pace keeps a running instance up; applying it to a failed
+    // wake-up leaves the app believing the API is down for ten minutes, which
+    // is the window a customer walks up and pays in.
+    expect(apiWarmupTimings.RETRY_AFTER_FAILURE_MS).toBeLessThan(apiWarmupTimings.PING_EVERY_MS);
+    expect(apiWarmupTimings.RETRY_AFTER_FAILURE_MS).toBeLessThan(apiWarmupTimings.STALE_AFTER_MS);
+  });
+
   it('listens for the app returning to the foreground', () => {
     // The interval alone cannot cover a backgrounded app, so the hook has to be
     // driven by AppState as well. This guards the import rather than the logic.

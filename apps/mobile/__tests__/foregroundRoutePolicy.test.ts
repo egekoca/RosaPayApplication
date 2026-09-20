@@ -1,4 +1,4 @@
-import {shouldListenInForeground} from '../src/app/navigation';
+import {shouldListenForProximity, shouldListenInForeground} from '../src/app/navigation';
 
 describe('foreground proximity route policy', () => {
   it('keeps the listener armed on every main tab', () => {
@@ -14,5 +14,26 @@ describe('foreground proximity route policy', () => {
     expect(shouldListenInForeground('Confirm', false)).toBe(false);
     expect(shouldListenInForeground('MerchantRequest', false)).toBe(false);
     expect(shouldListenInForeground('WalletTab', true)).toBe(false);
+  });
+
+  it('keeps Bluetooth listening on the camera screen, where NFC cannot', () => {
+    /*
+     * The two radios were armed by one flag, so Scan's exclusion — it owns an
+     * NFC reader session and a second would have the phone talking to itself —
+     * silently took Bluetooth down with it. Scan is exactly where a customer
+     * who has just pressed Pay is standing, holding their phone up to the
+     * merchant's, on the one screen that had switched the transport off.
+     */
+    expect(shouldListenInForeground('Scan', false)).toBe(false);
+    expect(shouldListenForProximity('Scan', false)).toBe(true);
+  });
+
+  it('still leaves the screens that own a radio or are already paying', () => {
+    // One is advertising its own request, the other is past the point of being
+    // offered another.
+    expect(shouldListenForProximity('MerchantRequest', false)).toBe(false);
+    expect(shouldListenForProximity('Confirm', false)).toBe(false);
+    expect(shouldListenForProximity('WalletTab', true)).toBe(false);
+    expect(shouldListenForProximity('WalletTab', false)).toBe(true);
   });
 });
