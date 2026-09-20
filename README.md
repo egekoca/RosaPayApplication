@@ -4,6 +4,7 @@
 
 # Rosa Pay
 
+
 **A non-custodial Stellar payment app for iOS and Android.**
 
 Scan. Approve. Settled.
