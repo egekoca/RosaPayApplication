@@ -137,6 +137,19 @@ export async function payOfflineOverCounter(input: OfflineCustomerInput): Promis
         ? {signer: createHardwareDigestSigner(useAppStore.getState().smartWallet!.devicePublicKey)}
         : {accountSigner: await createCustomerSigner(reason)};
 
+    // Which account this phone tried to sign with, said out loud. Without it a
+    // phone that produced no key reports only that there was none, and the two
+    // kinds fail for completely different reasons — an enclave key that was
+    // never minted, or a recovery phrase whose key is not in the keychain.
+    if (!('signer' in proof ? proof.signer : proof.accountSigner)) {
+      throw new OfflineCustomerError(
+        'NO_WALLET',
+        `This phone holds no usable key for its ${
+          account.kind === 'smart-wallet' ? 'device wallet' : 'recovery-phrase account'
+        }`,
+      );
+    }
+
     const authorization = await authorizeOffline({
       request,
       intent,

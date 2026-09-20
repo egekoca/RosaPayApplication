@@ -67,7 +67,24 @@ export function useOfflineCounter(input: OfflineCounterInput): OfflineCounterSta
    * it cannot report a stranger's payment onto the next one.
    */
   const showing = useRef<string | undefined>(undefined);
+  const previous = useRef<string | undefined>(undefined);
   showing.current = request?.intent.intentId;
+
+  /**
+   * A new request starts with nothing said about it.
+   *
+   * This line reports one payment, and it used to keep reporting it after the
+   * counter had moved on: take a new request and the outcome of the last
+   * customer's attempt — an approval, or a refusal in red — was still sitting
+   * under the fresh QR, describing a payment nobody in front of the till had
+   * made. Someone reading it has no way to tell that from a live failure.
+   */
+  useEffect(() => {
+    const intentId = request?.intent.intentId;
+    if (previous.current === intentId) return;
+    previous.current = intentId;
+    if (!busy.current) setState({status: 'idle'});
+  }, [request]);
 
   useEffect(() => {
     if (!enabled || !request || !profile || !relayer) return;
