@@ -7,7 +7,21 @@ jest.mock('@react-navigation/native', () => ({useIsFocused: () => true}));
 
 const mockMutate = jest.fn();
 jest.mock('@tanstack/react-query', () => ({
-  useMutation: () => ({mutate: mockMutate, isPending: false, isError: false, error: null}),
+  // Runs the real mutation, because what is under test here is which payment
+  // path the screen chooses. A stub that only records the press proves nothing
+  // about that, and quietly passes any assertion about what was never called.
+  useMutation: (options: {mutationFn(): Promise<unknown>; onSuccess?(value: unknown): void}) => ({
+    mutate: () => {
+      mockMutate();
+      return options.mutationFn().then(
+        value => options.onSuccess?.(value),
+        () => undefined,
+      );
+    },
+    isPending: false,
+    isError: false,
+    error: null,
+  }),
   // Every network-backed read fails, which is what airplane mode looks like —
   // except the balance, which keeps the last reading it managed, the way React
   // Query does. That stale number is exactly what this screen has to be honest
@@ -69,10 +83,14 @@ const mockRelease = jest.fn().mockResolvedValue(undefined);
 jest.mock('../src/native/nativeProximity', () => ({
   releaseProximityPeer: (...args: unknown[]) => mockRelease(...args),
 }));
+const mockOverCounter = jest.fn();
+const mockSettle = jest.fn();
 jest.mock('../src/features/payments/offlineCustomer', () => ({
-  payOfflineOverCounter: jest.fn(),
+  payOfflineOverCounter: (...args: unknown[]) => mockOverCounter(...args),
 }));
-jest.mock('../src/features/payments/settlementAdapter', () => ({settlePaymentIntent: jest.fn()}));
+jest.mock('../src/features/payments/settlementAdapter', () => ({
+  settlePaymentIntent: (...args: unknown[]) => mockSettle(...args),
+}));
 
 function render(params: Record<string, unknown>) {
   const navigation = {isFocused: () => true, replace: jest.fn()};
@@ -140,6 +158,56 @@ describe('approving a payment on a phone with no network', () => {
     });
 
     expect(renderer.root.findByProps({testID: 'approve-payment'}).props.disabled).toBe(true);
+    ReactTestRenderer.act(() => renderer.unmount());
+  });
+
+  it('pays for itself when the counter has nothing to say', async () => {
+    /*
+     * Bluetooth used to mean only this phone's own settlement, and making it
+     * mean only the counter was a straight loss: a customer with a working
+     * connection could no longer pay a till whose half of the conversation was
+     * not answering. Both paths exist, so the counter is tried and this one is
+     * kept underneath it.
+     */
+    mockOverCounter.mockRejectedValue(new Error('That counter cannot take a payment offline'));
+    mockSettle.mockResolvedValue({intentId: 'x'});
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = render({transport: 'ble', peerId: 'merchant-1'});
+    });
+
+    await ReactTestRenderer.act(async () => {
+      renderer.root.findByProps({testID: 'approve-payment'}).props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockOverCounter).toHaveBeenCalled();
+    expect(mockSettle).toHaveBeenCalled();
+    ReactTestRenderer.act(() => renderer.unmount());
+  });
+
+  it('does not pay twice once a signature has crossed', async () => {
+    // Past that point the merchant may already have submitted it, and paying
+    // again would ask the customer to approve what the chain is about to refuse
+    // as already settled.
+    mockOverCounter.mockImplementation(async ({onStage}: {onStage(s: string): void}) => {
+      onStage('signing');
+      throw new Error('The merchant did not say whether this payment went through');
+    });
+    mockSettle.mockResolvedValue({intentId: 'x'});
+    let renderer!: ReactTestRenderer.ReactTestRenderer;
+    ReactTestRenderer.act(() => {
+      renderer = render({transport: 'ble', peerId: 'merchant-1'});
+    });
+
+    await ReactTestRenderer.act(async () => {
+      renderer.root.findByProps({testID: 'approve-payment'}).props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockSettle).not.toHaveBeenCalled();
     ReactTestRenderer.act(() => renderer.unmount());
   });
 

@@ -55,6 +55,16 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
    */
   const overCounter = Boolean(peerId);
   const [counterStage, setCounterStage] = useState<OfflineCustomerStage | undefined>();
+  /**
+   * Set when the counter had nothing to say and this phone paid for itself.
+   *
+   * The two halves report different things — one watches a chain, the other
+   * waits to be told about it — so the screen has to know which it is
+   * narrating, or it sits on "waiting for the exact payment" while a
+   * transaction it can see perfectly well goes through.
+   */
+  const [paidAlone, setPaidAlone] = useState(false);
+  const acrossCounter = overCounter && !paidAlone;
 
   /**
    * What this phone last knew it held, less anything it has spent since.
@@ -88,7 +98,11 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
    */
   const funding = useQuery({
     queryKey: ['funding-choice', intent.intentId, account?.address],
-    enabled: Boolean(account?.address) && !overCounter,
+    // Left running across the counter too. It cannot answer without a network
+    // and nothing waits on it there, but a phone that turns out to have one
+    // falls back to paying for itself — and that path is the one that knows how
+    // to spend a token the merchant did not ask for.
+    enabled: Boolean(account?.address),
     // A pool moves, so a quote goes stale; long enough to read the screen.
     staleTime: 30_000,
     queryFn: () =>
@@ -114,17 +128,55 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
   }, [payable, selectedAssetCode]);
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       setStage(undefined);
       setCounterStage(undefined);
       setSubmittedHash(undefined);
+      setPaidAlone(false);
+
+      /*
+       * Across the counter first, and this phone's own settlement if that gets
+       * nowhere.
+       *
+       * Bluetooth used to mean only the second of those, and making it mean
+       * only the first was a straight loss: a customer with a perfectly good
+       * connection could no longer pay a counter whose half of the
+       * conversation was not answering. Both work, so try the one that needs
+       * nothing of this phone and keep the one that always worked underneath.
+       *
+       * The fallback is allowed only while nothing has been signed. Once the
+       * authorization has crossed, the merchant may already have submitted it,
+       * and paying again here would ask the customer to approve a payment the
+       * chain is about to refuse as already settled.
+       */
       if (peerId) {
-        return payOfflineOverCounter({
-          payload,
-          peerId,
-          onStage: setCounterStage,
-        });
+        let reached: OfflineCustomerStage | undefined;
+        try {
+          return await payOfflineOverCounter({
+            payload,
+            peerId,
+            // A phone that can read a ledger can pay for itself, so it waits
+            // only briefly on a counter before doing that instead. One that
+            // cannot has nothing else to try and waits the full budget.
+            ...(latestLedger === undefined ? {} : {offerTimeoutMs: 8_000}),
+            onStage: stage => {
+              reached = stage;
+              setCounterStage(stage);
+            },
+          });
+        } catch (error) {
+          const signed = reached === 'signing' || reached === 'submitting' || reached === 'confirmed';
+          if (signed) throw error;
+          logger.info('offline_counter_unavailable', {
+            intentId: intent.intentId,
+            reached: reached ?? 'nothing',
+            message: error instanceof Error ? error.message : 'unknown',
+          });
+          setCounterStage(undefined);
+          setPaidAlone(true);
+        }
       }
+
       return settlePaymentIntent(payload, {
         transport,
         ...(selected?.kind === 'swap' ? {funding: selected.funding} : {}),
@@ -221,7 +273,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
       </AnimatedContent>
       <Text style={styles.recipientHint}>{t('Long-press the recipient or issuer to copy it.')}</Text>
       {mutation.isPending || mutation.isError ? (
-        <Stepper activeIndex={overCounter ? counterIndex(counterStage) : stageIndex(stage)} failed={mutation.isError} steps={settlementSteps.map(step => ({...step, label: t(step.label)}))} />
+        <Stepper activeIndex={acrossCounter ? counterIndex(counterStage) : stageIndex(stage)} failed={mutation.isError} steps={settlementSteps.map(step => ({...step, label: t(step.label)}))} />
       ) : (
         <Pulse active={false} style={styles.security}><ShieldCheck color={blocked ? colors.inkMuted : colors.success} size={18} /><Text style={[styles.securityText, blocked && styles.securityTextBlocked]}>{blocked ? t('This request cannot be authorized.') : t('Your device will authorize this exact amount.')}</Text></Pulse>
       )}
@@ -246,7 +298,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
           {`${t('This wallet last held')} ${exactAmount(String(knownAmount))} ${intent.asset.code}. ${t('The merchant will refuse this if it is still short.')}`}
         </Text>
       ) : null}
-      {overCounter ? (
+      {acrossCounter ? (
         <Text style={styles.counterNote}>
           {t('This phone needs no connection. The merchant submits it and tells you what the ledger said.')}
         </Text>
@@ -271,11 +323,11 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
           ) : null}
         </>
       ) : null}
-      <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={startAuthorization} testID="approve-payment">{mutation.isPending ? t(overCounter ? counterLabel(counterStage) : stageLabel(stage)) : mutation.isError ? t('Retry payment') : t('Approve payment')}</Button>
+      <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={startAuthorization} testID="approve-payment">{mutation.isPending ? t(acrossCounter ? counterLabel(counterStage) : stageLabel(stage)) : mutation.isError ? t('Retry payment') : t('Approve payment')}</Button>
     </Screen>
     <RosaLoadingOverlay
-      detail={t(overCounter ? counterDetail(counterStage) : settlementDetail(stage))}
-      title={t(overCounter ? counterLabel(counterStage) : stageLabel(stage))}
+      detail={t(acrossCounter ? counterDetail(counterStage) : settlementDetail(stage))}
+      title={t(acrossCounter ? counterLabel(counterStage) : stageLabel(stage))}
       visible={mutation.isPending}
     />
     </>
