@@ -341,6 +341,15 @@ mutation starts once. The native Keychain/Keystore prompt still requires device
 owner authentication; QR keeps its explicit approve button. A cancellation or
 failure is not retried automatically.
 
+A counter offers every way it can be paid at once, without being asked to
+arrange it. Putting a request up is the whole context the Bluetooth permission
+question needs — a merchant is waiting to be paid and holding two phones
+together is one of the ways that happens — so the request itself is what raises
+it, once, rather than a control someone has to find first. The payer side asks
+at the same kind of moment: opening the scan screen, where someone is already
+deciding how to hand money over. A refusal leaves the manual control in both
+places and changes nothing about the QR.
+
 The merchant side keeps the offer in sync. The request screen waits for the API
 to return the exact stored payload before showing its QR or enabling HCE. HCE
 readiness is reported only after the native service accepts the request; a

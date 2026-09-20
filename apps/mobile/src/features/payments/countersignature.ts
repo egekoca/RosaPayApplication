@@ -1,5 +1,6 @@
 import {Buffer} from 'buffer';
 import {RosaPayApiClient, ApiClientError} from '../../api/client';
+import {ensureDeviceSession} from '../../api/deviceSession';
 import {sign as signEd25519} from '@noble/ed25519';
 import type {MerchantProfile} from '../merchant/merchantProfile';
 import {TestnetSettlementError} from './testnetSettlement';
@@ -68,6 +69,18 @@ export function remoteCountersigner(
 ): Countersigner {
   return async ({intentId, customerAddress}) => {
     try {
+      // Claiming a request is an authenticated call, and this was the one place
+      // in the paying flow that never established a session. A customer who
+      // onboarded with twelve words has a classic account, so nothing else on
+      // their phone had ever minted the device key a session is signed with —
+      // the claim went out with no Authorization header at all and the payment
+      // died at its first step, saying only that it could not be completed.
+      //
+      // Best effort, because a deployment can have authentication switched off
+      // and a phone that cannot mint a key would then be refused a payment the
+      // API would have accepted. Let the claim be what decides: it answers
+      // AUTHENTICATION_REQUIRED when a session was the missing piece.
+      await ensureDeviceSession(client).catch(() => null);
       const claimed = await client.requestCountersignature(intentId, customerAddress);
       if (claimed.signature) return decode(claimed.signature);
     } catch (error) {
@@ -107,6 +120,18 @@ function defaultSleep(ms: number): Promise<void> {
 }
 
 function asSettlementError(error: unknown): Error {
+  if (error instanceof ApiClientError && error.code === 'CAPABILITY_DENIED') {
+    return new TestnetSettlementError(
+      'MERCHANT_KEY_UNAVAILABLE',
+      'This deployment will not let this wallet claim a request. Update the API, or pay from a wallet this app created.',
+    );
+  }
+  if (error instanceof ApiClientError && error.code === 'AUTHENTICATION_REQUIRED') {
+    return new TestnetSettlementError(
+      'MERCHANT_KEY_UNAVAILABLE',
+      'This phone could not sign in to the Rosa Pay API, so the merchant was never asked to approve.',
+    );
+  }
   if (error instanceof ApiClientError && error.code === 'COUNTERSIGNATURE_CONFLICT') {
     return new TestnetSettlementError(
       'MERCHANT_KEY_UNAVAILABLE',

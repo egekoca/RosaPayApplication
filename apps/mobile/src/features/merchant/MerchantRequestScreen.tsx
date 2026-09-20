@@ -83,6 +83,26 @@ export function MerchantRequestScreen({navigation, route}: Props) {
     (!requestPublication || requestPublication.status === 'publishing'),
   );
   const settlement = usePaymentRequestStatus(published ? pendingRequest!.intent.intentId : '');
+
+  /**
+   * A request nobody can pay any more is not the counter's active request.
+   *
+   * It used to hold the slot regardless: the home screen kept offering to
+   * "open the active request", this screen kept drawing a dead card, and the
+   * only way to take the next payment was to find "New request" underneath it.
+   * A merchant standing in front of a customer should not have to.
+   */
+  const pendingLedger = stellarHealth.data?.latestLedger;
+  const pendingExpired = Boolean(
+    pendingRequest &&
+      pendingLedger !== undefined &&
+      pendingRequest.intent.expiresAtLedger <= pendingLedger,
+  );
+  useEffect(() => {
+    // Cleared from the store, not just hidden, so the home screen stops
+    // offering it too. Its history lives on the API and in Recent payments.
+    if (pendingExpired) setPendingRequest(null);
+  }, [pendingExpired, setPendingRequest]);
   const relayer = useRelayerIdentity();
   // A customer on another phone cannot produce the merchant's signature, so this
   // device signs for them as soon as they claim the request.

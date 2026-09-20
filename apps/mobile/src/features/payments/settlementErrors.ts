@@ -18,7 +18,12 @@ export function describeSettlementError(error: unknown, assetCode = 'XLM'): stri
       case 'RELAYER_MISMATCH':
         return 'The relayer is not bound to this Testnet deployment, so the payment was stopped.';
       case 'MERCHANT_KEY_UNAVAILABLE':
-        return 'This request was created on another device, so its merchant signature cannot be produced here.';
+        // Every one of these is raised with a sentence already written for the
+        // person holding the phone, and each names a different next move —
+        // wait, ask for a new request, or fix the deployment. Collapsing them
+        // into one line threw that away and, since the remote countersigner
+        // exists precisely so another device can sign, said something false.
+        return error.message || 'The merchant could not approve this payment.';
       case 'CUSTOMER_ACCOUNT_UNAVAILABLE':
         return 'This device wallet could not be funded on Testnet. Try again in a moment.';
       default:
@@ -75,4 +80,29 @@ export function describeSettlementError(error: unknown, assetCode = 'XLM'): stri
   }
 
   return 'The payment could not be completed. No funds were moved.';
+}
+
+/**
+ * The same failure in the words the code used, for someone who has to fix it.
+ *
+ * Every branch above ends in a sentence a customer can act on, and two of them
+ * are reached by any failure that was not anticipated — so an unmapped error
+ * arrives on screen as "the payment could not be completed" and takes its cause
+ * with it. On a device that is the end of the investigation: there is no
+ * console, and the person holding the phone has nothing to report but the
+ * sentence. This is the line that makes the next attempt informative.
+ *
+ * Deliberately terse and deliberately secondary: it sits under the real message
+ * in small type, and it never replaces it.
+ */
+export function settlementErrorDetail(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined;
+  const code = (error as {code?: unknown}).code;
+  const named = [error.name, typeof code === 'string' ? code : undefined].filter(Boolean).join(' · ');
+  const message = error.message.trim();
+  if (!message) return named || undefined;
+  // Long enough to name a contract error or an HTTP status, short enough that
+  // it stays a footnote rather than becoming the screen.
+  const trimmed = message.length > 180 ? `${message.slice(0, 180)}…` : message;
+  return named ? `${named}: ${trimmed}` : trimmed;
 }

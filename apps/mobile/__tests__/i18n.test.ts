@@ -161,6 +161,12 @@ const USED = [
   // The merchant's payment detail, which a Turkish merchant reads at the till.
   'REFERENCE (OPTIONAL)',
   'Use the hosted address',
+  'The merchant did not approve this payment in time. Ask them to show the request again.',
+  'Someone else is already paying this request. Ask the merchant for a new one.',
+  'The merchant has not published this request, so it cannot be approved.',
+  'This phone could not sign in to the Rosa Pay API, so the merchant was never asked to approve.',
+  'This deployment will not let this wallet claim a request. Update the API, or pay from a wallet this app created.',
+  'The merchant could not approve this payment.',
   'This address is a development machine, so this phone reaches nothing.',
   'Table 08, order number, anything',
   'PAID',

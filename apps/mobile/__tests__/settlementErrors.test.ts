@@ -1,6 +1,6 @@
 import {SecureSignerError} from '@rosapay/secure-signer';
 import {SettlementPipelineError, SettlementServiceError} from '@rosapay/stellar';
-import {describeSettlementError} from '../src/features/payments/settlementErrors';
+import {describeSettlementError, settlementErrorDetail} from '../src/features/payments/settlementErrors';
 import {TestnetSettlementError} from '../src/features/payments/testnetSettlement';
 
 describe('settlement error messages', () => {
@@ -13,7 +13,17 @@ describe('settlement error messages', () => {
 
   it('names the missing relayer and the missing merchant signature', () => {
     expect(describeSettlementError(new TestnetSettlementError('RELAYER_UNAVAILABLE', 'x'))).toContain('relayer is unreachable');
-    expect(describeSettlementError(new TestnetSettlementError('MERCHANT_KEY_UNAVAILABLE', 'x'))).toContain('another device');
+    // Each of these is raised with its own sentence naming a different next
+    // move — wait, ask for a new request, fix the deployment — so the mapper
+    // passes it through instead of flattening them into one.
+    expect(
+      describeSettlementError(
+        new TestnetSettlementError('MERCHANT_KEY_UNAVAILABLE', 'Someone else is already paying this request.'),
+      ),
+    ).toBe('Someone else is already paying this request.');
+    expect(describeSettlementError(new TestnetSettlementError('MERCHANT_KEY_UNAVAILABLE', ''))).toContain(
+      'could not approve',
+    );
     expect(describeSettlementError(new SettlementServiceError('INVALID_MERCHANT_SIGNATURE', 'x'))).toContain('does not match');
   });
 
@@ -26,5 +36,17 @@ describe('settlement error messages', () => {
   it('never claims a partial success for an unknown failure', () => {
     expect(describeSettlementError(new Error('boom'))).toContain('No funds were moved');
     expect(describeSettlementError(new SecureSignerError('USER_CANCELLED', 'x'))).toContain('cancelled');
+  });
+
+  it('keeps the cause of an unmapped failure, because a phone has no console', () => {
+    // Anything unanticipated reaches the screen as "could not be completed",
+    // which is the right thing to read and useless to report. The detail line
+    // is what turns the next attempt into evidence.
+    const detail = settlementErrorDetail(Object.assign(new Error('simulation failed: HostError'), {code: 'X42'}));
+    expect(detail).toContain('X42');
+    expect(detail).toContain('simulation failed');
+
+    expect(settlementErrorDetail('not an error')).toBeUndefined();
+    expect(settlementErrorDetail(new Error('x'.repeat(400)))!.length).toBeLessThan(220);
   });
 });

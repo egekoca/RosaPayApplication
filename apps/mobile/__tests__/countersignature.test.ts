@@ -6,6 +6,11 @@ import {
   selectCountersigner,
 } from '../src/features/payments/countersignature';
 
+jest.mock('../src/api/deviceSession', () => ({ensureDeviceSession: jest.fn().mockResolvedValue(null)}));
+const {ensureDeviceSession} = jest.requireMock('../src/api/deviceSession') as {
+  ensureDeviceSession: jest.Mock;
+};
+
 const customerAddress = 'GDZ4ZAYGLEACS52ADRTWCDNDGZTWZRGYRV2QICRQ6YQU4Y4HTIQSM5F5';
 const digest = Uint8Array.from(Buffer.alloc(32, 7));
 const signature = Buffer.alloc(64, 3).toString('base64');
@@ -161,5 +166,50 @@ describe('choosing who signs for the merchant', () => {
 
     await countersign({intentId: 'i', customerAddress, digest});
     expect(client.requestCountersignature).toHaveBeenCalled();
+  });
+
+  it('signs in before claiming, because the claim is an authenticated call', async () => {
+    // The one place in the paying flow that never established a session. A
+    // customer who onboarded with twelve words has a classic account, so
+    // nothing else on their phone had minted the device key a session is signed
+    // with: the claim went out bare and the payment died at its first step.
+    const request = jest.fn().mockResolvedValue({intentId: 'intent-1', customerAddress: 'GABC', signature: 'AQI='});
+    const countersign = remoteCountersigner({
+      requestCountersignature: request,
+      getCountersignature: jest.fn(),
+    } as never);
+
+    await countersign({intentId: 'intent-1', customerAddress: 'GABC', digest: new Uint8Array(32)});
+    expect(ensureDeviceSession).toHaveBeenCalled();
+  });
+
+  it('still claims when a session cannot be minted, and lets the API answer', async () => {
+    // A deployment can have authentication switched off. Refusing to try would
+    // deny a payment the API would have accepted.
+    (ensureDeviceSession as jest.Mock).mockRejectedValueOnce(new Error('no screen lock'));
+    const request = jest.fn().mockResolvedValue({intentId: 'intent-1', customerAddress: 'GABC', signature: 'AQI='});
+    const countersign = remoteCountersigner({
+      requestCountersignature: request,
+      getCountersignature: jest.fn(),
+    } as never);
+
+    await expect(
+      countersign({intentId: 'intent-1', customerAddress: 'GABC', digest: new Uint8Array(32)}),
+    ).resolves.toBeInstanceOf(Uint8Array);
+    expect(request).toHaveBeenCalled();
+  });
+
+  it('says a session was the missing piece rather than shrugging', async () => {
+    const request = jest.fn().mockRejectedValue(
+      new ApiClientError('AUTHENTICATION_REQUIRED', 'nope', 401),
+    );
+    const countersign = remoteCountersigner({
+      requestCountersignature: request,
+      getCountersignature: jest.fn(),
+    } as never);
+
+    await expect(
+      countersign({intentId: 'intent-1', customerAddress: 'GABC', digest: new Uint8Array(32)}),
+    ).rejects.toThrow('could not sign in');
   });
 });

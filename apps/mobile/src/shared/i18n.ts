@@ -442,6 +442,17 @@ const TR: Record<string, string> = {
   'Allow Bluetooth': 'Bluetooth’a izin ver',
   'Retry publish': 'Yayını yeniden dene',
   'REFERENCE (OPTIONAL)': 'AÇIKLAMA (İSTEĞE BAĞLI)',
+  'The merchant did not approve this payment in time. Ask them to show the request again.':
+    'Satıcı bu ödemeyi zamanında onaylamadı. İsteği yeniden göstermesini isteyin.',
+  'Someone else is already paying this request. Ask the merchant for a new one.':
+    'Bu isteği başka biri ödüyor. Satıcıdan yeni bir istek isteyin.',
+  'The merchant has not published this request, so it cannot be approved.':
+    'Satıcı bu isteği yayımlamadı, bu yüzden onaylanamıyor.',
+  'This phone could not sign in to the Rosa Pay API, so the merchant was never asked to approve.':
+    'Bu telefon Rosa Pay API’sine giriş yapamadı; satıcıya onay hiç sorulmadı.',
+  'This deployment will not let this wallet claim a request. Update the API, or pay from a wallet this app created.':
+    'Bu dağıtım bu cüzdanın istek talep etmesine izin vermiyor. API’yi güncelleyin ya da bu uygulamanın oluşturduğu bir cüzdandan ödeyin.',
+  'The merchant could not approve this payment.': 'Satıcı bu ödemeyi onaylayamadı.',
   'Use the hosted address': 'Yayındaki adresi kullan',
   'This address is a development machine, so this phone reaches nothing.':
     'Bu adres bir geliştirme makinesi; bu telefon hiçbir yere ulaşamıyor.',

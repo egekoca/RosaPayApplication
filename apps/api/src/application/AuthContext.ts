@@ -39,8 +39,28 @@ export function createDeviceAuthResolver(
   };
 }
 
+/**
+ * Binds a device to the wallet this API provisioned for it, where there is one.
+ *
+ * `walletContractId` is only ever set for a smart wallet this API deployed. A
+ * customer who arrived with twelve words pays from a classic account it has
+ * never seen, so the comparison was `undefined !== 'G…'` and every such payer
+ * was refused — at the moment they claimed a request, which is the first step
+ * of paying. They had signed nothing, spent nothing, and were told only that
+ * the payment could not be completed.
+ *
+ * Silence about an address is not evidence against it. So this stays strict for
+ * a device that does have a provisioned wallet — it must use that one — and
+ * allows a claim through when there is nothing to compare against.
+ *
+ * What that concedes is bounded. Claiming a request moves no money: it asks the
+ * merchant to sign a digest naming this payer, and the payment still requires
+ * the payer's own key to authorize the contract call. The worst an untruthful
+ * claim achieves is occupying one request, which the one-customer-per-request
+ * conflict rule already treats as a race to be lost.
+ */
 export function assertWalletOwnership(principal: ApiPrincipal | null, address: string): void {
-  if (principal && principal.walletContractId !== address) {
+  if (principal?.walletContractId && principal.walletContractId !== address) {
     throw new CapabilityDeniedError('The wallet is not owned by the authenticated device');
   }
 }

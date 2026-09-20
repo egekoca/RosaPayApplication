@@ -193,6 +193,11 @@ kurtarma-cümlesi hesabı seçilirse o yola hiç girilmez.
   KANIT       Fişteki tx hash'ini stellar.expert'te aç ve
               demoyu orada bitir.
 
+  IZINLER     Bluetooth izni artık elle aranmıyor. Satıcıda ödeme
+              isteği oluşturulduğunda, müşteride Scan ekranı
+              açıldığında bir kez sorulur. Reddedilirse QR yine
+              çalışır; izin satırı ekranda kalır.
+
   IPHONE      İki iPhone NFC ile ödeşemez: iOS üçüncü taraf uygulamaya
   IPHONE'A    kart emülasyonu vermiyor, yani QR'ı gösteren iPhone
               dokunulacak bir şey yaymıyor. Bu çift için Bluetooth
@@ -213,7 +218,7 @@ kurtarma-cümlesi hesabı seçilirse o yola hiç girilmez.
               hatayı ancak yükleme bittikten sonra söyler.
               iOS:     apps/mobile/ios/RosaPay.xcodeproj  -> CURRENT_PROJECT_VERSION (iki yerde)
               Android: apps/mobile/android/app/build.gradle -> versionCode
-              MARKETING_VERSION / versionName su an "1.0.3".
+              MARKETING_VERSION / versionName su an "1.0.4".
               Arşiv numarayı içine gömer: artırdıktan sonra YENİDEN arşivle.
 
   SEP-12      Anchor bölümünde `packages/anchor` testini çalıştır.

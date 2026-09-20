@@ -19,6 +19,7 @@ import {useAppStore, type PaymentTransport} from '../../state/appStore';
 import {requestCameraPermission, type CameraPermission} from './cameraPermission';
 import {readPaymentQr} from './readPaymentQr';
 import {useNfcReader} from './useNfc';
+import {useProximityStatus} from './useProximity';
 import {useTranslate} from '../../shared/i18n';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Scan'>;
@@ -104,6 +105,27 @@ export function ScanScreen({navigation}: Props) {
     },
     [navigation, scanContext, stellarHealth.data?.latestLedger, t],
   );
+
+  /**
+   * Ask for Bluetooth where someone is already trying to pay.
+   *
+   * Opening this screen is the one moment the question answers itself: a
+   * customer is standing at a counter deciding how to hand over money, and
+   * holding the phone against the merchant's is the alternative to aiming a
+   * camera at it. Asking at launch instead would be a wallet asking about
+   * Bluetooth before anyone had tried to buy anything.
+   *
+   * Once per visit; both platforms remember the answer, and the home screen
+   * keeps the way back for a refusal.
+   */
+  const proximity = useProximityStatus();
+  const askedForProximity = useRef(false);
+  const {request: requestProximity, supported: proximitySupported, authorized: proximityAuthorized} = proximity;
+  useEffect(() => {
+    if (askedForProximity.current || !proximitySupported || proximityAuthorized) return;
+    askedForProximity.current = true;
+    requestProximity();
+  }, [proximityAuthorized, proximitySupported, requestProximity]);
 
   // A tap and a scan carry the same signed request, so both go through the same
   // verification before anything is confirmed.

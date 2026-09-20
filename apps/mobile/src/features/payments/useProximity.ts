@@ -57,6 +57,7 @@ export type ProximityBroadcastStatus = ProximityStatus & {
 export function useProximityBroadcast(payload: string | null): ProximityBroadcastStatus {
   const status = useProximityStatus();
   const [attempt, setAttempt] = useState(0);
+  const asked = useRef(false);
   // Native start/stop are asynchronous. Serializing them stops a late start for
   // an old payload from tearing down the next request's advertisement.
   const operationQueue = useRef<Promise<void>>(Promise.resolve());
@@ -68,6 +69,26 @@ export function useProximityBroadcast(payload: string | null): ProximityBroadcas
   >(null);
 
   const ready = status.canBroadcast && status.enabled && status.authorized;
+
+  /**
+   * Ask for Bluetooth the moment there is something to offer over it.
+   *
+   * A counter should not have to find a button before it can be paid. Being
+   * handed a payload is the whole context the question needs — a merchant has
+   * just put a request up and is waiting for someone to pay it — and it is the
+   * one moment where "Rosa Pay uses Bluetooth to pass a payment request between
+   * two phones held together" answers itself.
+   *
+   * Once per mount. Both platforms ask a person once and remember the answer,
+   * so a refusal leaves the manual control as the way back rather than a prompt
+   * that reappears. The QR is unaffected either way.
+   */
+  const {request} = status;
+  useEffect(() => {
+    if (!payload || asked.current || !status.supported || status.authorized) return;
+    asked.current = true;
+    request();
+  }, [payload, request, status.authorized, status.supported]);
 
   useEffect(() => {
     if (!payload || !ready || !appActive) {

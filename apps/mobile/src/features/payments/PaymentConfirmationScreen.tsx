@@ -15,7 +15,7 @@ import {logger} from '../../shared/logger';
 import type {SettlementPipelineProgress} from '@rosapay/stellar';
 import {useStellarHealth} from '../../shared/useStellarHealth';
 import {settlePaymentIntent} from './settlementAdapter';
-import {describeSettlementError} from './settlementErrors';
+import {describeSettlementError, settlementErrorDetail} from './settlementErrors';
 import {resolveFundingChoice, type FundingOption} from './fundingChoice';
 import {useCurrentAccount} from '../wallet/currentAccount';
 import {testnetDeployment} from '@rosapay/stellar';
@@ -196,7 +196,22 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
       {submittedHash ? (
         <Text selectable style={styles.submitted}>{t('Sent to Stellar:')} {submittedHash.slice(0, 16)}…</Text>
       ) : null}
-      {mutation.error ? <Text style={styles.error}>{t(describeSettlementError(mutation.error, intent.asset.code))}</Text> : null}
+      {mutation.error ? (
+        <>
+          <Text style={styles.error}>{t(describeSettlementError(mutation.error, intent.asset.code))}</Text>
+          {/*
+            What actually went wrong, in the words the code used. A phone has no
+            console, so without this line a failure nobody anticipated reaches
+            the person holding it as one sentence and takes its cause with it.
+            Selectable, because reporting it means copying it.
+          */}
+          {settlementErrorDetail(mutation.error) ? (
+            <Text selectable style={styles.errorDetail} testID="settlement-error-detail">
+              {settlementErrorDetail(mutation.error)}
+            </Text>
+          ) : null}
+        </>
+      ) : null}
       <Button disabled={blocked} loading={mutation.isPending} icon={<Fingerprint color={colors.black} size={21} />} onPress={startAuthorization} testID="approve-payment">{mutation.isPending ? t(stageLabel(stage)) : mutation.isError ? t('Retry payment') : t('Approve payment')}</Button>
     </Screen>
     <RosaLoadingOverlay
@@ -428,4 +443,5 @@ const styles = StyleSheet.create({
   security: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
   securityText: {color: colors.success, fontSize: 12},
   error: {...typography.label, color: colors.danger},
+  errorDetail: {...typography.mono, color: colors.inkFaint, fontSize: 10, lineHeight: 14, marginTop: spacing.xs},
 });
