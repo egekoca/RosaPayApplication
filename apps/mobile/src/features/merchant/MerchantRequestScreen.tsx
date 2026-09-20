@@ -1,6 +1,6 @@
 import {useEffect, useState, type ReactNode} from 'react';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Bluetooth, Plus, RefreshCw, Store} from 'lucide-react-native';
+import {Bluetooth, Plus, RefreshCw, Store, Timer} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {AnimatedContent, Button, colors, LoadingDots, radius, spacing, StatusPill, Stepper, SurfaceCard, TextField, typography} from '@rosapay/ui';
@@ -30,6 +30,7 @@ import {registerMerchantForTestnet} from './merchantRegistration';
 import {publishPaymentRequest, useRelayerIdentity, usePaymentRequestStatus} from './merchantRequestStatus';
 import {useMerchantCountersigning} from './merchantCountersigning';
 import {useTranslate} from '../../shared/i18n';
+import {clock, useLedgerCountdown} from '../../shared/ledgerCountdown';
 
 type Props = NativeStackScreenProps<RootStackParams, 'MerchantRequest'>;
 type PublicationState =
@@ -60,20 +61,51 @@ export function MerchantRequestScreen({navigation, route}: Props) {
 
     let active = true;
     const intentId = pendingRequest.intent.intentId;
+    const request = pendingRequest;
     setPublication({intentId, status: 'publishing'});
-    void publishPaymentRequest(pendingRequest)
-      .then(() => {
-        if (active) setPublication({intentId, status: 'published'});
-      })
-      .catch(failure => {
-        if (active) {
+
+    /*
+     * One retry, for everything except a person saying no.
+     *
+     * Publishing needs a device session, and minting one asks for Face ID and
+     * then calls an API that is asleep between demos — so the first call after
+     * a quiet spell can time out on a host that is only waking up. That left a
+     * request card with no QR and a button to press, at the counter, with a
+     * customer waiting. The second attempt costs nothing: a prompt that
+     * succeeded has already stored the session, so it does not ask again.
+     *
+     * A cancelled or failed prompt is not retried. Nobody wants Face ID twice
+     * for a request they have just declined to authorize, and the honest
+     * answer there is the button.
+     */
+    void (async () => {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          await publishPaymentRequest(request);
+          if (active) setPublication({intentId, status: 'published'});
+          return;
+        } catch (failure) {
+          const code = (failure as {code?: string} | null)?.code;
+          const refused = code === 'USER_CANCELLED' || code === 'LOCKED_OUT' || code === 'BIOMETRIC_FAILED';
+          if (!active) return;
+          if (attempt === 0 && !refused) {
+            await new Promise(resolve => setTimeout(resolve, 1_200));
+            if (!active) return;
+            continue;
+          }
           setPublication({
             intentId,
             status: 'failed',
-            error: failure instanceof Error ? failure.message : 'The request could not be published to the API',
+            error: refused
+              ? 'This phone did not approve the request. Press retry and answer the prompt.'
+              : failure instanceof Error
+                ? failure.message
+                : 'The request could not be published to the API',
           });
+          return;
         }
-      });
+      }
+    })();
     return () => {
       active = false;
     };
@@ -581,23 +613,30 @@ function RequestCard({
 }) {
   const t = useTranslate();
   const remaining = latestLedger === undefined ? undefined : request.intent.expiresAtLedger - latestLedger;
+  const secondsLeft = useLedgerCountdown(remaining);
+  /*
+   * The width this card actually gives the code, and the box that holds it.
+   *
+   * Zero until the first layout, which is why the fallback is the size this
+   * was fixed at: the first frame looks exactly as it did before and the
+   * measurement corrects it, rather than flashing a guess. The white plate is
+   * square and both states use it, so nothing on the card moves when the code
+   * replaces the message that stood in for it.
+   */
+  const [qrArea, setQrArea] = useState(0);
+  const qrSize = qrArea > 0 ? Math.max(140, Math.min(288, qrArea - QR_PLATE_PADDING * 2)) : 214;
+  const qrBox = qrSize + QR_PLATE_PADDING * 2;
   // Once a payment has moved, its outcome is what matters; the expiry window
   // only describes a request that is still waiting for a customer.
   const closed = settlementStatus !== undefined && settlementStatus !== 'awaiting_approval';
   const expired = !closed && remaining !== undefined && remaining <= 0;
-  // A request must have a fresh ledger observation before it is shown or
-  // broadcast. If the merchant loses Testnet connectivity, keeping an old QR
-  // or HCE payload visible would invite a customer to tap a request whose
-  // five-minute window can no longer be verified locally.
-  const requestLive =
-    published &&
-    isOfferable(settlementStatus ?? '') &&
-    !ledgerUnavailable &&
-    latestLedger !== undefined &&
-    remaining !== undefined &&
-    remaining > 0 &&
-    !closed &&
-    !expired;
+  const requestLive = shouldShowRequest({
+    published,
+    settlementStatus,
+    ledgerUnavailable,
+    latestLedger,
+    expiresAtLedger: request.intent.expiresAtLedger,
+  });
   const encoded = encodePaymentQr(request);
   // Do not offer a request until the API knows it, or after its one payment.
   const offered = requestLive ? encoded : null;
@@ -622,32 +661,57 @@ function RequestCard({
           failed={settlementStatus === 'failed' || settlementStatus === 'rejected'}
           steps={requestSteps.map(step => ({...step, label: t(step.label)}))}
         />
-        {requestLive ? (
-          <View style={styles.qr} testID="request-qr-ready">
-            <QRCode value={encoded} size={214} color={colors.black} backgroundColor="#FFFFFF" />
-          </View>
-        ) : (
-          <View style={styles.qrPlaceholder} testID="request-not-ready">
-            {publishing ? <LoadingDots color={colors.goldBright} size={4} /> : null}
-            <Text style={styles.qrPlaceholderText}>
-              {!published
-                ? !publishing && !publishError ? t('Register this business before creating a payment request') : publishError ? t('This request is not published') : t('Publishing payment request')
-                : expired ? t('This request has expired') : closed ? t('This payment request is closed') : t('Checking payment request')}
-            </Text>
-            {publishError ? (
-              <>
-                <Text style={styles.radioText}>{t('The API did not confirm the request. Retry before asking a customer to pay.')}</Text>
-                <Button
-                  icon={<RefreshCw color={colors.black} size={16} />}
-                  onPress={onRetryPublish}
-                  testID="retry-publish-request"
-                  tone="ghost">
-                  {t('Retry publish')}
-                </Button>
-              </>
-            ) : null}
-          </View>
-        )}
+        {/*
+          Measured rather than calculated. The code has to fit inside a card
+          inside a screen, each with its own padding, and at 214 fixed it was
+          six points wider than the card on a small phone — and the same 214 on
+          a tablet, marooned in white space. Reading the width this view is
+          actually given needs none of those numbers repeated here, and cannot
+          drift when one of them changes.
+        */}
+        <View
+          onLayout={event => setQrArea(event.nativeEvent.layout.width)}
+          style={styles.qrArea}>
+          {requestLive ? (
+            <>
+              {/*
+                Above the code, because it is the thing that decides whether the
+                code is worth showing to the person in front of you. "52 ledgers
+                left" was the truth and answered nobody's question; a clock does.
+              */}
+              <View style={styles.countdown} testID="request-countdown">
+                <Timer color={secondsLeft !== undefined && secondsLeft <= 60 ? colors.danger : colors.amber} size={15} />
+                <Text style={[styles.countdownText, secondsLeft !== undefined && secondsLeft <= 60 && styles.countdownUrgent]}>
+                  {secondsLeft === undefined ? t('Checking how long this is valid') : `${clock(secondsLeft)} ${t('left to pay')}`}
+                </Text>
+              </View>
+              <View style={[styles.qr, {height: qrBox, width: qrBox}]} testID="request-qr-ready">
+                <QRCode value={encoded} size={qrSize} color={colors.black} backgroundColor="#FFFFFF" />
+              </View>
+            </>
+          ) : (
+            <View style={[styles.qrPlaceholder, {minHeight: qrBox}]} testID="request-not-ready">
+              {publishing ? <LoadingDots color={colors.goldBright} size={4} /> : null}
+              <Text style={styles.qrPlaceholderText}>
+                {!published
+                  ? !publishing && !publishError ? t('Register this business before creating a payment request') : publishError ? t('This request is not published') : t('Publishing payment request')
+                  : expired ? t('This request has expired') : closed ? t('This payment request is closed') : t('Checking payment request')}
+              </Text>
+              {publishError ? (
+                <>
+                  <Text style={styles.radioText}>{t('The API did not confirm the request. Retry before asking a customer to pay.')}</Text>
+                  <Button
+                    icon={<RefreshCw color={colors.black} size={16} />}
+                    onPress={onRetryPublish}
+                    testID="retry-publish-request"
+                    tone="ghost">
+                    {t('Retry publish')}
+                  </Button>
+                </>
+              ) : null}
+            </View>
+          )}
+        </View>
         {requestLive ? (
           <ProximityOffer proximity={proximity} />
         ) : null}
@@ -662,7 +726,7 @@ function RequestCard({
                 ? `${t('Expires at ledger')} ${request.intent.expiresAtLedger}`
                 : expired
                   ? t('This request has expired')
-                  : `${remaining} ${t('ledgers left')} (${t('about')} ${Math.max(1, Math.round((remaining * 5) / 60))} ${t('min')})`}
+                  : `${remaining} ${t('ledgers left')}`}
           </Text>
         </View>
       </SurfaceCard>
@@ -791,6 +855,42 @@ function ProximityOffer({proximity}: {proximity: ReturnType<typeof useProximityB
   );
 }
 
+/**
+ * Whether this request's QR and radio should be on, right now.
+ *
+ * Two rules, and the second is the one that was wrong. A request must have a
+ * fresh ledger observation behind it: losing Testnet while a code is on the
+ * counter would invite a customer to pay a request whose five-minute window
+ * this phone can no longer check. And it must not have been claimed — a
+ * request leaves `awaiting_approval` the moment a customer takes it, and
+ * handing it to a second one is worth preventing.
+ *
+ * But an *unknown* status is not a claimed one. This used to demand
+ * `awaiting_approval` outright, and that status only arrives on the next poll
+ * — a whole round trip after publishing, and on a host that sleeps between
+ * demos a long one, with a failed poll pushing it to the one after that. The
+ * merchant had a request card with no code on it and no way to be paid.
+ * Publishing is what makes a request payable, and the API writes
+ * `awaiting_approval` in the same transaction that stores the intent, so
+ * nothing is being assumed here that has not already happened.
+ */
+export function shouldShowRequest(input: {
+  published: boolean;
+  /** `undefined` means the poll has not answered yet, not that it is closed. */
+  settlementStatus: string | undefined;
+  ledgerUnavailable: boolean;
+  latestLedger: number | undefined;
+  expiresAtLedger: number;
+}): boolean {
+  const {published, settlementStatus, ledgerUnavailable, latestLedger, expiresAtLedger} = input;
+  if (!published || ledgerUnavailable || latestLedger === undefined) return false;
+  if (expiresAtLedger - latestLedger <= 0) return false;
+  return settlementStatus === undefined || isOfferable(settlementStatus);
+}
+
+/** The white margin a scanner needs around a code to read it reliably. */
+const QR_PLATE_PADDING = spacing.lg;
+
 const requestSteps = [
   {key: 'price', label: 'Price'},
   {key: 'show', label: 'Show QR'},
@@ -835,11 +935,15 @@ const styles = StyleSheet.create({
   asset: {color: colors.goldBright, fontSize: 15},
   reference: {color: colors.inkMuted, fontSize: 12, marginTop: spacing.xs},
   radioRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
-  radioText: {fontSize: 13, color: colors.inkMuted},
+  radioText: {color: colors.inkMuted, flexShrink: 1, fontSize: 13},
+  countdown: {alignItems: 'center', alignSelf: 'center', flexDirection: 'row', gap: spacing.xs, justifyContent: 'center'},
+  countdownText: {...typography.label, color: colors.amber, fontSize: 13, letterSpacing: 0.6},
+  countdownUrgent: {color: colors.danger},
   radioLog: {backgroundColor: colors.black, borderRadius: radius.sm, gap: 2, padding: spacing.sm},
   radioLogLine: {color: colors.inkMuted, fontSize: 11, lineHeight: 15},
-  qr: {alignItems: 'center', alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.sm, padding: spacing.lg},
-  qrPlaceholder: {alignItems: 'center', alignSelf: 'center', gap: spacing.sm, justifyContent: 'center', minHeight: 246, padding: spacing.lg, width: '100%'},
+  qrArea: {gap: spacing.lg, width: '100%'},
+  qr: {alignItems: 'center', alignSelf: 'center', backgroundColor: '#FFFFFF', borderRadius: radius.sm, justifyContent: 'center'},
+  qrPlaceholder: {alignItems: 'center', alignSelf: 'center', gap: spacing.sm, justifyContent: 'center', padding: spacing.lg, width: '100%'},
   qrPlaceholderText: {color: colors.inkMuted, fontSize: 13, lineHeight: 18, textAlign: 'center'},
   expiry: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
   ledgerRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},

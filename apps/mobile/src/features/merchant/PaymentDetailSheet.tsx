@@ -160,6 +160,25 @@ export function outcomeLabel(status: string): string {
   }
 }
 
+/** The colour a status carries wherever it is shown. */
+export function outcomeTone(status: string): 'success' | 'danger' | 'pending' | 'neutral' {
+  switch (status) {
+    case 'confirmed':
+      return 'success';
+    case 'expired':
+    case 'rejected':
+    case 'failed':
+      return 'danger';
+    case 'awaiting_approval':
+    case 'authorized':
+    case 'submitted':
+    case 'created':
+      return 'pending';
+    default:
+      return 'neutral';
+  }
+}
+
 function outcomeExplainer(status: string): string {
   switch (status) {
     case 'confirmed':

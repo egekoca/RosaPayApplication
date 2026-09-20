@@ -301,6 +301,13 @@ const TR: Record<string, string> = {
   'Set up your business profile before creating a payment request.':
     'Ödeme isteği oluşturmadan önce işletme profilinizi kurun.',
   'Recent payments': 'Son ödemeler',
+  // The countdown over the code, and what a merchant reads off a row in the
+  // list below it. Both say whether money is still coming, so both are read at
+  // a glance and neither can afford to be in a language the counter is not in.
+  'left to pay': 'süre kaldı',
+  'Checking how long this is valid': 'Ne kadar geçerli olduğu kontrol ediliyor',
+  'This phone did not approve the request. Press retry and answer the prompt.':
+    'Bu telefon isteği onaylamadı. Tekrar dene ve çıkan istemi yanıtla.',
   'Business status': 'İşletme durumu',
   SETTLED: 'ÖDEŞTİ',
   OPEN: 'AÇIK',

@@ -155,6 +155,14 @@ const USED = [
   'YOU GET',
   'YOU SEND',
   'HELD TOGETHER',
+  // The countdown over the code, and the badges on the list under it.
+  'left to pay',
+  'Checking how long this is valid',
+  'PAID',
+  'WAITING',
+  'EXPIRED',
+  'DECLINED',
+  'FAILED',
   'Turn on paying by holding phones together',
   'Allow Bluetooth in Settings',
   // The merchant's payment detail, which a Turkish merchant reads at the till.

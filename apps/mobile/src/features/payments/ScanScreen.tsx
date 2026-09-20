@@ -325,10 +325,10 @@ const styles = StyleSheet.create({
   balanceValue: {...typography.label, color: colors.goldDeep, fontSize: 13},
   balanceMuted: {color: colors.inkMuted, fontSize: 13, paddingVertical: spacing.sm},
   camera: {alignItems: 'center', alignSelf: 'center', aspectRatio: 0.82, backgroundColor: colors.black, borderRadius: radius.md, justifyContent: 'center', gap: spacing.xl, maxWidth: 420, overflow: 'hidden', width: '100%'},
-  scanFrame: {alignItems: 'center', borderColor: colors.lemon, borderRadius: radius.md, borderWidth: 2, height: 210, justifyContent: 'center', shadowColor: colors.lemon, shadowOpacity: 0.14, shadowRadius: 22, width: 210},
+  scanFrame: {alignItems: 'center', aspectRatio: 1, borderColor: colors.lemon, borderRadius: radius.md, borderWidth: 2, justifyContent: 'center', shadowColor: colors.lemon, shadowOpacity: 0.14, shadowRadius: 22, width: '62%'},
   cameraText: {...typography.label, color: colors.ink, maxWidth: 260, textAlign: 'center'},
   fallback: {fontSize: 13, lineHeight: 18, color: colors.inkMuted, textAlign: 'center'},
   error: {...typography.label, color: colors.danger, textAlign: 'center'},
   radioRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'center'},
-  radioText: {fontSize: 13, color: colors.inkMuted},
+  radioText: {color: colors.inkMuted, flexShrink: 1, fontSize: 13},
 });

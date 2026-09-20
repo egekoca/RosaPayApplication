@@ -22,6 +22,7 @@ import {useCurrentAccount} from '../wallet/currentAccount';
 import {testnetDeployment} from '@rosapay/stellar';
 import {createStellarConfig} from '@rosapay/stellar';
 import {useTranslate} from '../../shared/i18n';
+import {clock, useLedgerCountdown} from '../../shared/ledgerCountdown';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Confirm'>;
 
@@ -107,6 +108,10 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
   const verified = useMemo(() => verifyMerchantSignature(payload), [payload]);
   const latestLedger = stellarHealth.data?.latestLedger;
   const remainingLedgers = latestLedger === undefined ? undefined : intent.expiresAtLedger - latestLedger;
+  // The person deciding is the one under the clock. This row said "52 ledgers
+  // left", which is true, checkable, and no help at all to someone working out
+  // whether they have time to approve.
+  const secondsLeft = useLedgerCountdown(remainingLedgers);
   const expired = remainingLedgers !== undefined && remainingLedgers <= 0;
   // Confirm can also be reached from merchant preview or a future deep link.
   // Those paths do not pass through readPaymentQr, so keep the Testnet-only
@@ -156,7 +161,7 @@ export function PaymentConfirmationScreen({route, navigation}: Props) {
           <Detail label={t('Network')} value={intent.network === 'testnet' ? 'Stellar Testnet' : 'Stellar Public'} />
           <Detail label={t('Asset')} value={intent.asset.type === 'native' ? t('Native XLM') : `${intent.asset.code} (${intent.asset.type.toUpperCase()})`} />
           {issuer ? <Detail label={t('Issuer')} value={issuer} mono selectable /> : null}
-          <Detail label={t('Expires')} value={expiryLabel(remainingLedgers, intent.expiresAtLedger, stellarHealth.isError, t)} />
+          <Detail label={t('Expires')} value={expiryLabel(secondsLeft, intent.expiresAtLedger, stellarHealth.isError, t)} />
           <Detail label={t('Recipient')} value={intent.recipient} mono selectable last />
         </SurfaceCard>
       </AnimatedContent>
@@ -265,11 +270,11 @@ function settlementDetail(stage: SettlementPipelineProgress['stage'] | undefined
   }
 }
 
-function expiryLabel(remainingLedgers: number | undefined, expiresAtLedger: number, unavailable: boolean, t: (text: string) => string): string {
+function expiryLabel(secondsLeft: number | undefined, expiresAtLedger: number, unavailable: boolean, t: (text: string) => string): string {
   if (unavailable) return `${t('At ledger')} ${expiresAtLedger} (${t('network unreachable')})`;
-  if (remainingLedgers === undefined) return `${t('At ledger')} ${expiresAtLedger}`;
-  if (remainingLedgers <= 0) return t('Expired');
-  return `${remainingLedgers} ${t('ledgers left')} (${t('about')} ${Math.max(1, Math.round((remainingLedgers * 5) / 60))} ${t('min')})`;
+  if (secondsLeft === undefined) return `${t('At ledger')} ${expiresAtLedger}`;
+  if (secondsLeft <= 0) return t('Expired');
+  return `${clock(secondsLeft)} ${t('left to pay')}`;
 }
 
 function initialsOf(merchantName: string): string {

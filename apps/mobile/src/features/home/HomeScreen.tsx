@@ -11,6 +11,7 @@ import {useMerchantPayments} from '../merchant/merchantRequestStatus';
 import {MERCHANT_PAGE_SIZE, orderMerchantPayments} from '../merchant/paymentOrder';
 import {
   outcomeLabel,
+  outcomeTone,
   PaymentDetailSheet,
   type MerchantPaymentDetail,
 } from '../merchant/PaymentDetailSheet';
@@ -559,9 +560,21 @@ function MerchantHome({navigation}: {navigation: Props['navigation']}) {
                         <Text numberOfLines={1} style={[styles.listName, closed && styles.listMuted]}>
                           {'reference' in payment ? payment.reference : t('Payment received')}
                         </Text>
-                        <Text style={styles.listWhen}>
-                          {`${new Date(payment.createdAt).toLocaleDateString()} · ${t(outcomeLabel(payment.status))}`}
-                        </Text>
+                        {/*
+                          The status carried the same weight as the date, in the
+                          same grey, on the far side of a middle dot — so the one
+                          thing a merchant scans this list for was the thing
+                          hardest to see. It gets the badge it gets everywhere
+                          else in the app, and the date keeps the line to itself.
+                        */}
+                        <View style={styles.listStatusRow}>
+                          <StatusPill tone={outcomeTone(payment.status)}>
+                            {t(outcomeLabel(payment.status))}
+                          </StatusPill>
+                          <Text style={styles.listWhen}>
+                            {new Date(payment.createdAt).toLocaleDateString()}
+                          </Text>
+                        </View>
                       </View>
                       <View style={styles.listAmountBlock}>
                         <Text numberOfLines={1} style={[styles.listAmount, closed && styles.listMuted]}>
@@ -742,6 +755,7 @@ const styles = StyleSheet.create({
   },
   listCopy: {flex: 1, gap: 2},
   listName: {...typography.label, color: colors.ink, fontSize: 15},
+  listStatusRow: {alignItems: 'center', flexDirection: 'row', gap: spacing.sm},
   listWhen: {color: colors.inkFaint, fontSize: 12},
   listRowClosed: {opacity: 0.55},
   listMuted: {color: colors.inkMuted},
