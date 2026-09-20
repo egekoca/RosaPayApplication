@@ -18,7 +18,7 @@ transparency by flood-filling from the edges, and the image was resized to
 760x760. The blank screen it was shot with is where the app is composited, which
 is what a blank-screen mockup is for.
 
-## Asset marks (`#i-xlm` in `index.html`, `AssetMark.tsx` in the app)
+## Asset marks (`#i-xlm` and `#i-usdc` in `index.html`, `AssetMark.tsx` in the app)
 
 The Stellar mark and Circle's USDC mark, traced from the logo files the project
 was given and inlined as SVG paths so they take the ink colour of whatever

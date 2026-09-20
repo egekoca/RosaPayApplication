@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#050505" />
     <meta name="description" content="Rosa Pay makes in-person Stellar payments feel as simple as scanning a QR." />
-    <meta property="og:title" content="Rosa Pay — Scan. Approve. Settled." />
+    <meta property="og:title" content="Rosa Pay. Scan. Approve. Settled." />
     <meta property="og:description" content="A non-custodial payment app for customers and merchants, powered by Stellar." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/assets/rosapay-logo.png" />
-    <title>Rosa Pay — Scan. Approve. Settled.</title>
+    <title>Rosa Pay. Scan. Approve. Settled.</title>
     <link rel="icon" href="/assets/rosapay-logo.png" />
     <link rel="preload" as="image" href="/assets/hand-holding-phone.png" />
     <link rel="stylesheet" href="/styles.css" />
@@ -21,6 +21,9 @@
     <svg class="sprite" aria-hidden="true" focusable="false">
       <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3.2" y="3.2" width="7" height="7" rx="1.6" /><rect x="13.8" y="3.2" width="7" height="7" rx="1.6" /><rect x="3.2" y="13.8" width="7" height="7" rx="1.6" /><path d="M13.8 13.8h3.1v3.1h-3.1zM20.8 13.8h-1.4M20.8 17.6v3.2h-3.4M13.8 20.8h1.5" /></symbol>
       <symbol id="i-nfc" viewBox="0 0 24 24"><path d="M5.4 9.4a4 4 0 0 1 0 5.2M9.3 6.4a8.6 8.6 0 0 1 0 11.2M13.2 3.4a13.2 13.2 0 0 1 0 17.2M18.4 12h2.4" /></symbol>
+      <!-- The two bars a phone loses when it goes offline, each struck through. -->
+      <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M2.4 8.8a16 16 0 0 1 5.2-3M11 5.4a16 16 0 0 1 10.6 3.4M5.8 12.5a11 11 0 0 1 2.9-1.7M14 10.7a11 11 0 0 1 4.2 1.8M9.3 16a6 6 0 0 1 5.4 0M12 19.3h.02M3.4 3.4l17.2 17.2" /></symbol>
+      <symbol id="i-cell-off" viewBox="0 0 24 24"><path d="M4.4 20.4v-3.2M9.2 20.4v-6.2M14 20.4v-5M18.8 20.4V6.4M3.4 3.4l17.2 17.2" /></symbol>
       <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3.6 8.6V6.2a2.6 2.6 0 0 1 2.6-2.6h2.4M15.4 3.6h2.4a2.6 2.6 0 0 1 2.6 2.6v2.4M20.4 15.4v2.4a2.6 2.6 0 0 1-2.6 2.6h-2.4M8.6 20.4H6.2a2.6 2.6 0 0 1-2.6-2.6v-2.4M3.6 12h16.8" /></symbol>
       <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.8" cy="12" r="3.4" /><path d="M11.2 12h9.2M17.6 12v3.1M14.4 12v2.3" /></symbol>
       <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 19.4 6v5.3c0 4.3-3 8.2-7.4 9.7-4.4-1.5-7.4-5.4-7.4-9.7V6L12 3Z" /><path d="m8.9 12.1 2.3 2.3 4.1-4.4" /></symbol>
@@ -67,6 +70,10 @@
       <symbol id="i-xlm" viewBox="0 0 24 24">
         <path fill="currentColor" stroke="none" fill-rule="evenodd" d="M11.59 1.85L9.94 2.05L9.15 2.25L7.41 2.94L6.47 3.48L5.58 4.12L4.74 4.9L3.95 5.8L2.91 7.45L2.27 9.05L2.07 9.8L1.88 11.1L1.88 13.19L1.73 13.69L1.22 14.35L0.0 15.0L0.0 17.05L24.0 4.85L24.0 2.81L23.87 2.84L3.75 13.06L3.69 11.78L3.79 10.64L4.02 9.62L4.43 8.53L4.99 7.51L5.65 6.63L6.6 5.67L7.54 4.98L9.14 4.19L10.86 3.76L12.38 3.7L13.38 3.79L14.91 4.21L16.05 4.75L17.93 3.81L17.53 3.48L16.49 2.89L14.85 2.25L13.3 1.93ZM23.97 6.94L0.0 19.14L0.0 21.19L20.18 10.92L20.25 10.92L20.31 11.86L20.25 13.11L19.98 14.36L19.56 15.5L19.06 16.4L18.32 17.41L17.43 18.3L16.51 18.99L15.46 19.56L14.67 19.88L13.63 20.16L12.84 20.27L11.65 20.3L10.21 20.12L9.0 19.76L7.95 19.23L6.06 20.19L7.13 20.91L8.56 21.56L9.96 21.95L11.57 22.15L13.28 22.07L14.83 21.75L16.07 21.31L17.15 20.75L18.47 19.83L19.52 18.82L20.31 17.84L21.09 16.55L21.53 15.53L21.93 14.2L22.12 12.88L22.12 10.77L22.21 10.46L22.47 9.97L22.83 9.6L24.0 9.0Z" />
       </symbol>
+      <symbol id="i-usdc" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="12" fill="#2775CA" stroke="none" />
+        <path fill="#fff" stroke="none" fill-rule="evenodd" d="M9.75 3.3L8.67 3.63L7.11 4.44L5.97 5.31L4.95 6.39L4.11 7.65L3.51 9.0L3.15 10.32L3.0 11.82L3.15 13.68L3.51 15.0L4.23 16.56L4.95 17.61L5.97 18.69L7.11 19.56L8.67 20.37L9.72 20.7L9.81 20.67L9.81 19.23L8.55 18.72L7.26 17.88L6.15 16.77L5.52 15.87L5.04 14.94L4.68 13.83L4.47 12.36L4.47 11.67L4.56 10.71L4.8 9.72L5.16 8.82L5.64 7.95L6.36 6.99L7.59 5.88L8.55 5.28L9.81 4.77ZM14.25 3.3L14.19 4.77L15.45 5.28L16.77 6.15L17.64 6.99L18.6 8.34L18.96 9.06L19.32 10.17L19.53 11.64L19.53 12.33L19.44 13.29L19.2 14.28L18.84 15.18L18.36 16.05L17.64 17.01L16.53 18.03L15.45 18.72L14.19 19.23L14.22 20.7L15.33 20.37L16.89 19.56L18.03 18.69L19.05 17.61L19.89 16.35L20.49 15.0L20.85 13.68L21.0 12.18L20.85 10.32L20.49 9.0L19.77 7.44L19.05 6.39L18.03 5.31L16.89 4.44L15.33 3.63ZM11.37 6.75L11.28 6.81L11.28 7.89L10.53 8.07L9.99 8.31L9.51 8.67L9.18 9.12L8.94 9.9L9.03 10.92L9.36 11.49L10.14 12.09L11.13 12.45L12.84 12.84L13.41 13.11L13.65 13.35L13.77 13.65L13.68 14.16L13.38 14.52L13.11 14.67L12.3 14.85L11.88 14.85L11.28 14.76L10.71 14.49L10.35 14.07L10.11 13.44L8.7 13.44L8.67 13.59L8.91 14.49L9.39 15.21L10.11 15.72L11.28 16.11L11.34 17.25L12.66 17.25L12.72 16.11L14.04 15.69L14.85 14.97L15.09 14.49L15.21 13.95L15.12 12.96L14.76 12.33L13.95 11.76L12.42 11.31L11.52 11.16L10.74 10.83L10.44 10.5L10.44 9.81L10.71 9.45L11.1 9.24L12.18 9.15L12.6 9.24L12.96 9.45L13.32 9.87L13.44 10.38L13.53 10.44L14.94 10.41L14.94 10.26L14.73 9.45L14.28 8.76L13.74 8.31L12.72 7.92L12.66 6.75Z" />
+      </symbol>
 
     </svg>
 
@@ -80,12 +87,10 @@
           <span></span><span></span>
         </button>
         <div class="nav-links" data-menu data-open="false">
-          <a href="#why">Why</a>
-          <a href="#pay">Pay</a>
-          <a href="#keys">Keys</a>
-          <a href="#anchors">Anchors</a>
-            <a href="#proof">Proof</a>
-          <a class="pill" href="https://github.com/egekoca/RosaPayApplication" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+          <a href="#offline">Offline</a>
+          <a href="#benefits">Benefits</a>
+          <a href="#lira">Lira</a>
+          <a class="pill" href="https://github.com/egekoca/RosaPayApplication" target="_blank" rel="noreferrer">GitHub</a>
         </div>
       </nav>
     </header>
@@ -94,13 +99,12 @@
       <section class="hero" id="top">
         <div class="shell hero-grid">
           <div class="hero-copy">
-            <p class="eyebrow" data-rise style="--d: 40ms"><i></i> In-person payments</p>
             <h1 class="hero-title" data-split>
               <span data-rise style="--d: 120ms">Scan.</span>
               <span data-rise style="--d: 200ms">Approve.</span>
               <em data-rise style="--d: 280ms">Settled.</em>
             </h1>
-            <p class="lede" data-rise style="--d: 380ms">Fast in-person payments. No addresses, no checkout. The QR is the last inch: underneath it, a merchant-signed request a Soroban contract enforces, lira in and out through an anchor, a bill that settles out of whatever you happen to be holding — and a key your phone cannot give away, that a lost phone does not take with it.</p>
+            <p class="lede" data-rise style="--d: 380ms">Fast payments at the counter. No addresses. No checkout. Scan, approve and settle.</p>
 
             <div class="store-row" data-rise style="--d: 460ms" aria-label="Mobile app availability">
               <a class="store-button" href="https://apps.apple.com/us/search?term=Rosa%20Pay" target="_blank" rel="noreferrer" aria-label="Rosa Pay on the App Store, coming soon">
@@ -130,15 +134,19 @@
             <div class="counter" data-counter data-mode="qr" data-phase="entry">
               <div class="switcher" role="group" aria-label="How the payment is handed over">
                 <button type="button" class="switcher-btn is-on" data-pick="qr" aria-pressed="true">QR</button>
-                <button type="button" class="switcher-btn" data-pick="nfc" aria-pressed="false">NFC</button>
+                <button type="button" class="switcher-btn" data-pick="contactless" aria-pressed="false">Contactless</button>
+                <button type="button" class="switcher-btn" data-pick="offline" aria-pressed="false">Offline</button>
               </div>
 
               <div class="counter-modes" role="status" aria-live="polite">
                 <p class="counter-mode counter-mode--qr">
                   <svg class="i" aria-hidden="true"><use href="#i-qr" /></svg> Scan the code
                 </p>
-                <p class="counter-mode counter-mode--nfc">
+                <p class="counter-mode counter-mode--contactless">
                   <svg class="i" aria-hidden="true"><use href="#i-nfc" /></svg> Or hold them together
+                </p>
+                <p class="counter-mode counter-mode--offline">
+                  <svg class="i" aria-hidden="true"><use href="#i-wifi-off" /></svg> Or pay with no signal at all
                 </p>
               </div>
 
@@ -157,6 +165,21 @@
                       <span class="tap-mark" aria-hidden="true"><svg class="i"><use href="#i-nfc" /></svg></span>
                       <p class="tap-title">Ready to pay</p>
                       <p class="tap-note">Hold near the merchant's phone</p>
+                    </span>
+                    <span class="face face--offline">
+                      <span class="off-bar" aria-hidden="true">
+                        <i><svg class="i"><use href="#i-cell-off" /></svg> No service</i>
+                        <i><svg class="i"><use href="#i-wifi-off" /></svg> No WiFi</i>
+                      </span>
+                      <span class="off-mark" aria-hidden="true"><svg class="i"><use href="#i-wifi-off" /></svg></span>
+                      <p class="tap-title">Still pays</p>
+                      <p class="tap-note">Reading the request out of the code. None of this needs a network.</p>
+                    </span>
+                    <span class="face face--signed">
+                      <span class="sign-mark" aria-hidden="true"><svg class="i"><use href="#i-fingerprint" /></svg></span>
+                      <p class="tap-title">Signed on this phone</p>
+                      <p class="sign-amount">37.31 <span>XLM</span></p>
+                      <p class="tap-note">Handed back for the merchant to submit</p>
                     </span>
                     <span class="face face--done">
                       <span class="done-tick" aria-hidden="true"><svg class="i"><use href="#i-check" /></svg></span>
@@ -178,7 +201,8 @@
                 </div>
 
                 <span class="link link--qr" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span class="link link--nfc" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="link link--contactless" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="link link--offline" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
 
                 <div class="hold hold--merchant">
                   <div class="hold-move">
@@ -222,6 +246,12 @@
                         <svg class="code-art" viewBox="0 0 200 200" aria-hidden="true"><use href="#i-qr-art" /></svg>
                         <span class="code-foot">Show this code to your customer</span>
                       </span>
+                      <span class="face face--settled">
+                        <span class="done-tick" aria-hidden="true"><svg class="i"><use href="#i-check" /></svg></span>
+                        <p class="done-title">Payment received</p>
+                        <p class="done-amount">500,00 <span>₺</span></p>
+                        <p class="done-note"><svg class="flag"><use href="#i-flag-tr" /></svg> 37.31 XLM · the customer never went online</p>
+                      </span>
                     </span>
                   </figure>
                   </div>
@@ -234,400 +264,213 @@
         </div>
       </section>
 
-      <section class="section shell" id="why">
-        <div class="section-heading centered" data-rise>
-          <span class="section-index">Why</span>
-          <h2 data-split>Served today.<br /><em>Paid in forty days.</em></h2>
-        </div>
-
-        <div class="wait" data-rise>
-          <div class="wait-lane wait-lane--then">
-            <div class="wait-who">
-              <span class="cards" aria-hidden="true">
-                <i class="card card--3"></i>
-                <i class="card card--2"></i>
-                <i class="card card--1"><b></b><u></u></i>
-              </span>
-              <p class="wait-name">Meal card</p>
+      <!--
+        Three pages, one claim each, in the order a doubter needs them: the
+        thing nobody else can do, then the thing that already hurts, then where
+        the money actually goes. A grid of feature tiles said all of it at once
+        and therefore said none of it.
+      -->
+      <section class="page page--offline" id="offline">
+        <div class="shell offline-shell">
+          <div class="offline-showcase" data-rise style="--d: 90ms" aria-label="An offline customer completes a payment through an online merchant">
+            <div class="offline-callout offline-callout--customer">
+              <span class="offline-callout-mark" aria-hidden="true"><svg class="i"><use href="#i-wifi-off" /></svg></span>
+              <span class="offline-kicker">Customer</span>
+              <h2>No internet connection.</h2>
+              <p>Reads the request and signs securely on this phone.</p>
             </div>
-            <ol class="stops">
-              <li>
-                <span class="stop-dot"><svg class="i"><use href="#i-store" /></svg></span>
-                <b>Day 1</b><span>Meal served</span>
-              </li>
-              <li>
-                <span class="stop-dot"><svg class="i"><use href="#i-hourglass" /></svg></span>
-                <b>Day 15</b><span>Still waiting</span>
-              </li>
-              <li>
-                <span class="stop-dot"><svg class="i"><use href="#i-vault" /></svg></span>
-                <b>Day 30–40</b><span>Paid, minus commission</span>
-              </li>
-            </ol>
-          </div>
 
-          <div class="wait-lane wait-lane--now">
-            <div class="wait-who">
-              <span class="cards" aria-hidden="true">
-                <i class="card card--gold"><b></b><u></u></i>
+            <figure class="held offline-device offline-device--customer">
+              <img class="held-hand" src="/assets/hand-holding-phone.png" alt="A customer holding an offline phone that can still sign a Rosa Pay payment" width="760" height="760" />
+              <span class="held-screen">
+                <span class="face face--offline">
+                  <span class="off-bar" aria-hidden="true">
+                    <i><svg class="i"><use href="#i-cell-off" /></svg> No service</i>
+                    <i><svg class="i"><use href="#i-wifi-off" /></svg> No WiFi</i>
+                  </span>
+                  <span class="off-mark" aria-hidden="true"><svg class="i"><use href="#i-wifi-off" /></svg></span>
+                  <p class="tap-title">Still signs</p>
+                  <p class="tap-note">The request never leaves this phone.</p>
+                </span>
               </span>
-              <p class="wait-name">Rosa Pay</p>
+            </figure>
+
+            <!--
+              The claim is a sequence, so the page draws the join: what the
+              offline phone hands over, and which direction it travels. Two
+              devices side by side only said "here are two phones".
+            -->
+            <span class="offline-arrow" aria-hidden="true">
+              <span>hands back a signature</span>
+              <i></i>
+            </span>
+
+            <figure class="held held--mirror offline-device offline-device--merchant">
+              <img class="held-hand" src="/assets/hand-holding-phone.png" alt="A merchant holding a phone showing a successful Rosa Pay payment" width="760" height="760" />
+              <span class="held-screen">
+                <span class="face face--settled">
+                  <span class="done-tick" aria-hidden="true"><svg class="i"><use href="#i-check" /></svg></span>
+                  <p class="done-title">Payment received</p>
+                  <p class="done-amount">500,00 <span>₺</span></p>
+                  <p class="done-note">37.31 XLM settled on Stellar</p>
+                </span>
+              </span>
+            </figure>
+
+            <div class="offline-callout offline-callout--success">
+              <span class="offline-callout-mark" aria-hidden="true"><svg class="i"><use href="#i-check" /></svg></span>
+              <span class="offline-kicker">Payment</span>
+              <h2>Payment is still possible.</h2>
+              <p>The merchant submits the signature and receives the payment.</p>
+              <a class="offline-proof" href="https://stellar.expert/explorer/testnet/tx/f1f850aa24d55172bde1bef9428110554cffcdcdb1507bad8cd50cf987d49396" target="_blank" rel="noreferrer">
+                View settled payment <svg class="i"><use href="#i-arrow" /></svg>
+              </a>
             </div>
-            <ol class="stops stops--short">
-              <li>
-                <span class="stop-dot"><svg class="i"><use href="#i-store" /></svg></span>
-                <b>Now</b><span>Meal served</span>
-              </li>
-              <li>
-                <span class="stop-dot"><svg class="i"><use href="#i-bolt" /></svg></span>
-                <b><span data-count-to="5">5</span> seconds</b><span>Paid, in full</span>
-              </li>
-            </ol>
           </div>
         </div>
-
-        <ul class="beats" data-rise>
-          <li class="beat beat--then">
-            <svg class="i"><use href="#i-lock" /></svg>
-            <b>Locked</b>
-            <span>until the payout run</span>
-          </li>
-          <li class="beat beat--then">
-            <svg class="i"><use href="#i-percent" /></svg>
-            <b>Commission</b>
-            <span>off every plate</span>
-          </li>
-          <li class="beat beat--then">
-            <svg class="i"><use href="#i-vault" /></svg>
-            <b>Held</b>
-            <span>by someone else</span>
-          </li>
-          <li class="beat beat--now">
-            <svg class="i"><use href="#i-unlock" /></svg>
-            <b>Spendable</b>
-            <span>the moment it lands</span>
-          </li>
-          <li class="beat beat--now">
-            <svg class="i"><use href="#i-wallet" /></svg>
-            <b>Your wallet</b>
-            <span>nobody else holds it</span>
-          </li>
-          <li class="beat beat--now">
-            <svg class="i"><use href="#i-bolt" /></svg>
-            <b>No payout run</b>
-            <span>nothing to wait for</span>
-          </li>
-        </ul>
-
-        <div class="priced" data-rise>
-          <div class="priced-copy">
-            <p class="priced-tag">Priced in your money</p>
-            <h3>A merchant types 500&nbsp;₺. The customer sends lumens.</h3>
-            <p class="priced-note">
-              The rate is an anchor's own live quote, not a number we made up. The price the customer
-              approves is the price on the bill.
-            </p>
-          </div>
-          <div class="priced-convert" aria-hidden="true">
-            <p class="priced-from"><span>500.00</span><em>TRY</em></p>
-            <span class="priced-arrow"><svg class="i"><use href="#i-arrow" /></svg></span>
-            <p class="priced-to"><span>37.31</span><em>XLM</em></p>
-            <p class="priced-rate">at the anchor’s published rate</p>
-          </div>
-        </div>
-
-        <div class="priced" data-rise>
-          <div class="priced-copy">
-            <p class="priced-tag">Paid out of what you hold</p>
-            <h3>The bill says USDC. Your wallet holds lumens. It still goes through.</h3>
-            <p class="priced-note">
-              The settlement contract buys the difference on Soroswap in the same transaction that pays
-              the merchant. One approval, one ledger entry: either they are paid the exact amount they
-              asked for, or nothing moved at all. The merchant's signature never mentions the swap, so
-              no route and no price can change who is paid, in what, or how much.
-            </p>
-          </div>
-          <div class="priced-convert" aria-hidden="true">
-            <p class="priced-from"><span>0.9465832</span><em>XLM</em></p>
-            <span class="priced-arrow"><svg class="i"><use href="#i-arrow" /></svg></span>
-            <p class="priced-to"><span>0.10</span><em>USDC</em></p>
-            <p class="priced-rate">one transaction, on Testnet</p>
-          </div>
-        </div>
-
-        <ul class="swaps" data-rise>
-          <li class="swaps-item">
-            <p class="swaps-old"><svg class="i"><use href="#i-type" /></svg> 56-character address</p>
-            <span class="swaps-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
-            <p class="swaps-new"><svg class="i"><use href="#i-scan" /></svg> Scan or tap</p>
-          </li>
-          <li class="swaps-item">
-            <p class="swaps-old"><svg class="i"><use href="#i-key" /></svg> 12-word phrase</p>
-            <span class="swaps-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
-            <p class="swaps-new"><svg class="i"><use href="#i-fingerprint" /></svg> Your face</p>
-          </li>
-          <li class="swaps-item">
-            <p class="swaps-old"><svg class="i"><use href="#i-clock" /></svg> Coins for the fee</p>
-            <span class="swaps-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
-            <p class="swaps-new"><svg class="i"><use href="#i-bolt" /></svg> Paid for you</p>
-          </li>
-        </ul>
       </section>
 
-      <section class="section shell" id="pay">
-        <div class="section-heading centered" data-rise>
-          <span class="section-index">How you pay</span>
-          <h2 data-split>Scan it. <em>Or tap it.</em></h2>
+      <section class="page" id="benefits">
+        <div class="shell benefit-shell">
+          <h2 class="sr-only">Benefits for restaurants and customers</h2>
+
+          <div class="benefit-cards" data-rise>
+            <article class="benefit-card benefit-card--restaurant">
+              <header class="benefit-head">
+                <span class="benefit-icon"><svg class="i"><use href="#i-store" /></svg></span>
+                <span>Restaurant</span>
+              </header>
+
+              <div class="benefit-message">
+                <h3>No terminal. No payout queue.</h3>
+                <p>Create a signed request on one phone. Settlement lands in the wallet you control.</p>
+              </div>
+
+              <ul class="benefit-results">
+                <li>
+                  <span class="result-icon"><svg class="i"><use href="#i-scan" /></svg></span>
+                  <span><strong>One phone is enough</strong><small>Show a QR or offer tap, without a separate terminal.</small></span>
+                </li>
+                <li>
+                  <span class="result-icon"><svg class="i"><use href="#i-wallet" /></svg></span>
+                  <span><strong>No platform balance</strong><small>The payment settles directly into your own wallet.</small></span>
+                </li>
+                <li>
+                  <span class="result-icon"><svg class="i"><use href="#i-wifi-off" /></svg></span>
+                  <span><strong>The customer can be offline</strong><small>Their phone signs. The merchant submits and pays the fee.</small></span>
+                </li>
+              </ul>
+            </article>
+
+            <article class="benefit-card benefit-card--customer">
+              <header class="benefit-head">
+                <span class="benefit-icon"><svg class="i"><use href="#i-fingerprint" /></svg></span>
+                <span>Customer</span>
+              </header>
+
+              <div class="benefit-message">
+                <h3>Approve the bill. Never an address.</h3>
+                <p>The verified merchant, exact amount, asset and expiry are bound to one payment.</p>
+              </div>
+
+              <ul class="benefit-results">
+                <li>
+                  <span class="result-icon"><svg class="i"><use href="#i-link" /></svg></span>
+                  <span><strong>Pay with what you hold</strong><small>A supported asset can swap inside the same payment.</small></span>
+                </li>
+                <li>
+                  <span class="result-icon"><svg class="i"><use href="#i-shield" /></svg></span>
+                  <span><strong>Exact amount or nothing</strong><small>Changed, expired or replayed requests are rejected.</small></span>
+                </li>
+                <li>
+                  <span class="result-icon"><svg class="i"><use href="#i-key" /></svg></span>
+                  <span><strong>Losing your phone doesn't lose it.</strong><small>Your passkey moves control to a new phone and stops the old one.</small></span>
+                  <a class="result-link" aria-label="View wallet recovery transaction on chain" href="https://stellar.expert/explorer/testnet/tx/2ed61aba82b4331ae0992d74d335deff6b61e7ce7abea6dc0009382200ee599d" target="_blank" rel="noreferrer"><svg class="i"><use href="#i-arrow" /></svg></a>
+                </li>
+              </ul>
+            </article>
+          </div>
         </div>
-
-        <div class="pay-grid">
-          <article class="pay-card" data-rise>
-            <div class="qr-visual" aria-hidden="true">
-              <svg class="qr-code" viewBox="0 0 200 200"><use href="#i-qr-art" /></svg>
-              <span class="qr-frame qr-frame-1"></span><span class="qr-frame qr-frame-2"></span>
-              <span class="qr-frame qr-frame-3"></span><span class="qr-frame qr-frame-4"></span>
-              <span class="qr-beam"></span>
-              <img class="qr-logo" src="/assets/rosapay-logo.png" alt="" width="52" height="52" />
-            </div>
-            <div class="pay-foot">
-              <p class="pay-label"><svg class="i"><use href="#i-qr" /></svg> QR</p>
-              <h3>Point the camera.</h3>
-            </div>
-          </article>
-
-          <article class="pay-card" data-rise style="--d: 120ms">
-            <div class="nfc-visual" aria-hidden="true">
-              <div class="tap-phone tap-merchant">
-                <span class="tap-amount">24.90<em>XLM</em></span>
-              </div>
-              <div class="tap-waves">
-                <i></i><i></i><i></i>
-              </div>
-              <div class="tap-phone tap-customer">
-                <span class="tap-face"><svg class="i"><use href="#i-fingerprint" /></svg></span>
-              </div>
-            </div>
-            <div class="pay-foot">
-              <p class="pay-label"><svg class="i"><use href="#i-nfc" /></svg> NFC</p>
-              <h3>Hold them together.</h3>
-            </div>
-          </article>
-        </div>
-
       </section>
 
-      <section class="section flow" id="flow">
-        <div class="shell">
-          <div class="section-heading centered" data-rise>
-            <span class="section-index">What happens</span>
-            <h2 data-split>One payment,<br /><em>three hands.</em></h2>
-          </div>
-          <ol class="flow-rail">
-            <li class="flow-step" data-rise>
-              <p class="flow-who"><span>01</span> MERCHANT</p>
-              <div class="flow-art">
-                <figure class="flow-shot">
-                  <img src="/assets/merchant-request.png" alt="The Rosa Pay merchant screen showing a signed 24.9 XLM request as a QR code" width="276" height="620" loading="lazy" />
-                </figure>
-              </div>
-              <h3>Asks for the amount</h3>
-              <p class="flow-note">Merchant mode signs the request with a key on that phone, so it names the amount and where it lands.</p>
-            </li>
+      <section class="page page--ink" id="lira">
+        <div class="shell page-grid">
+          <h2 class="page-title" data-split data-rise style="--d: 80ms">
+            They price it in lira. <em>They cash out in lira.</em>
+          </h2>
 
-            <li class="flow-step" data-rise style="--d: 90ms">
-              <p class="flow-who"><span>02</span> CUSTOMER</p>
-              <div class="flow-art">
-                <figure class="flow-shot">
-                  <img src="/assets/customer-confirm.png" alt="The Rosa Pay confirmation screen showing Rose Coffee, 24.9 XLM and a verified merchant signature" width="276" height="620" loading="lazy" />
-                </figure>
-              </div>
-              <h3>Approves that exact one</h3>
-              <p class="flow-note">Scan or tap to receive it. The app checks the signature before you look, and your face or fingerprint releases the key.</p>
+          <!--
+            A real round trip, not an illustration: the figures are the ones
+            config/testnet-try-ramp-evidence.json recorded against a live
+            SEP-6 anchor, down to the fee it charged on the way out.
+          -->
+          <ol class="rail" data-rise style="--d: 170ms">
+            <li class="rail-stop">
+              <span class="rail-mark"><svg class="i"><use href="#i-store" /></svg></span>
+              <b class="rail-amount"><svg class="currency-mark currency-mark--try"><use href="#i-flag-tr" /></svg><span>500,00 ₺</span></b>
+              <span>In by bank transfer, to the anchor</span>
+              <em>SEP-6</em>
             </li>
-
-            <li class="flow-step" data-rise style="--d: 170ms">
-              <p class="flow-who"><span>03</span> STELLAR</p>
-              <div class="flow-art">
-                <div class="flow-settled">
-                  <span class="flow-tick"><svg class="i"><use href="#i-check-circle" /></svg></span>
-                  <p>Settled on Stellar</p>
-                  <span class="flow-fee">Fee paid by the relayer</span>
-                  <a class="flow-evidence" href="https://stellar.expert/explorer/testnet/tx/c8414bdabd495b987a45588a09dc95ef3b4a821c39f08696895ea3720025a777" target="_blank" rel="noreferrer">See a settled one <svg class="i"><use href="#i-arrow" /></svg></a>
-                </div>
-              </div>
-              <h3>Settles it once</h3>
-              <p class="flow-note">The contract refuses a replay, a changed amount or a late approval. You never hold XLM for fees.</p>
+            <li class="rail-stop">
+              <span class="rail-mark"><svg class="i"><use href="#i-percent" /></svg></span>
+              <b class="rail-amount"><svg class="currency-mark"><use href="#i-usdc" /></svg><span>10.27 USDC</span></b>
+              <span>Converted at the anchor's published quote</span>
+              <em>SEP-38</em>
+            </li>
+            <li class="rail-stop">
+              <span class="rail-mark"><svg class="i"><use href="#i-wallet" /></svg></span>
+              <b class="rail-amount"><svg class="currency-mark currency-mark--try"><use href="#i-flag-tr" /></svg><span>247,51 ₺</span></b>
+              <span>Sent to an IBAN with the fee shown first</span>
+              <em>SEP-6</em>
             </li>
           </ol>
-        </div>
-      </section>
 
-      <section class="section shell" id="keys">
-        <div class="section-heading centered" data-rise>
-          <span class="section-index">Your keys</span>
-          <h2 data-split>Only your phone can spend it.<br /><em>Losing your phone doesn't lose it.</em></h2>
-        </div>
-
-        <ul class="anchors" data-rise>
-          <li class="anchor-tile">
-            <svg class="i"><use href="#i-vault" /></svg>
-            <b>Nothing to write down</b>
-            <span>
-              The key that spends your money is made inside your phone's security chip and cannot
-              leave it. There is no phrase to photograph, paste, or be talked out of.
-            </span>
-            <em>Secure Enclave · Keystore</em>
-          </li>
-          <li class="anchor-tile">
-            <svg class="i"><use href="#i-fingerprint" /></svg>
-            <b>Your face approves it</b>
-            <span>
-              Every payment is signed for that exact amount and that exact shop. Approving one
-              cannot approve another.
-            </span>
-            <em>secp256r1</em>
-          </li>
-          <li class="anchor-tile">
-            <svg class="i"><use href="#i-key" /></svg>
-            <b>A passkey carries it over</b>
-            <span>
-              Your passkey lives on your other devices too, because Apple and Google put it there.
-              It is what a new phone shows to claim the wallet.
-            </span>
-            <em>WebAuthn</em>
-          </li>
-          <li class="anchor-tile">
-            <svg class="i"><use href="#i-lock" /></svg>
-            <b>It can rescue, never spend</b>
-            <span>
-              The contract lets that passkey do exactly one thing: hand the wallet to a new phone.
-              It cannot move a single lira.
-            </span>
-            <em>rotate() only</em>
-          </li>
-        </ul>
-
-        <div class="priced" data-rise>
-          <div class="priced-copy">
-            <p class="priced-tag">If the phone is gone</p>
-            <h3>A new phone makes its own key. The old one stops working.</h3>
-            <p class="priced-note">
-              There is nothing to type, because there never was anything to write down. Your passkey
-              says which wallet is yours; the new phone's key takes over; and whoever finds the old
-              handset cannot spend from it afterwards. Every step of that is enforced by the contract
-              on Stellar, not by us — and it is checked against the live network on every build.
+          <div class="page-aside" data-rise style="--d: 250ms">
+            <h3>Pay the bill with the asset you already hold.</h3>
+            <p>
+              Rosa Pay swaps through Soroswap and pays the merchant in one approval. The exact amount arrives or nothing moves.
             </p>
-          </div>
-          <div class="priced-convert" aria-hidden="true">
-            <p class="priced-from"><span>Old phone</span><em>LOST</em></p>
-            <span class="priced-arrow"><svg class="i"><use href="#i-arrow" /></svg></span>
-            <p class="priced-to"><span>New phone</span><em>YOURS</em></p>
-            <p class="priced-rate">one passkey, no phrase</p>
+            <a class="page-evidence swap-proof" href="https://stellar.expert/explorer/testnet/tx/b4a0cc9b8c7e3a3beb4b7a24c93517465ac2b731862451917c4ff24f2bcd1513" target="_blank" rel="noreferrer">
+              <span class="swap-pair">
+                <span><svg class="currency-mark currency-mark--xlm"><use href="#i-xlm" /></svg>XLM</span>
+                <svg class="i swap-arrow"><use href="#i-arrow" /></svg>
+                <span><svg class="currency-mark"><use href="#i-usdc" /></svg>USDC</span>
+              </span>
+              <span>View settled swap</span>
+            </a>
           </div>
         </div>
       </section>
 
-      <section class="section shell" id="anchors">
-        <div class="section-heading centered" data-rise>
-          <span class="section-index">Anchors</span>
-          <h2 data-split>Money in.<br /><em>Money out.</em></h2>
-        </div>
-
-        <ul class="anchors" data-rise>
-          <li class="anchor-tile">
-            <svg class="i"><use href="#i-link" /></svg>
-            <b>Found by its domain</b>
-            <span>The app reads the anchor's own <code>stellar.toml</code> and takes nothing else on trust.</span>
-            <em>SEP-1</em>
-          </li>
-          <li class="anchor-tile">
-            <svg class="i"><use href="#i-shield" /></svg>
-            <b>Signed in with the phone</b>
-            <span>No password to the anchor. A key on this phone answers its challenge.</span>
-            <em>SEP-10</em>
-          </li>
-          <li class="anchor-tile">
-            <svg class="i"><use href="#i-wallet" /></svg>
-            <b>Cash in, cash out</b>
-            <span>Lira arrives by bank transfer and leaves to an IBAN, in the anchor's own flow.</span>
-            <em>SEP-6</em>
-          </li>
-          <li class="anchor-tile">
-            <svg class="i"><use href="#i-percent" /></svg>
-            <b>Its rate, not ours</b>
-            <span>The price in lira is the anchor's live quote. No anchor answers, no rate is shown.</span>
-            <em>SEP-38</em>
-          </li>
-        </ul>
-
-        <p class="anchors-note" data-rise>
-          An anchor is the door between Stellar and a bank account. Rosa Pay talks to them through the
-          standards every Stellar wallet uses, so a merchant is never tied to ours — and no API key is
-          involved, because a wallet that speaks one company's private API is welded to that company.
-        </p>
-      </section>
-
-      <section class="section shell" id="proof" aria-label="Stellar Testnet payment proof">
-        <div class="proof-card" data-rise>
-          <div class="proof-copy">
-            <span class="section-index">Live proof</span>
-            <h2 data-split>Not a mockup.<br /><em>On Testnet.</em></h2>
-            <p class="proof-note">A wallet holding no USDC paying a USDC bill: Soroswap swap and merchant payment in one transaction, authorized by one key in the phone's secure element, fee paid by the relayer.</p>
-            <a href="https://stellar.expert/explorer/testnet/tx/b4a0cc9b8c7e3a3beb4b7a24c93517465ac2b731862451917c4ff24f2bcd1513" target="_blank" rel="noreferrer">Inspect settled payment <svg class="i"><use href="#i-arrow" /></svg></a>
-          </div>
-          <div class="ledger-card">
-            <p class="ledger-top"><span><i aria-hidden="true"></i> STELLAR TESTNET</span><b>SUCCESS</b></p>
-            <strong>0.10 <em>USDC</em></strong>
-            <dl><div><dt>Paid with</dt><dd>0.9465832 XLM</dd></div><div><dt>Ledger</dt><dd><span data-count-to="4540761">4,540,761</span></dd></div><div><dt>Contract</dt><dd>CAV6…CSVO</dd></div></dl>
-            <a href="https://stellar.expert/explorer/testnet/contract/CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO" target="_blank" rel="noreferrer">View contract ↗</a>
-            <span class="hidden-evidence">CAV65DKNKPQZMY2MBXEDDBBCLMTVNIZUJVYFNDRUSKNCATIFKX66CSVO</span>
+      <!-- The way out of the page, and nothing else on the way. -->
+      <section class="closer shell" id="get">
+        <div class="closer-cta" data-rise>
+          <img src="/assets/rosapay-logo.png" alt="Rosa Pay" width="64" height="64" />
+          <h2>Fresh payments.<br />Powered by Stellar.</h2>
+          <div class="store-row centered-stores">
+            <a class="store-button" href="https://apps.apple.com/us/search?term=Rosa%20Pay" target="_blank" rel="noreferrer" aria-label="Rosa Pay on the App Store, coming soon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.25.07 2.12.69 2.85.74 1.09-.22 2.13-.85 3.3-.77 1.4.11 2.45.67 3.15 1.68-2.89 1.73-2.2 5.54.45 6.6-.53 1.39-1.21 2.77-1.75 3.72ZM12.03 7.25C11.88 5.18 13.57 3.47 15.5 3.3c.27 2.39-2.17 4.17-3.47 3.95Z" /></svg>
+              <span><small>Coming soon on</small><strong>App Store</strong></span>
+            </a>
+            <a class="store-button" href="https://play.google.com/store/search?q=Rosa%20Pay&amp;c=apps" target="_blank" rel="noreferrer" aria-label="Rosa Pay on Google Play, coming soon">
+              <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path class="play-a" d="M3.4 2.2 14.7 12 3.4 21.8c-.3-.4-.4-.9-.4-1.5V3.7c0-.6.1-1.1.4-1.5Z" />
+                <path class="play-b" d="m14.7 12 3.1-2.7 3.7 2.1c.7.4.7.8 0 1.2l-3.7 2.1-3.1-2.7Z" />
+                <path class="play-c" d="M3.4 2.2c.5-.6 1.2-.7 2-.2l12.4 7.3-3.1 2.7L3.4 2.2Z" />
+                <path class="play-d" d="m14.7 12 3.1 2.7L5.4 22c-.8.5-1.5.4-2-.2L14.7 12Z" />
+              </svg>
+              <span><small>Coming soon on</small><strong>Google Play</strong></span>
+            </a>
           </div>
         </div>
-
-        <ul class="swaps" data-rise>
-          <li class="swaps-item">
-            <p class="swaps-old"><svg class="i"><use href="#i-key" /></svg> A passkey authorized a payment</p>
-            <span class="swaps-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
-            <p class="swaps-new"><a href="https://stellar.expert/explorer/testnet/tx/6208731aecf16315d4a46878e6b09f873d16c010dde81468889d59d90eaa4f6b" target="_blank" rel="noreferrer">On chain ↗</a></p>
-          </li>
-          <li class="swaps-item">
-            <p class="swaps-old"><svg class="i"><use href="#i-unlock" /></svg> A lost phone was replaced</p>
-            <span class="swaps-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
-            <p class="swaps-new"><a href="https://stellar.expert/explorer/testnet/tx/2ed61aba82b4331ae0992d74d335deff6b61e7ce7abea6dc0009382200ee599d" target="_blank" rel="noreferrer">On chain ↗</a></p>
-          </li>
-          <li class="swaps-item">
-            <p class="swaps-old"><svg class="i"><use href="#i-store" /></svg> 300&nbsp;₺ in, 148,50&nbsp;₺ out</p>
-            <span class="swaps-join" aria-hidden="true"><svg class="i"><use href="#i-arrow" /></svg></span>
-            <p class="swaps-new"><a href="https://github.com/egekoca/RosaPayApplication/blob/main/config/testnet-bridge-evidence.json" target="_blank" rel="noreferrer">Evidence ↗</a></p>
-          </li>
-        </ul>
       </section>
 
-      <section class="download shell" id="download" data-rise>
-        <img src="/assets/rosapay-logo.png" alt="Rosa Pay" width="76" height="76" />
-        <h2>Fresh payments.<br />Powered by Stellar.</h2>
-        <div class="store-row centered-stores">
-          <a class="store-button" href="https://apps.apple.com/us/search?term=Rosa%20Pay" target="_blank" rel="noreferrer" aria-label="Rosa Pay on the App Store, coming soon">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.25.07 2.12.69 2.85.74 1.09-.22 2.13-.85 3.3-.77 1.4.11 2.45.67 3.15 1.68-2.89 1.73-2.2 5.54.45 6.6-.53 1.39-1.21 2.77-1.75 3.72ZM12.03 7.25C11.88 5.18 13.57 3.47 15.5 3.3c.27 2.39-2.17 4.17-3.47 3.95Z" /></svg>
-            <span><small>Coming soon on</small><strong>App Store</strong></span>
-          </a>
-          <a class="store-button" href="https://play.google.com/store/search?q=Rosa%20Pay&amp;c=apps" target="_blank" rel="noreferrer" aria-label="Rosa Pay on Google Play, coming soon">
-            <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path class="play-a" d="M3.4 2.2 14.7 12 3.4 21.8c-.3-.4-.4-.9-.4-1.5V3.7c0-.6.1-1.1.4-1.5Z" />
-              <path class="play-b" d="m14.7 12 3.1-2.7 3.7 2.1c.7.4.7.8 0 1.2l-3.7 2.1-3.1-2.7Z" />
-              <path class="play-c" d="M3.4 2.2c.5-.6 1.2-.7 2-.2l12.4 7.3-3.1 2.7L3.4 2.2Z" />
-              <path class="play-d" d="m14.7 12 3.1 2.7L5.4 22c-.8.5-1.5.4-2-.2L14.7 12Z" />
-            </svg>
-            <span><small>Coming soon on</small><strong>Google Play</strong></span>
-          </a>
-        </div>
-      </section>
     </main>
 
     <footer class="footer shell">
       <a class="brand" href="#top"><img src="/assets/rosapay-logo.png" alt="" width="30" height="30" /><span>Rosa <b>Pay</b></span></a>
       <p>© 2026 Rosa Pay</p>
-      <div><a href="https://github.com/egekoca/RosaPayApplication" target="_blank" rel="noreferrer">GitHub ↗</a><a href="https://developers.stellar.org" target="_blank" rel="noreferrer">Stellar ↗</a></div>
+      <div><a href="https://github.com/egekoca/RosaPayApplication" target="_blank" rel="noreferrer">GitHub</a><a href="https://developers.stellar.org" target="_blank" rel="noreferrer">Stellar</a></div>
     </footer>
   </body>
 </html>

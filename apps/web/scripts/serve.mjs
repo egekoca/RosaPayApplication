@@ -15,11 +15,19 @@ const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const port = Number(process.env.PORT ?? 4180);
 
 const vercel = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'));
-const headers = Object.fromEntries(
-  (vercel.headers ?? [])
-    .flatMap(rule => rule.headers ?? [])
-    .map(header => [header.key, header.value]),
-);
+/*
+ * Each rule carries the paths it applies to, and applying them all to every
+ * response is not "the way Vercel does it": the JSON content type meant for the
+ * two .well-known files was landing on index.html, which a browser then refused
+ * to render as a page.
+ */
+const rules = (vercel.headers ?? []).map(rule => ({
+  match: new RegExp(`^${rule.source}$`),
+  entries: (rule.headers ?? []).map(header => [header.key, header.value]),
+}));
+
+const headersFor = pathname =>
+  Object.fromEntries(rules.filter(rule => rule.match.test(pathname)).flatMap(rule => rule.entries));
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -58,7 +66,7 @@ const server = createServer(async (request, response) => {
   const file = await resolveFile(pathname === '/' ? '/index.html' : pathname);
 
   if (!file) {
-    response.writeHead(404, {'content-type': 'text/plain; charset=utf-8', ...headers});
+    response.writeHead(404, {'content-type': 'text/plain; charset=utf-8', ...headersFor(pathname)});
     response.end(`Not found: ${pathname}\n`);
     console.log(`404 ${pathname}`);
     return;
@@ -67,7 +75,7 @@ const server = createServer(async (request, response) => {
   response.writeHead(200, {
     'content-type': contentTypes[extname(file).toLowerCase()] ?? 'application/octet-stream',
     'cache-control': 'no-store',
-    ...headers,
+    ...headersFor(pathname),
   });
   createReadStream(file).pipe(response);
   console.log(`200 ${pathname}`);

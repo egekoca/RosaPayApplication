@@ -79,47 +79,22 @@ if ('IntersectionObserver' in window) {
   deferred.forEach(element => { element.dataset.visible = 'true'; });
 }
 
-/* ---------- extruded phone body ---------- */
-function extrude(host) {
-  const depth = Number(host.dataset.extrude);
-  if (!Number.isFinite(depth) || depth <= 0) return;
-
-  const fragment = document.createDocumentFragment();
-  const steps = Math.round(depth);
-
-  for (let index = 0; index <= steps; index += 1) {
-    const ratio = index / steps;
-    const layer = document.createElement('div');
-    layer.className = 'slab';
-    layer.style.setProperty('--z', `${depth / 2 - index}px`);
-    layer.style.setProperty('--b', (1 - ratio * 0.72).toFixed(3));
-    fragment.appendChild(layer);
-  }
-
-  host.appendChild(fragment);
-}
-
-document.querySelectorAll('[data-extrude]').forEach(extrude);
-
-/* ---------- pointer + scroll driven rotation ---------- */
-const stage = document.querySelector('[data-stage]');
-const phone = document.querySelector('.phone--customer[data-phone]') ?? document.querySelector('[data-phone]');
-
 /*
- * The two ways to hand a payment over, shown one at a time.
+ * The three ways to hand a payment over, shown one at a time.
  *
- * Long enough to read the caption and watch the beam or the tap land, short
- * enough that nobody scrolls past believing the scan is all there is. Paused
- * while the tab is hidden, because a timer running in a background tab only
- * ever comes back mid-swap.
+ * Long enough to read the caption and watch the beam, the tap or the offline
+ * hand-off land, short enough that nobody scrolls past believing the scan is
+ * all there is. Paused while the tab is hidden, because a timer running in a
+ * background tab only ever comes back mid-swap.
  */
 const counter = document.querySelector('[data-counter]');
 if (counter) {
   /*
-   * One payment, told twice. Each frame holds long enough to be read as an
+   * One payment, told three ways. Each frame holds long enough to be read as an
    * action rather than a flicker: the merchant types a price, the customer's
-   * camera finds the code or the phone is carried across and touched to the
-   * other one, and only then does the money land. Showing the result without
+   * camera finds the code, or the phone is carried across and touched to the
+   * other one, or — with no signal at all — it reads the code and hands a
+   * signature back. Only then does the money land. Showing the result without
    * the gesture that caused it is what made the old still frame say nothing.
    */
   const script = {
@@ -128,18 +103,33 @@ if (counter) {
       {phase: 'aim', hold: 2100},
       {phase: 'done', hold: 2400},
     ],
-    nfc: [
+    contactless: [
       {phase: 'entry', hold: 2200},
       {phase: 'tap', hold: 1800},
       {phase: 'done', hold: 2400},
     ],
+    /*
+     * A beat longer than the other two, because it is one step longer: the
+     * customer's phone has to read the request and then hand a signature back,
+     * and collapsing those into one frame is what would make it look like
+     * magic rather than like a protocol.
+     */
+    offline: [
+      {phase: 'entry', hold: 2200},
+      {phase: 'read', hold: 2000},
+      {phase: 'sign', hold: 1800},
+      {phase: 'done', hold: 2400},
+    ],
   };
+
+  /* The order they cycle in, and the order the chips sit in. */
+  const order = ['qr', 'contactless', 'offline'];
 
   const buttons = [...counter.querySelectorAll('[data-pick]')];
   /*
    * It runs itself and the buttons follow along, so they read as a position
    * indicator first and a control second. Pressing one holds the sequence on
-   * that half; pressing it again lets go. There is no third "auto" chip,
+   * that half; pressing it again lets go. There is no separate "auto" chip,
    * because auto is simply nobody having pressed anything.
    */
   let pinned = null;
@@ -167,7 +157,7 @@ if (counter) {
     step += 1;
     if (step >= script[mode].length) {
       step = 0;
-      if (!pinned) mode = mode === 'qr' ? 'nfc' : 'qr';
+      if (!pinned) mode = order[(order.indexOf(mode) + 1) % order.length];
     }
     timer = setTimeout(advance, show());
   };
@@ -208,69 +198,6 @@ if (counter) {
    * only what is on their screens changes, and it changes by fading.
    */
   start();
-}
-
-if (stage && phone && !reduceMotion) {
-  const rest = {rx: 6, ry: -19, rz: 1};
-  const target = {...rest};
-  const current = {...rest};
-  let pointerInside = false;
-  let frame = 0;
-
-  const render = () => {
-    frame = 0;
-    let moving = false;
-
-    for (const axis of ['rx', 'ry', 'rz']) {
-      const delta = target[axis] - current[axis];
-      if (Math.abs(delta) > 0.01) {
-        current[axis] += delta * 0.09;
-        moving = true;
-      } else {
-        current[axis] = target[axis];
-      }
-    }
-
-    phone.style.setProperty('--rx', `${current.rx.toFixed(2)}deg`);
-    phone.style.setProperty('--ry', `${current.ry.toFixed(2)}deg`);
-    phone.style.setProperty('--rz', `${current.rz.toFixed(2)}deg`);
-    phone.style.setProperty('--glare', (current.ry * 2.4).toFixed(1));
-
-    if (moving) frame = requestAnimationFrame(render);
-  };
-
-  const queue = () => {
-    if (!frame) frame = requestAnimationFrame(render);
-  };
-
-  const setTarget = (pointer = {x: 0, y: 0}) => {
-    const scrolled = Math.min(1, Math.max(0, window.scrollY / 700));
-    target.rx = rest.rx - pointer.y * 9 - scrolled * 3;
-    target.ry = rest.ry + pointer.x * 17 + scrolled * 13;
-    target.rz = rest.rz + pointer.x * 1.6;
-    queue();
-  };
-
-  stage.addEventListener('pointermove', event => {
-    if (event.pointerType === 'touch') return;
-    const bounds = stage.getBoundingClientRect();
-    pointerInside = true;
-    setTarget({
-      x: (event.clientX - bounds.left) / bounds.width - 0.5,
-      y: (event.clientY - bounds.top) / bounds.height - 0.5,
-    });
-  });
-
-  stage.addEventListener('pointerleave', () => {
-    pointerInside = false;
-    setTarget();
-  });
-
-  window.addEventListener('scroll', () => {
-    if (!pointerInside) setTarget();
-  }, {passive: true});
-
-  setTarget();
 }
 
 /* ---------- headline reveal ---------- */

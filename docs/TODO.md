@@ -168,6 +168,10 @@ Status: `[x]` implemented and locally verified, `[~]` foundation or mocked slice
   payment request.
 - The mobile UI uses platform-native premium font families, a shared gold
   material surface, screen entrance transitions and animated loading feedback.
+- The public site now favors clear visual outcomes over explanatory copy: the
+  benefits section is split into focused restaurant and customer cards with
+  large icons, while the offline claim is shown as a red disconnected phone
+  beside a green confirmed payment.
 - The wallet screen shows the device's real smart wallet, its balance and whether
   a hardware key exists, instead of a fixed address and an unconditional claim
   that a passkey signer is present.
